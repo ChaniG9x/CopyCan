@@ -223,8 +223,9 @@ var bool crossed_below_daily_ema10_today_1min = false
 newDay_1min = ta.change(time("D")) != 0
 if newDay_1min
     crossed_below_daily_ema10_today_1min := false
-// Modified: only set flag true if price crosses AND monthly and weekly are bullish
-if price_crossed_below_ema10_daily_1min and (monthly_status == "Bullish") and (weekly_status == "Bullish")
+// --- Modified: Only set flag true if price crosses AND fullBullCondition is true ---
+bool fullBullCond = (monthly_status == "Bullish") and (weekly_status == "Bullish") and emas_aligned_daily
+if price_crossed_below_ema10_daily_1min and fullBullCond
     crossed_below_daily_ema10_today_1min := true
 
 // --- Price Cross Below Daily EMA10 on 10-Second ---
