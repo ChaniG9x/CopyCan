@@ -223,7 +223,8 @@ var bool crossed_below_daily_ema10_today_1min = false
 newDay_1min = ta.change(time("D")) != 0
 if newDay_1min
     crossed_below_daily_ema10_today_1min := false
-if price_crossed_below_ema10_daily_1min
+// Modified: only set flag true if price crosses AND monthly and weekly are bullish
+if price_crossed_below_ema10_daily_1min and (monthly_status == "Bullish") and (weekly_status == "Bullish")
     crossed_below_daily_ema10_today_1min := true
 
 // --- Price Cross Below Daily EMA10 on 10-Second ---
@@ -393,7 +394,6 @@ if timeframe.isintraday and timeframe.multiplier == 10 and (dailyConfirmed_10sec
         long_signal := true
 
 //---- Bullish Engulfing Indicator-----
-
 // User Inputs for Engulfing Bar Toggles
 enableEma50  = input.bool(true,  "Enable EMA50 Engulfing")
 enableEma100 = input.bool(true,  "Enable EMA100 Engulfing")
@@ -445,7 +445,6 @@ if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondit
         long_signal := true
 
 //----- End of Bullish Engulfing indicator -----
-
 
 // --- Debugging Label Logic for crossing below daily 10 EMA on 1-Minute Timeframe ---
 if timeframe.isintraday and timeframe.multiplier == 1
