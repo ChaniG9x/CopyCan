@@ -417,19 +417,14 @@ conditionOrange = bullishCondition and (ema10 > ema200 and ema20 > ema200 and em
 // 5. Timeframe Restriction
 isAllowedTF = (timeframe.period == "1" or timeframe.period == "10S")
 
-// 6. Final BG-labeling logic that incorporates all conditions:
-// BG label will only be generated if:
-//  - You are in an allowed timeframe and in the trading window,
-//  - One of the daily conditions is true,
-//  - The cross flag is true,
-//  - And one of your basic labeling conditions is met.
-if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition) and crossed_below_daily_ema10_today_1min and (conditionGreen or conditionOrange)
-    if conditionGreen
-        label.new(bar_index, high, style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white, text="BG", size=size.small)
-        long_signal := true
-    else if conditionOrange
-        label.new(bar_index, high, style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white, text="BG", size=size.small)
-        long_signal := true
+// 6. Final labeling based on conditions, timeframe, trading window, and cascading daily confirmation
+if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition or crossed_below_daily_ema10_today_1min)
+        if conditionGreen
+            label.new(bar_index, high, style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white, text="BG", size=size.small)
+            long_signal := true
+        else if conditionOrange
+            label.new(bar_index, high, style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white, text="BG", size=size.small)
+            long_signal := true
 
 // --- Debugging Label Logic for crossing below daily 10 EMA on 1-Minute Timeframe ---
 if timeframe.isintraday and timeframe.multiplier == 1
