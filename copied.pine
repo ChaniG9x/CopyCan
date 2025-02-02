@@ -249,11 +249,9 @@ if price_crossed_below_ema10_daily_10sec
     crossed_below_daily_ema10_today_10sec := true
 
 // --- Price Action Management Tool Integration ---
-// (Moved here so that priceActionLine is defined before the BG-label block)
-selectedTimeframe_PA = input.timeframe("15", title="Select Timeframe for Price Action", 
-     options=["1", "15", "10", "60", "240", "D"], tooltip="Choose the timeframe for price action calculations (1m, 15m, 1H, 4H, Daily)")
-price_action_adjustment_percent = input.float(0.0, "Price Action Line Adjustment (%)", 
-     minval=-100, maxval=100, step=0.1, tooltip="Adjust the Price Action Line up or down by a percentage. Positive values move it up, negative values move it down.")
+// (Moved here so that the priceActionLine variable is available for BG-label logic)
+selectedTimeframe_PA = input.timeframe("15", title="Select Timeframe for Price Action", options=["1", "15", "10", "60", "240", "D"], tooltip="Choose the timeframe for price action calculations (1m, 15m, 1H, 4H, Daily)")
+price_action_adjustment_percent = input.float(0.0, "Price Action Line Adjustment (%)", minval=-100, maxval=100, step=0.1, tooltip="Adjust the Price Action Line up or down by a percentage. Positive values move it up, negative values move it down.")
 
 isGreen_PA(candleClose, candleOpen) =>
     candleClose > candleOpen
@@ -276,17 +274,170 @@ priceActionLine_base = request.security(syminfo.tickerid, selectedTimeframe_PA, 
 priceActionLine = not na(priceActionLine_base) ? priceActionLine_base * (1 + price_action_adjustment_percent / 100) : na
 plot(priceActionLine, color=color.green, title="Price Action Line", linewidth=2, style=plot.style_line)
 
-// ---- Bullish Engulfing Indicator -----
-/* User Inputs for Engulfing Bar Toggles */
+// --- 1minRE Logic ---
+var label debug_label_1minRE = na
+
+ema10_1min  = ta.ema(close, 10)
+ema20_1min  = ta.ema(close, 20)
+ema50_1min  = ta.ema(close, 50)
+ema100_1min = ta.ema(close, 100)
+ema200_1min = ta.ema(close, 200)
+
+// (EMA10 > EMA20) and (EMA20 > EMA50, EMA100, EMA200)
+emas_aligned_1min = (ema10_1min > ema20_1min) and (ema20_1min > ema50_1min) and (ema20_1min > ema100_1min) and (ema20_1min > ema200_1min)
+
+priceAboveEMA10_1min   = close > ema10_1min
+isBullishCandle_1min   = close > open
+priceCrossedEMA10_1min = (low <= ema10_1min) and (high >= ema10_1min)
+resetCondition_1min    = close < ema20_1min
+
+var bool waitForNextBullishCandle_1min  = false
+var bool waitingForPriceAboveEMA10_1min = false
+bearishSignal_1min = false
+
+if timeframe.isintraday and timeframe.multiplier == 1 and emas_aligned_1min and crossed_below_daily_ema10_today_1min and prev_day_bullish_status_1min and emas_aligned_daily_10_20_200_1min and in_trading_window
+    if resetCondition_1min
+        bearishSignal_1min := false
+        waitForNextBullishCandle_1min := false
+        waitingForPriceAboveEMA10_1min := true
+    else
+        if waitingForPriceAboveEMA10_1min
+            if priceAboveEMA10_1min
+                waitingForPriceAboveEMA10_1min := false
+            else
+                bearishSignal_1min := false
+                waitForNextBullishCandle_1min := false
+        else
+            if priceAboveEMA10_1min
+                if priceCrossedEMA10_1min
+                    if isBullishCandle_1min and barstate.isconfirmed
+                        bearishSignal_1min := true
+                        waitForNextBullishCandle_1min := false
+                    else
+                        waitForNextBullishCandle_1min := true
+                else
+                    if waitForNextBullishCandle_1min
+                        if isBullishCandle_1min and priceAboveEMA10_1min and barstate.isconfirmed
+                            bearishSignal_1min := true
+                            waitForNextBullishCandle_1min := false
+                        else
+                            waitForNextBullishCandle_1min := false
+            else
+                waitForNextBullishCandle_1min := false
+
+    prev_open_above_ema20_1min  = open[1] > ema20_1min[1]
+    prev_close_above_ema20_1min = close[1] > ema20_1min[1]
+    if bearishSignal_1min and prev_open_above_ema20_1min and prev_close_above_ema20_1min
+        label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.red, textcolor=color.white, style=label.style_label_down)
+        long_signal := true
+
+// --- 10secRE Logic ---
+var label debug_label_10secRE = na
+
+ema10_10sec  = ta.ema(close, 10)
+ema20_10sec  = ta.ema(close, 20)
+ema50_10sec  = ta.ema(close, 50)
+ema100_10sec = ta.ema(close, 100)
+ema200_10sec = ta.ema(close, 200)
+
+// (EMA10 > EMA20) and (EMA20 > EMA50, EMA100, EMA200)
+emas_aligned_10sec = (ema10_10sec > ema20_10sec) and (ema20_10sec > ema50_10sec) and (ema20_10sec > ema100_10sec) and (ema20_10sec > ema200_10sec)
+
+priceAboveEMA10_10sec   = close > ema10_10sec
+isBullishCandle_10sec   = close > open
+priceCrossedEMA10_10sec = (low <= ema10_10sec) and (high >= ema10_10sec)
+resetCondition_10sec    = close < ema20_10sec
+
+var bool waitForNextBullishCandle_10sec  = false
+var bool waitingForPriceAboveEMA10_10sec = false
+bearishSignal_10sec = false
+
+if timeframe.isintraday and timeframe.multiplier == 10 and emas_aligned_10sec and crossed_below_daily_ema10_today_10sec and prev_day_bullish_status_10sec and emas_aligned_daily_10_20_200_10sec and in_trading_window
+    if resetCondition_10sec
+        bearishSignal_10sec := false
+        waitForNextBullishCandle_10sec := false
+        waitingForPriceAboveEMA10_10sec := true
+    else
+        if waitingForPriceAboveEMA10_10sec
+            if priceAboveEMA10_10sec
+                waitingForPriceAboveEMA10_10sec := false
+            else
+                bearishSignal_10sec := false
+                waitForNextBullishCandle_10sec := false
+        else
+            if priceAboveEMA10_10sec
+                if priceCrossedEMA10_10sec
+                    if isBullishCandle_10sec and barstate.isconfirmed
+                        bearishSignal_10sec := true
+                        waitForNextBullishCandle_10sec := false
+                    else
+                        waitForNextBullishCandle_10sec := true
+                else
+                    if waitForNextBullishCandle_10sec
+                        if isBullishCandle_10sec and priceAboveEMA10_10sec and barstate.isconfirmed
+                            bearishSignal_10sec := true
+                            waitForNextBullishCandle_10sec := false
+                        else
+                            waitForNextBullishCandle_10sec := false
+            else
+                waitForNextBullishCandle_10sec := false
+
+    if bearishSignal_10sec
+        label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.red, textcolor=color.white, style=label.style_label_down)
+        long_signal := true
+
+// --- Updated EA Logic for 1-Minute ---
+if timeframe.isintraday and timeframe.multiplier == 1 and (dailyConfirmed_1min or dailyOpenCondition) and in_trading_window and close > ema20_daily
+    // Reuse same EMAs at 1min:
+    ema10_1min_EA  = ema10_1min
+    ema20_1min_EA  = ema20_1min
+    ema50_1min_EA  = ema50_1min
+    ema100_1min_EA = ema100_1min
+    ema200_1min_EA = ema200_1min
+
+    // (EMA10 > EMA20) and (EMA20 > EMA50, EMA100, EMA200)
+    emas_aligned_1min_EA = (ema10_1min_EA > ema20_1min_EA) and (ema20_1min_EA > ema50_1min_EA) and (ema20_1min_EA > ema100_1min_EA) and (ema20_1min_EA > ema200_1min_EA)
+    
+    priceAboveEMA10_1min_EA   = close > ema10_1min_EA
+    isBullishCandle_1min_EA   = close > open
+    priceCrossedEMA10_1min_EA = (low <= ema10_1min_EA) and (high >= ema10_1min_EA)
+    
+    prev_open_above_ema20_1min_EA  = open[1] > ema20_1min[1]
+    prev_close_above_ema20_1min_EA = close[1] > ema20_1min[1]
+    
+    if emas_aligned_1min_EA and priceAboveEMA10_1min_EA and priceCrossedEMA10_1min_EA and isBullishCandle_1min_EA and prev_open_above_ema20_1min_EA and prev_close_above_ema20_1min_EA and barstate.isconfirmed
+        label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.blue, textcolor=color.white, style=label.style_label_up)
+        long_signal := true
+
+// --- Updated EA Logic for 10-Second ---
+if timeframe.isintraday and timeframe.multiplier == 10 and (dailyConfirmed_10sec or dailyOpenCondition) and in_trading_window and close > ema20_daily
+    // Reuse same EMAs at 10sec:
+    ema10_10sec_EA  = ema10_10sec
+    ema20_10sec_EA  = ema20_10sec
+    ema50_10sec_EA  = ema50_10sec
+    ema100_10sec_EA = ema100_10sec
+    ema200_10sec_EA = ema200_10sec
+    
+    // (EMA10 > EMA20) and (EMA20 > EMA50, EMA100, EMA200)
+    emas_aligned_10sec_EA = (ema10_10sec_EA > ema20_10sec_EA) and (ema20_10sec_EA > ema50_10sec_EA) and (ema20_10sec_EA > ema100_10sec_EA) and (ema20_10sec_EA > ema200_10sec_EA)
+    
+    priceAboveEMA10_10sec_EA   = close > ema10_10sec_EA
+    isBullishCandle_10sec_EA   = close > open
+    priceCrossedEMA10_10sec_EA = (low <= ema10_10sec_EA) and (high >= ema10_10sec_EA)
+    
+    if emas_aligned_10sec_EA and priceAboveEMA10_10sec_EA and priceCrossedEMA10_10sec_EA and isBullishCandle_10sec_EA and barstate.isconfirmed
+        label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.blue, textcolor=color.white, style=label.style_label_up)
+        long_signal := true
+
+//---- Bullish Engulfing Indicator -----
+// User Inputs for Engulfing Bar Toggles
 enableEma50  = input.bool(true,  "Enable EMA50 Engulfing")
 enableEma100 = input.bool(true,  "Enable EMA100 Engulfing")
 enableEma200 = input.bool(true,  "Enable EMA200 Engulfing")
 
 // 2. Determine candle touch for specific EMAs
 touchEma10or20 = (low <= ema10 and high >= ema10) or (low <= ema20 and high >= ema20)
-touchEma50or100or200 = ((enableEma50  and low <= ema50  and high >= ema50) or 
-                        (enableEma100 and low <= ema100 and high >= ema100) or 
-                        (enableEma200 and low <= ema200 and high >= ema200))
+touchEma50or100or200 = ((enableEma50  and low <= ema50  and high >= ema50) or (enableEma100 and low <= ema100 and high >= ema100) or (enableEma200 and low <= ema200 and high >= ema200))
 
 // 3. Bullish condition based on body sizes
 prevBearish       = close[1] < open[1]
@@ -311,7 +462,7 @@ conditionOrange = bullishCondition and
 isAllowedTF = (timeframe.period == "1" or timeframe.period == "10S")
 
 // 6. Final labeling based on conditions, timeframe, trading window, and cascading daily confirmation
-//     Added condition to ensure that BG labels are only generated if the bar's high is above the Price Action Line.
+// Added condition to only generate a BG label if the bar's high is above the green price action line.
 if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition or crossed_below_daily_ema10_today_1min) and (na(priceActionLine) or high > priceActionLine)
     if conditionGreen
         label.new(bar_index, high, 
@@ -330,7 +481,7 @@ if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondit
                   size      = size.small)
         long_signal := true
 
-//----- End of Bullish Engulfing Indicator -----
+//----- End of Bullish Engulfing indicator -----
 
 // --- Debugging Label Logic for crossing below daily 10 EMA on 1-Minute Timeframe ---
 if timeframe.isintraday and timeframe.multiplier == 1
