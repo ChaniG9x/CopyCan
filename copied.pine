@@ -133,8 +133,12 @@ realTimeEMA10 = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close
 realTimeEMA20 = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 daily_open_now = request.security(syminfo.tickerid, daily_timeframe, open, lookahead=barmerge.lookahead_on)
 
-// New condition: Check if current day's open is below real-time daily EMA10 and above real-time daily EMA20
+// New condition: Check if current day's open is below realTimeEMA10 and above realTimeEMA20
 dailyOpenCondition = (daily_open_now < realTimeEMA10) and (daily_open_now > realTimeEMA20)
+
+// *** NEW: Compute daily 20 EMA for lower timeframe label filtering ***
+dailyEMA20_lower = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 20), lookahead=barmerge.lookahead_off)
+priceAboveDaily20 = close > dailyEMA20_lower
 
 // --- Daily Confirmation Logic ---
 daily_close      = request.security(syminfo.tickerid, daily_timeframe, close)
@@ -327,7 +331,7 @@ if timeframe.isintraday and timeframe.multiplier == 1 and emas_aligned_1min and 
 
     prev_open_above_ema20_1min  = open[1] > ema20_1min[1]
     prev_close_above_ema20_1min = close[1] > ema20_1min[1]
-    if bearishSignal_1min and prev_open_above_ema20_1min and prev_close_above_ema20_1min
+    if bearishSignal_1min and prev_open_above_ema20_1min and prev_close_above_ema20_1min and priceAboveDaily20
         label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.red, textcolor=color.white, style=label.style_label_down)
         long_signal := true
 
@@ -382,12 +386,12 @@ if timeframe.isintraday and timeframe.multiplier == 10 and emas_aligned_10sec an
             else
                 waitForNextBullishCandle_10sec := false
 
-    if bearishSignal_10sec
+    if bearishSignal_10sec and priceAboveDaily20
         label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.red, textcolor=color.white, style=label.style_label_down)
         long_signal := true
 
 // --- Updated EA Logic for 1-Minute ---
-if timeframe.isintraday and timeframe.multiplier == 1 and (dailyConfirmed_1min or dailyOpenCondition) and in_trading_window and close > ema20_daily
+if timeframe.isintraday and timeframe.multiplier == 1 and (dailyConfirmed_1min or dailyOpenCondition) and in_trading_window and close > ema20_daily and priceAboveDaily20
     // Reuse same EMAs at 1min:
     ema10_1min_EA  = ema10_1min
     ema20_1min_EA  = ema20_1min
@@ -405,12 +409,12 @@ if timeframe.isintraday and timeframe.multiplier == 1 and (dailyConfirmed_1min o
     prev_open_above_ema20_1min_EA  = open[1] > ema20_1min[1]
     prev_close_above_ema20_1min_EA = close[1] > ema20_1min[1]
     
-    if emas_aligned_1min_EA and priceAboveEMA10_1min_EA and priceCrossedEMA10_1min_EA and isBullishCandle_1min_EA and prev_open_above_ema20_1min_EA and prev_close_above_ema20_1min_EA and barstate.isconfirmed
+    if emas_aligned_1min_EA and priceAboveEMA10_1min_EA and priceCrossedEMA10_1min_EA and isBullishCandle_1min_EA and prev_open_above_ema20_1min_EA and prev_close_above_ema20_1min_EA and barstate.isconfirmed and priceAboveDaily20
         label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.blue, textcolor=color.white, style=label.style_label_up)
         long_signal := true
 
 // --- Updated EA Logic for 10-Second ---
-if timeframe.isintraday and timeframe.multiplier == 10 and (dailyConfirmed_10sec or dailyOpenCondition) and in_trading_window and close > ema20_daily
+if timeframe.isintraday and timeframe.multiplier == 10 and (dailyConfirmed_10sec or dailyOpenCondition) and in_trading_window and close > ema20_daily and priceAboveDaily20
     // Reuse same EMAs at 10sec:
     ema10_10sec_EA  = ema10_10sec
     ema20_10sec_EA  = ema20_10sec
@@ -425,19 +429,21 @@ if timeframe.isintraday and timeframe.multiplier == 10 and (dailyConfirmed_10sec
     isBullishCandle_10sec_EA   = close > open
     priceCrossedEMA10_10sec_EA = (low <= ema10_10sec_EA) and (high >= ema10_10sec_EA)
     
-    if emas_aligned_10sec_EA and priceAboveEMA10_10sec_EA and priceCrossedEMA10_10sec_EA and isBullishCandle_10sec_EA and barstate.isconfirmed
+    if emas_aligned_10sec_EA and priceAboveEMA10_10sec_EA and priceCrossedEMA10_10sec_EA and isBullishCandle_10sec_EA and barstate.isconfirmed and priceAboveDaily20
         label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.blue, textcolor=color.white, style=label.style_label_up)
         long_signal := true
 
 //---- Bullish Engulfing Indicator -----
-// User Inputs for Engulfing Bar Toggles
+/* User Inputs for Engulfing Bar Toggles */
 enableEma50  = input.bool(true,  "Enable EMA50 Engulfing")
 enableEma100 = input.bool(true,  "Enable EMA100 Engulfing")
 enableEma200 = input.bool(true,  "Enable EMA200 Engulfing")
 
 // 2. Determine candle touch for specific EMAs
 touchEma10or20 = (low <= ema10 and high >= ema10) or (low <= ema20 and high >= ema20)
-touchEma50or100or200 = ((enableEma50  and low <= ema50  and high >= ema50) or (enableEma100 and low <= ema100 and high >= ema100) or (enableEma200 and low <= ema200 and high >= ema200))
+touchEma50or100or200 = ((enableEma50  and low <= ema50  and high >= ema50) or 
+                        (enableEma100 and low <= ema100 and high >= ema100) or 
+                        (enableEma200 and low <= ema200 and high >= ema200))
 
 // 3. Bullish condition based on body sizes
 prevBearish       = close[1] < open[1]
@@ -462,8 +468,8 @@ conditionOrange = bullishCondition and
 isAllowedTF = (timeframe.period == "1" or timeframe.period == "10S")
 
 // 6. Final labeling based on conditions, timeframe, trading window, and cascading daily confirmation
-// Added condition to only generate a BG label if the bar's high is above the green price action line.
-if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition or crossed_below_daily_ema10_today_1min) and (na(priceActionLine) or high > priceActionLine)
+//     Added condition to only generate a BG label if the bar's high is above the Price Action Line and price is above the daily 20 EMA.
+if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition or crossed_below_daily_ema10_today_1min) and priceAboveDaily20 and (na(priceActionLine) or high > priceActionLine)
     if conditionGreen
         label.new(bar_index, high, 
                   style     = label.style_label_down, 
@@ -481,10 +487,10 @@ if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondit
                   size      = size.small)
         long_signal := true
 
-//----- End of Bullish Engulfing indicator -----
+//----- End of Bullish Engulfing Indicator -----
 
 // --- Debugging Label Logic for crossing below daily 10 EMA on 1-Minute Timeframe ---
-if timeframe.isintraday and timeframe.multiplier == 1
+if timeframe.isintraday and timeframe.multiplier == 1 and priceAboveDaily20
     if price_crossed_below_ema10_daily_1min
         label.new(bar_index, high, "Crossed Below", color=color.green, textcolor=color.white, style=label.style_label_down)
 
