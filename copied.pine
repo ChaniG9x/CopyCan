@@ -248,7 +248,7 @@ if newDay_10sec
 if price_crossed_below_ema10_daily_10sec
     crossed_below_daily_ema10_today_10sec := true
 
-//---- Bullish Engulfing Indicator-----
+//---- Bullish Engulfing Indicator -----
 // User Inputs for Engulfing Bar Toggles
 enableEma50  = input.bool(true,  "Enable EMA50 Engulfing")
 enableEma100 = input.bool(true,  "Enable EMA100 Engulfing")
@@ -281,7 +281,8 @@ conditionOrange = bullishCondition and
 isAllowedTF = (timeframe.period == "1" or timeframe.period == "10S")
 
 // 6. Final labeling based on conditions, timeframe, trading window, and cascading daily confirmation
-if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition or crossed_below_daily_ema10_today_1min)
+// Added condition to only generate a BG label if the bar's high is above the green price action line.
+if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition or crossed_below_daily_ema10_today_1min) and (na(priceActionLine) or high > priceActionLine)
     if conditionGreen
         label.new(bar_index, high, 
                   style     = label.style_label_down, 
