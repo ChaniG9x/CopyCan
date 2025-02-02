@@ -225,6 +225,29 @@ fullBullCondition() =>
     dAligned = request.security(syminfo.tickerid, daily_timeframe, (ema10_daily > ema20_daily) and (ema20_daily > ema200_daily) ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
     mStat == "Bullish" and wStat == "Bullish" and dAligned
 
+// --- Price Cross Below Daily EMA10 on 1-Minute ---
+ema10_daily_1min = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 10), lookahead=barmerge.lookahead_on)
+price_crossed_below_ema10_daily_1min = ta.crossunder(close, ema10_daily_1min)
+
+var bool crossed_below_daily_ema10_today_1min = false
+newDay_1min = ta.change(time("D")) != 0
+if newDay_1min
+    crossed_below_daily_ema10_today_1min := false
+// --- Modified: Only set flag true if price crosses AND fullBullCondition() is true ---
+if price_crossed_below_ema10_daily_1min and fullBullCondition()
+    crossed_below_daily_ema10_today_1min := true
+
+// --- Price Cross Below Daily EMA10 on 10-Second ---
+ema10_daily_10sec = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 10), lookahead=barmerge.lookahead_on)
+price_crossed_below_ema10_daily_10sec = ta.crossunder(close, ema10_daily_10sec)
+
+var bool crossed_below_daily_ema10_today_10sec = false
+newDay_10sec = ta.change(time("D")) != 0
+if newDay_10sec
+    crossed_below_daily_ema10_today_10sec := false
+if price_crossed_below_ema10_daily_10sec
+    crossed_below_daily_ema10_today_10sec := true
+
 //---- Bullish Engulfing Indicator-----
 // User Inputs for Engulfing Bar Toggles
 enableEma50  = input.bool(true,  "Enable EMA50 Engulfing")
