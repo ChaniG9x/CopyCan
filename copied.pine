@@ -63,7 +63,7 @@ daily_timeframe   = "D"
 min1_timeframe    = "1"
 sec10_timeframe   = "10S"
 
-// (Monthly & Weekly calculations remain the same)
+// --- Monthly Calculation ---
 var float monthly_prev_green_open = na
 var float monthly_prev_red_open   = na
 monthly_close      = request.security(syminfo.tickerid, monthly_timeframe, close)
@@ -78,7 +78,8 @@ if (monthly_close > monthly_open and monthly_close > monthly_prev_red_open)
     monthly_status := "Bullish"
 else if (monthly_close < monthly_open and monthly_close < monthly_prev_green_open)
     monthly_status := "Bearish"
-    
+
+// --- Weekly Calculation ---
 var float weekly_prev_green_open = na
 var float weekly_prev_red_open   = na
 weekly_close      = request.security(syminfo.tickerid, weekly_timeframe, close)
@@ -199,29 +200,26 @@ if price_crossed_below_ema10_daily_10sec
     crossed_below_daily_ema10_today_10sec := true
 
 // --- Shared function to process intraday EA/RE signals ---
-// This function encapsulates the logic shared between 1-min and 10-sec EA/RE blocks.
+// The function returns a boolean indicating whether the conditions were met.
 processIntradaySignals(_ema10, _ema20, _ema50, _ema100, _ema200) =>
-    // Compute conditions:
     aligned_tf = (_ema10 > _ema20) and (_ema20 > _ema50) and (_ema20 > _ema100) and (_ema20 > _ema200)
     priceAbove = close > _ema10
     bullishCandle = close > open
     crossed = (low <= _ema10) and (high >= _ema10)
     prevOpen = open[1] > _ema20[1]
     prevClose = close[1] > _ema20[1]
-    // If all conditions hold and bar is confirmed, then generate label and set long_signal.
+    result = false
     if aligned_tf and priceAbove and crossed and bullishCandle and prevOpen and prevClose and barstate.isconfirmed
         label.new(bar_index, high + (high - low) * 0.5, "Long", color=color.blue, textcolor=color.white, style=label.style_label_up)
-        long_signal := true
+        result := true
+    result
 
 // --- Updated EA/RE Logic for Intraday Timeframes (shared) ---
-// Instead of having separate blocks for 1-Minute and 10-Second, we call the function accordingly.
 if timeframe.isintraday and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition) and close > ema20_daily
-    // For 1-Minute
     if timeframe.multiplier == 1
-        processIntradaySignals(ema10_1min, ema20_1min, ema50_1min, ema100_1min, ema200_1min)
-    // For 10-Second
+        long_signal := processIntradaySignals(ema10_1min, ema20_1min, ema50_1min, ema100_1min, ema200_1min)
     else if timeframe.multiplier == 10
-        processIntradaySignals(ema10_10sec, ema20_10sec, ema50_10sec, ema100_10sec, ema200_10sec)
+        long_signal := processIntradaySignals(ema10_10sec, ema20_10sec, ema50_10sec, ema100_10sec, ema200_10sec)
 
 // ---- Bullish Engulfing Indicator (unchanged) ----
 enableEma50  = input.bool(true,  "Enable EMA50 Engulfing")
@@ -305,4 +303,5 @@ stop_triggered = wasInPosition and (strategy.position_size == 0) and (close <= s
 if stop_triggered
     alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
 wasInPosition := strategy.position_size > 0
+
 // --- End of Strategy ---
