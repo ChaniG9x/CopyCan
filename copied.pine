@@ -229,16 +229,20 @@ fullBullCondition() =>
     dAligned = request.security(syminfo.tickerid, daily_timeframe, (ema10_daily > ema20_daily) and (ema20_daily > ema200_daily) ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
     mStat == "Bullish" and wStat == "Bullish" and dAligned
 
-// --- Price Cross Below Daily EMA10 on 1-Minute ---
+// --- Price Cross Below Daily EMA10/EMA20 on 1-Minute ---
+// Request daily EMA10 and EMA20 on 1-minute timeframe:
 ema10_daily_1min = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 10), lookahead=barmerge.lookahead_on)
+ema20_daily_1min = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+
 price_crossed_below_ema10_daily_1min = ta.crossunder(close, ema10_daily_1min)
+price_crossed_below_ema20_daily_1min = ta.crossunder(close, ema20_daily_1min)
 
 var bool crossed_below_daily_ema10_today_1min = false
 newDay_1min = ta.change(time("D")) != 0
 if newDay_1min
     crossed_below_daily_ema10_today_1min := false
-// --- Modified: Only set flag true if price crosses AND fullBullCondition() is true ---
-if price_crossed_below_ema10_daily_1min and fullBullCondition()
+// Modified: Set flag true if price crosses below EMA10 OR EMA20 and fullBullCondition() is true
+if (price_crossed_below_ema10_daily_1min or price_crossed_below_ema20_daily_1min) and fullBullCondition()
     crossed_below_daily_ema10_today_1min := true
 
 // --- Price Cross Below Daily EMA10 on 10-Second ---
