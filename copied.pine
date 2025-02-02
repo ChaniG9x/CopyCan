@@ -249,9 +249,11 @@ if price_crossed_below_ema10_daily_10sec
     crossed_below_daily_ema10_today_10sec := true
 
 // --- Price Action Management Tool Integration ---
-// (Moved here so that the priceActionLine variable is available for BG-label logic)
-selectedTimeframe_PA = input.timeframe("15", title="Select Timeframe for Price Action", options=["1", "15", "10", "60", "240", "D"], tooltip="Choose the timeframe for price action calculations (1m, 15m, 1H, 4H, Daily)")
-price_action_adjustment_percent = input.float(0.0, "Price Action Line Adjustment (%)", minval=-100, maxval=100, step=0.1, tooltip="Adjust the Price Action Line up or down by a percentage. Positive values move it up, negative values move it down.")
+// (Moved here so that priceActionLine is defined before the BG-label block)
+selectedTimeframe_PA = input.timeframe("15", title="Select Timeframe for Price Action", 
+     options=["1", "15", "10", "60", "240", "D"], tooltip="Choose the timeframe for price action calculations (1m, 15m, 1H, 4H, Daily)")
+price_action_adjustment_percent = input.float(0.0, "Price Action Line Adjustment (%)", 
+     minval=-100, maxval=100, step=0.1, tooltip="Adjust the Price Action Line up or down by a percentage. Positive values move it up, negative values move it down.")
 
 isGreen_PA(candleClose, candleOpen) =>
     candleClose > candleOpen
@@ -274,15 +276,17 @@ priceActionLine_base = request.security(syminfo.tickerid, selectedTimeframe_PA, 
 priceActionLine = not na(priceActionLine_base) ? priceActionLine_base * (1 + price_action_adjustment_percent / 100) : na
 plot(priceActionLine, color=color.green, title="Price Action Line", linewidth=2, style=plot.style_line)
 
-//---- Bullish Engulfing Indicator -----
-// User Inputs for Engulfing Bar Toggles
+// ---- Bullish Engulfing Indicator -----
+/* User Inputs for Engulfing Bar Toggles */
 enableEma50  = input.bool(true,  "Enable EMA50 Engulfing")
 enableEma100 = input.bool(true,  "Enable EMA100 Engulfing")
 enableEma200 = input.bool(true,  "Enable EMA200 Engulfing")
 
 // 2. Determine candle touch for specific EMAs
 touchEma10or20 = (low <= ema10 and high >= ema10) or (low <= ema20 and high >= ema20)
-touchEma50or100or200 = ((enableEma50  and low <= ema50  and high >= ema50) or (enableEma100 and low <= ema100 and high >= ema100) or (enableEma200 and low <= ema200 and high >= ema200))
+touchEma50or100or200 = ((enableEma50  and low <= ema50  and high >= ema50) or 
+                        (enableEma100 and low <= ema100 and high >= ema100) or 
+                        (enableEma200 and low <= ema200 and high >= ema200))
 
 // 3. Bullish condition based on body sizes
 prevBearish       = close[1] < open[1]
@@ -307,7 +311,7 @@ conditionOrange = bullishCondition and
 isAllowedTF = (timeframe.period == "1" or timeframe.period == "10S")
 
 // 6. Final labeling based on conditions, timeframe, trading window, and cascading daily confirmation
-// Added condition to only generate a BG label if the bar's high is above the green price action line.
+//     Added condition to ensure that BG labels are only generated if the bar's high is above the Price Action Line.
 if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondition or crossed_below_daily_ema10_today_1min) and (na(priceActionLine) or high > priceActionLine)
     if conditionGreen
         label.new(bar_index, high, 
@@ -326,7 +330,7 @@ if isAllowedTF and in_trading_window and (dailyConfirmed_1min or dailyOpenCondit
                   size      = size.small)
         long_signal := true
 
-//----- End of Bullish Engulfing indicator -----
+//----- End of Bullish Engulfing Indicator -----
 
 // --- Debugging Label Logic for crossing below daily 10 EMA on 1-Minute Timeframe ---
 if timeframe.isintraday and timeframe.multiplier == 1
