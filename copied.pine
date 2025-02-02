@@ -58,6 +58,7 @@ if in_trading_window and not prev_in_trading_window
 prev_in_trading_window := in_trading_window
 
 // --- Existing Monthly and Weekly Status Variables ---
+// (These are computed using request.security so they update on every bar.)
 var string monthly_status = ""
 var string weekly_status  = ""
 
@@ -215,6 +216,15 @@ prev_day_bullish_status_10sec = prev_day_bullish_status_1min
 emas_aligned_daily_10_20_200_1min  = request.security(syminfo.tickerid, daily_timeframe, emas_aligned_daily ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 emas_aligned_daily_10_20_200_10sec = emas_aligned_daily_10_20_200_1min
 
+// --- Define a function to calculate fullBullCondition on a daily basis ---
+fullBullCondition() =>
+    // Request the monthly and weekly statuses on their respective timeframes
+    mStat = request.security(syminfo.tickerid, monthly_timeframe, monthly_status, lookahead=barmerge.lookahead_off)
+    wStat = request.security(syminfo.tickerid, weekly_timeframe, weekly_status, lookahead=barmerge.lookahead_off)
+    // Also get the daily EMA alignment (as 1 if true, 0 otherwise)
+    dAligned = request.security(syminfo.tickerid, daily_timeframe, (ema10_daily > ema20_daily) and (ema20_daily > ema200_daily) ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+    mStat == "Bullish" and wStat == "Bullish" and dAligned
+
 // --- Price Cross Below Daily EMA10 on 1-Minute ---
 ema10_daily_1min = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 10), lookahead=barmerge.lookahead_on)
 price_crossed_below_ema10_daily_1min = ta.crossunder(close, ema10_daily_1min)
@@ -223,9 +233,8 @@ var bool crossed_below_daily_ema10_today_1min = false
 newDay_1min = ta.change(time("D")) != 0
 if newDay_1min
     crossed_below_daily_ema10_today_1min := false
-// --- Modified: Only set flag true if price crosses AND fullBullCondition is true ---
-bool fullBullCond = (monthly_status == "Bullish") and (weekly_status == "Bullish") and emas_aligned_daily
-if price_crossed_below_ema10_daily_1min and fullBullCond
+// --- Modified: Only set flag true if price crosses AND fullBullCondition() is true ---
+if price_crossed_below_ema10_daily_1min and fullBullCondition()
     crossed_below_daily_ema10_today_1min := true
 
 // --- Price Cross Below Daily EMA10 on 10-Second ---
