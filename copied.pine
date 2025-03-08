@@ -452,8 +452,8 @@ touchEma10or20 = (high >= ema10 and low <= ema10) or (high >= ema20 and low <= e
 touchEma50or100or200 = ((enableEma50  and high >= ema50  and low <= ema50) or (enableEma100 and high >= ema100 and low <= ema100) or  (enableEma200 and high >= ema200 and low <= ema200))
 
 // 3. Bearish condition based on body sizes
-prevBullish       = close[1] > open[1]
-currBearish       = close < open
+prevBullish       = close[1] < open[1]
+currBearish       = close > open
 redBody           = math.abs(close[1] - open[1])
 greenBody         = math.abs(close - open)
 bodyRedGreater    = redBody > greenBody
