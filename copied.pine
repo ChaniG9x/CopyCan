@@ -82,7 +82,7 @@ if (monthly_prev_close > monthly_prev_open)
 else if (monthly_prev_close < monthly_prev_open)
     monthly_prev_red_open   := monthly_prev_open
 
-// For bearish, we require the close to be lower than the open and lower than the previous green open.
+// For bearish, require close < open and below previous green open.
 if (monthly_close < monthly_open and monthly_close < monthly_prev_green_open)
     monthly_status := "Bearish"
 else if (monthly_close > monthly_open and monthly_close > monthly_prev_red_open)
@@ -102,7 +102,7 @@ if (weekly_prev_close > weekly_prev_open)
 else if (weekly_prev_close < weekly_prev_open)
     weekly_prev_red_open   := weekly_prev_open
 
-// For bearish, require the close to be lower than the open and lower than the previous green open.
+// For bearish, require close < open and below previous green open.
 if (weekly_close < weekly_open and weekly_close < weekly_prev_green_open)
     weekly_status := "Bearish"
 else if (weekly_close > weekly_open and weekly_close > weekly_prev_red_open)
@@ -134,7 +134,7 @@ realTimeEMA10 = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close
 realTimeEMA20 = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 daily_open_now = request.security(syminfo.tickerid, daily_timeframe, open, lookahead=barmerge.lookahead_on)
 
-// For bearish, we now want the daily open to be above the real-time EMA10 and below the real-time EMA20.
+// For bearish, we want the daily open to be above EMA10 and below EMA20.
 dailyOpenCondition = (daily_open_now > realTimeEMA10) and (daily_open_now < realTimeEMA20)
 
 // --- Daily Confirmation Logic ---
@@ -150,22 +150,22 @@ ema50_daily  = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close,
 ema100_daily = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 100))
 ema200_daily = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 200))
 
-// For bearish daily EMA alignment, require: ema10 < ema20 < ema200
+// For bearish daily EMA alignment: require ema10 < ema20 < ema200.
 emas_aligned_daily_bearish = (ema10_daily < ema20_daily) and (ema20_daily < ema200_daily)
 
-// "Strict" bearish daily bar
+// "Strict" bearish daily bar: close < open and below ema10; open below ema20.
 bool current_bearish = (daily_close < daily_open_now) 
                        and (daily_close < ema10_daily) 
                        and (daily_open_now < ema20_daily)
 
-// Basic "previous" checks inverted: previously bullish becomes previous_bullish
+// Basic "previous" checks inverted: previously bullish becomes previous_bullish.
 bool previous_bullish      = (daily_prev_close > daily_prev_open)
 bool previous_condition_met = previous_bullish and (daily_prev_open > daily_close)
 
 // Persistent flags and reference for cascading logic
 var bool dailyConfirmed          = false
 var bool prev_day_bearish_status = false
-var float lastDEA1RedOpen = na  // new reference for bearish confirmation
+var float lastDEA1RedOpen = na  // reference for bearish confirmation
 
 short_signal = false
 
@@ -176,16 +176,16 @@ if timeframe.isdaily and barstate.isconfirmed
                              and (weekly_status == "Bearish") 
                              and emas_aligned_daily_bearish
     
-    // 1) Primary "Red" trigger: strictly bearish daily bar
+    // 1) Primary "Red" trigger: strictly bearish daily bar.
     bool redTrigger = current_bearish and (not previous_bullish or previous_condition_met) and fullBearCondition
     
-    // 2) "Green" trigger (fallback): bar is green but closes below last red reference
+    // 2) "Green" trigger (fallback): bar is green but closes below last red reference.
     bool greenTrigger = (daily_close > daily_open_now)
                         and not na(lastDEA1RedOpen)
                         and (daily_close < lastDEA1RedOpen)
                         and fullBearCondition
     
-    // 3) Alternate red trigger: if strict criteria fail but the bearish bar still qualifies
+    // 3) Alternate red trigger: if strict criteria fail but the bearish bar still qualifies.
     bool altRedTrigger = (daily_close < daily_open_now)
                          and not redTrigger
                          and not na(lastDEA1RedOpen)
@@ -194,19 +194,19 @@ if timeframe.isdaily and barstate.isconfirmed
     
     if redTrigger
         dailyConfirmed := true
-        label.new(bar_index, daily_low, "DEA1", color=color.red, textcolor=color.white, style=label.style_label_down)
+        // Use original label color: blue with upward style.
+        label.new(bar_index, daily_low, "DEA1", color=color.blue, textcolor=color.white, style=label.style_label_up)
         lastDEA1RedOpen := daily_open_now
         short_signal := true
     
     else if greenTrigger
         dailyConfirmed := true
-        label.new(bar_index, daily_low, "DEA1", color=color.red, textcolor=color.white, style=label.style_label_down)
-        // do not update lastDEA1RedOpen
+        label.new(bar_index, daily_low, "DEA1", color=color.blue, textcolor=color.white, style=label.style_label_up)
         short_signal := true
     
     else if altRedTrigger
         dailyConfirmed := true
-        label.new(bar_index, daily_low, "DEA1", color=color.red, textcolor=color.white, style=label.style_label_down)
+        label.new(bar_index, daily_low, "DEA1", color=color.blue, textcolor=color.white, style=label.style_label_up)
         lastDEA1RedOpen := daily_open_now
         short_signal := true
     
@@ -230,7 +230,7 @@ emas_aligned_daily_10_20_200_1min  = request.security(syminfo.tickerid, daily_ti
 emas_aligned_daily_10_20_200_10sec = emas_aligned_daily_10_20_200_1min
 
 // --- Price Cross Above Daily EMA10 on 1-Minute ---
-// For bearish, we look for a cross above EMA10 as a potential reversal signal.
+// For bearish, look for a cross above EMA10 as a potential reversal signal.
 ema10_daily_1min = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 10), lookahead=barmerge.lookahead_on)
 price_crossed_above_ema10_daily_1min = ta.crossover(close, ema10_daily_1min)
 
@@ -266,7 +266,7 @@ emas_aligned_1min_bearish = (ema10_1min < ema20_1min) and (ema20_1min < ema50_1m
 
 priceBelowEMA10_1min   = close < ema10_1min
 isBearishCandle_1min   = close < open
-// For bearish, we check if price has crossed below EMA10
+// For bearish, check if price has crossed below EMA10.
 priceCrossedEMA10_1min = ta.crossunder(close, ema10_1min)
 resetCondition_1min    = close > ema20_1min
 
@@ -275,15 +275,15 @@ var bool waitingForPriceBelowEMA10_1min = false
 bearishSignal_1min = false
 
 if timeframe.isintraday 
- and timeframe.multiplier == 1
- and emas_aligned_1min_bearish
- and crossed_above_daily_ema10_today_1min
- and prev_day_bearish_status_1min
- and emas_aligned_daily_10_20_200_1min
- and in_trading_window
+    and timeframe.multiplier == 1
+    and emas_aligned_1min_bearish
+    and crossed_above_daily_ema10_today_1min
+    and prev_day_bearish_status_1min
+    and emas_aligned_daily_10_20_200_1min
+    and in_trading_window
     if resetCondition_1min
         bearishSignal_1min := false
-        waitForNextBearishCandle_1min  := false
+        waitForNextBearishCandle_1min := false
         waitingForPriceBelowEMA10_1min := true
     else
         if waitingForPriceBelowEMA10_1min
@@ -313,7 +313,8 @@ if timeframe.isintraday
     prev_open_below_ema20_1min  = open[1] < ema20_1min[1]
     prev_close_below_ema20_1min = close[1] < ema20_1min[1]
     if bearishSignal_1min and prev_open_below_ema20_1min and prev_close_below_ema20_1min
-        label.new(bar_index, low - (high - low) * 0.5, "Short", color=color.green, textcolor=color.white, style=label.style_label_down)
+        // Preserve original label colors: "Short" label uses red with downward style.
+        label.new(bar_index, low - (high - low) * 0.5, "Short", color=color.red, textcolor=color.white, style=label.style_label_down)
         short_signal := true
 
 // --- 10secRE Logic (Bearish) ---
@@ -340,15 +341,15 @@ var bool waitingForPriceBelowEMA10_10sec = false
 bearishSignal_10sec = false
 
 if timeframe.isintraday 
- and timeframe.multiplier == 10 
- and emas_aligned_10sec_bearish
- and crossed_above_daily_ema10_today_10sec
- and prev_day_bearish_status_10sec
- and emas_aligned_daily_10_20_200_10sec
- and in_trading_window
+    and timeframe.multiplier == 10 
+    and emas_aligned_10sec_bearish
+    and crossed_above_daily_ema10_today_10sec
+    and prev_day_bearish_status_10sec
+    and emas_aligned_daily_10_20_200_10sec
+    and in_trading_window
     if resetCondition_10sec
         bearishSignal_10sec := false
-        waitForNextBearishCandle_10sec  := false
+        waitForNextBearishCandle_10sec := false
         waitingForPriceBelowEMA10_10sec := true
     else
         if waitingForPriceBelowEMA10_10sec
@@ -376,22 +377,22 @@ if timeframe.isintraday
                 waitForNextBearishCandle_10sec := false
 
     if bearishSignal_10sec
-        label.new(bar_index, low - (high - low) * 0.5, "Short", color=color.green, textcolor=color.white, style=label.style_label_down)
+        // Preserve original label colors: "Short" label uses blue with upward style.
+        label.new(bar_index, low - (high - low) * 0.5, "Short", color=color.blue, textcolor=color.white, style=label.style_label_up)
         short_signal := true
 
 // --- Updated EA Logic for 1-Minute (Bearish) ---
 if timeframe.isintraday 
- and timeframe.multiplier == 1 
- and (dailyConfirmed_1min or dailyOpenCondition)  // Incorporate dailyOpenCondition
- and in_trading_window
- and close < ema20_daily  // Never take trade under daily 20 EMA for short
+    and timeframe.multiplier == 1 
+    and (dailyConfirmed_1min or dailyOpenCondition)  // Incorporate dailyOpenCondition
+    and in_trading_window
+    and close < ema20_daily  // Never take trade under daily 20 EMA for short
     // Reuse same EMAs at 1min:
     ema10_1min_EA  = ema10_1min
     ema20_1min_EA  = ema20_1min
     ema50_1min_EA  = ema50_1min
     ema100_1min_EA = ema100_1min
     ema200_1min_EA = ema200_1min
-
     // Bearish EMA alignment for EA:
     emas_aligned_1min_EA = (ema10_1min_EA < ema20_1min_EA) 
                            and (ema20_1min_EA < ema50_1min_EA)
@@ -417,10 +418,10 @@ if timeframe.isintraday
 
 // --- Updated EA Logic for 10-Second (Bearish) ---
 if timeframe.isintraday 
- and timeframe.multiplier == 10 
- and (dailyConfirmed_10sec or dailyOpenCondition)  // Incorporate dailyOpenCondition
- and in_trading_window
- and close < ema20_daily  // Never take trade under daily 20 EMA for short
+    and timeframe.multiplier == 10 
+    and (dailyConfirmed_10sec or dailyOpenCondition)  // Incorporate dailyOpenCondition
+    and in_trading_window
+    and close < ema20_daily  // Never take trade under daily 20 EMA for short
     // Reuse same EMAs at 10sec:
     ema10_10sec_EA  = ema10_10sec
     ema20_10sec_EA  = ema20_10sec
@@ -429,7 +430,7 @@ if timeframe.isintraday
     ema200_10sec_EA = ema200_10sec
     
     // Bearish EMA alignment for EA:
-    emas_aligned_10sec_EA = (ema10_10sec_EA < ema20_10sec_EA) 
+    emas_aligned_10sec_EA = (ema10_10sec_EA < ema20_10sec_EA)
                            and (ema20_10sec_EA < ema50_10sec_EA)
                            and (ema20_10sec_EA < ema100_10sec_EA)
                            and (ema20_10sec_EA < ema200_10sec_EA)
