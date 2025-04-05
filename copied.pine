@@ -19,16 +19,18 @@ plot(ema10, title="EMA 10", color=color.blue)
 plot(ema20, title="EMA 20", color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
 
-// Ensure labels are only drawn when EMA 10 > EMA 20 and EMA 20 > EMA 200
+// Ensure labels are only drawn when EMA 10 > EMA 20 and EMA 20 > EMA200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
 // Function to check if a candle crosses an EMA value
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
-// -----------------------
-// T2/T3 Logic Variables
-// -----------------------
+// --------------------------------------
+// T2/T3 Logic (applies on all timeframes)
+// --------------------------------------
+
+// Variables used in the logic
 var bool restricted       = false
 var bool bearishCandidate = false
 var bool justReset        = false
@@ -36,7 +38,7 @@ var bool t2Triggered      = false
 
 justReset := false
 
-// Reset restriction if current candle is bullish and above ema10
+// Reset restriction if the current candle is bullish and above ema10
 if restricted
     if (close > open) and (close > ema10)
         restricted       := false
@@ -61,42 +63,27 @@ if not restricted and not justReset
         restricted       := true
         bearishCandidate := false
 
-// -----------------------
-// Daily T2/T3 Labeling and Daily Signal Generation
-// -----------------------
-// The daily logic remains completely unchanged.
-// dailySignal stores the daily trigger: 0 = none, 2 = T2, 3 = T3.
-var int dailySignal = 0
+// --------------------------------------
+// Daily Labeling (unchanged)
+// --------------------------------------
+if isDaily
+    if permission and barstate.isconfirmed and emaTrendOk
+        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+        t2Triggered := true
 
-if isDaily and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    t2Triggered := true
-    dailySignal := 2
-
-permission := false
-
-var bool permissionT3 = false
-if isDaily and emaTrendOk
-    permissionT3 := (close > open) and (open > ema10) and (close > ema10)
-
-if isDaily and permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
-    label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
-    dailySignal := 3
-
-// -----------------------
-// Lower Timeframe Labeling
-// -----------------------
-// On lower timeframes (4h and 1h), we want to allow T2 logic only if yesterday's daily bar
-// produced a T2 or T3 signal. This permission lasts for the day and resets at the new daily candle.
-// The call to request.security is unconditional.
-dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
-
-if not isDaily and dailyPerm != 0 and barstate.isconfirmed and emaTrendOk
-    if permission
-        labelText  = dailyPerm == 2 ? "T2" : "T3"
-        labelColor = dailyPerm == 2 ? color.new(color.green, 0) : color.new(color.orange, 0)
-        label.new(x=bar_index, y=high, text=labelText, style=label.style_label_down, color=labelColor, textcolor=color.white)
-
-// Reset the permission at the start of a new day on lower timeframes.
-if not isDaily and ta.change(time("D"))
+    // Reset permission for daily logic
     permission := false
+
+    // T3 logic on daily timeframe
+    var bool permissionT3 = false
+    if emaTrendOk
+        permissionT3 := (close > open) and (open > ema10) and (close > ema10)
+    if permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
+        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
+
+// --------------------------------------
+// Lower Timeframe Labeling for 1h and 4h
+// --------------------------------------
+if not isDaily and (timeframe.period == "60" or timeframe.period == "240")
+    if permission and barstate.isconfirmed and emaTrendOk
+        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
