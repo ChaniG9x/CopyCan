@@ -20,9 +20,10 @@ emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
-var bool restricted       = false
-var bool bearishCandidate = false
-var bool justReset        = false
+var bool restricted        = false
+var bool bearishCandidate  = false
+var bool justReset         = false
+var bool t2Triggered       = false
 
 justReset := false
 
@@ -32,6 +33,7 @@ if restricted
         justReset  := true
         bearishCandidate := false
 
+t2Triggered := false
 var bool permission = false
 if not restricted and not justReset and emaTrendOk
     condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
@@ -50,13 +52,13 @@ if not restricted and not justReset
 
 if isDaily and permission and barstate.isconfirmed
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    t2Triggered := true
 
 permission := false
 
-// T3 Debugging Label: EMA trend must be valid and candle is bullish with both open and close above EMA10
 var bool permissionT3 = false
 if isDaily and emaTrendOk
     permissionT3 := (close > open) and (open > ema10) and (close > ema10)
 
-if isDaily and permissionT3 and barstate.isconfirmed
+if isDaily and permissionT3 and barstate.isconfirmed and not t2Triggered
     label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
