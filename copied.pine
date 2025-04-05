@@ -1,5 +1,5 @@
 //@version=5
-indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP", calc_on_every_tick=false)
+indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
 
 // Determine if the current chart is daily
 isDaily = timeframe.isdaily
