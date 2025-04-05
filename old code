@@ -1,0 +1,127 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © hermanwessie4
+
+//@version=5
+strategy("Tier 2 Bounce of 10/20", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1 , initial_capital = 100000 , pyramiding = 2)
+
+// EMA Lengths
+ema10Length = input.int(10, title="10 EMA Length")
+ema20Length = input.int(20, title="20 EMA Length")
+ema50Length = input.int(50, title="50 EMA Length")
+ema100Length = input.int(100, title="100 EMA Length")
+ema200Length = input.int(200, title="200 EMA Length")
+
+// Stop-loss Buffer input
+stopLossBufferPercent = input.float(0.03, title="Stop-Loss Buffer Percentage", minval=0.01, step=0.01) // Default to 0.03 (3%)
+
+// Calculate EMAs
+ema10 = ta.ema(close, ema10Length)
+ema20 = ta.ema(close, ema20Length)
+ema50 = ta.ema(close, ema50Length)
+ema100 = ta.ema(close, ema100Length)
+ema200 = ta.ema(close, ema200Length)
+
+// Plot EMAs
+plot(ema10, title="EMA 10", color=color.blue, linewidth=1)
+plot(ema20, title="EMA 20", color=color.red, linewidth=1)
+plot(ema50, title="EMA 50", color=color.gray, linewidth=1)
+plot(ema100, title="EMA 100", color=color.purple, linewidth=1)
+plot(ema200, title="EMA 200", color=color.orange, linewidth=1)
+
+// Daily, Hourly, and One-Minute Confirmation Variables
+var bool dailyConfirmed = false
+var bool hourlyConfirmed = false
+var bool tradeExecuted = false
+var bool nextHourReady = false
+var float lastTradeHour = na
+var float trailingStop = na
+
+// Timeframes
+dailyClose = request.security(syminfo.tickerid, "D", close)
+dailyLow = request.security(syminfo.tickerid, "D", low)
+dailyHigh = request.security(syminfo.tickerid, "D", high)
+dailyOpen = request.security(syminfo.tickerid, "D", open)
+dailyEMA10 = request.security(syminfo.tickerid, "D", ta.ema(close, ema10Length))
+dailyEMA20 = request.security(syminfo.tickerid, "D", ta.ema(close, ema20Length))
+dailyEMA200 = request.security(syminfo.tickerid, "D", ta.ema(close, ema200Length))
+dailyPrevClose = request.security(syminfo.tickerid, "D", close[1])
+dailyPrevOpen = request.security(syminfo.tickerid, "D", open[1])
+hourlyClose = request.security(syminfo.tickerid, "60", close)
+hourlyLow = request.security(syminfo.tickerid, "60", low)
+hourlyHigh = request.security(syminfo.tickerid, "60", high)
+hourlyOpen = request.security(syminfo.tickerid, "60", open)
+hourlyEMA10 = request.security(syminfo.tickerid, "60", ta.ema(close, ema10Length))
+hourlyEMA20 = request.security(syminfo.tickerid, "60", ta.ema(close, ema20Length))
+hourlyEMA200 = request.security(syminfo.tickerid, "60", ta.ema(close, ema200Length))
+hourlyPrevClose = request.security(syminfo.tickerid, "60", close[1])
+hourlyPrevOpen = request.security(syminfo.tickerid, "60", open[1])
+
+// Confirmations for Daily Timeframe
+bullishDailyCandle = dailyClose > dailyOpen
+dailyBullish = bullishDailyCandle and (dailyEMA10 > dailyEMA20) and (dailyEMA20 > dailyEMA200) and (dailyClose > dailyEMA10) and (dailyLow <= dailyEMA10 and dailyHigh >= dailyEMA10) and (dailyPrevClose >= dailyEMA20 and dailyPrevOpen >= dailyEMA20)
+if barstate.isconfirmed and dailyBullish
+    dailyConfirmed := true
+    nextHourReady := true
+else
+    dailyConfirmed := false
+    nextHourReady := false
+
+// Debugging Labels for Daily Confirmation
+if dailyConfirmed and timeframe.period == "D" and bullishDailyCandle
+    label.new(bar_index, high, "Daily Confirmed", color=color.green, textcolor=color.white, size=size.small)
+
+// Confirmations for Hourly Timeframe
+bullishHourlyCandle = hourlyClose > hourlyOpen
+hourlyBullish = bullishHourlyCandle and (hourlyEMA10 > hourlyEMA20) and (hourlyEMA20 > hourlyEMA200) and (hourlyClose > hourlyEMA10) and (hourlyLow <= hourlyEMA10 and hourlyHigh >= hourlyEMA10) and (hourlyPrevClose >= hourlyEMA20 and hourlyPrevOpen >= hourlyEMA20)
+if barstate.isconfirmed and hourlyBullish and dailyConfirmed and nextHourReady
+    hourlyConfirmed := true
+else
+    hourlyConfirmed := false
+
+// Debugging Labels for Hourly Confirmation
+if hourlyConfirmed and timeframe.period == "60" and bullishHourlyCandle
+    label.new(bar_index, high, "Hourly Confirmed", color=color.blue, textcolor=color.white, size=size.small)
+
+// One-Minute Confirmation & Trade Execution (within Confirmed Hour)
+bullishCandle = close > open
+bullishCondition = bullishCandle and (ema10 > ema20) and (ema20 > ema200) and (close > ema10) and (low <= ema10 and high >= ema10) and (close[1] >= ema20 and open[1] >= ema20)
+currentHour = hour(time)
+if barstate.isconfirmed and bullishCondition and hourlyConfirmed and (not tradeExecuted or (currentHour != lastTradeHour))
+    // Set risk to 1% of total equity
+    riskPercent = 1.0
+    riskAmount = strategy.equity * (riskPercent / 100)
+    multiplier = 0.5  // 0.5% below EMA200
+    initialStopLoss = ema200 * (1 - stopLossBufferPercent / 100)  // Initial stop-loss buffer
+    distanceToStopLoss = math.abs(close - initialStopLoss)
+    positionSize = riskAmount / distanceToStopLoss
+
+    if positionSize > 0
+        strategy.entry("Buy", strategy.long, qty=positionSize)
+        tradeExecuted := true
+        lastTradeHour := currentHour
+        trailingStop := initialStopLoss  // Set the initial stop loss level
+        if timeframe.period == "1"
+            label.new(bar_index, low, "One-Minute Confirmed", color=color.orange, textcolor=color.white, size=size.small)
+
+// Debugging Labels for One-Minute Confirmation
+if bullishCondition and hourlyConfirmed and timeframe.period == "1" and bullishCandle
+    label.new(bar_index, low, "One-Minute Confirmed", color=color.orange, textcolor=color.white, size=size.small)
+
+// Trailing Stop Loss Logic
+if tradeExecuted
+    // Only trail if EMA200 is above the entry price
+    if ema200 > strategy.position_avg_price
+        trailingStopLevel = ema200 * (1 - stopLossBufferPercent / 100)  // Adjustable buffer based on EMA200
+        // Update trailing stop to the highest level reached
+        if na(trailingStop) or trailingStopLevel > trailingStop
+            trailingStop := trailingStopLevel
+
+// Ensure Stop Loss is properly set
+if trailingStop > 0
+    strategy.exit("Stop Loss", from_entry="Buy", stop=trailingStop)
+
+// Plot Stop Loss
+plot(trailingStop, title="Trailing Stop Loss Level", color=color.yellow, linewidth=1)
+
+// Alert for Trade Opened
+alertcondition(strategy.position_size > 0, title="Trade Opened", message="Trade has been opened.")
