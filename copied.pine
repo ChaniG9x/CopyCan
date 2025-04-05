@@ -68,19 +68,18 @@ if not restricted and not justReset
         bearishCandidate := false
 
 // ----------------------------
-// Daily Labeling (unchanged plus goahead flag)
+// Daily Labeling and dailySignal assignment
 // ----------------------------
 
-// Create a daily flag variable to signal that a label was drawn.
-// When a daily T2 or T3 label is generated, we set dailyGoAhead to true.
-var bool dailyGoAhead = false
-
-if isDaily and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    t2Triggered := true
-    dailyGoAhead := true
+// dailySignal: 0 = none, 2 = T2, 3 = T3
+var int dailySignal = 0
 
 if isDaily
+    if permission and barstate.isconfirmed and emaTrendOk
+        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+        t2Triggered := true
+        dailySignal := 2
+
     // Reset permission after daily T2 label has been drawn
     permission := false
 
@@ -89,21 +88,17 @@ if isDaily
     permissionT3 := (close > open) and (open > ema10) and (close > ema10)
     if permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
         label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
-        dailyGoAhead := true
-
-    // Reset the daily goahead flag at the beginning of a new day
-    if ta.change(time("D"))
-        dailyGoAhead := false
+        dailySignal := 3
 
 // ----------------------------
 // Lower Timeframe Labeling for 1h and 4h
 // ----------------------------
 
-// Retrieve the daily "goahead" flag from the previous daily candle.
-// This means that lower timeframes will only place labels if the previous daily candle had a label.
-goaheadDaily = request.security(syminfo.tickerid, "D", dailyGoAhead[1])
+// Retrieve the previous daily candle's dailySignal.
+// If it is nonzero then the lower timeframe is allowed to label.
+dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
 
-if (timeframe.period == "60" or timeframe.period == "240") and goaheadDaily and permission and barstate.isconfirmed and emaTrendOk
+if (timeframe.period == "60" or timeframe.period == "240") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    // Reset permission after drawing the label on lower timeframe
+    // Reset permission after drawing the lower timeframe label
     permission := false
