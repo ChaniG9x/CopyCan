@@ -79,8 +79,9 @@ if not restricted and not justReset
 var int dailySignal = 0
 
 if isDaily
-    // At the beginning of a new daily candle, reset dailySignal.
-    if ta.change(time("D"))
+    // Store result of new day check in a variable.
+    newDay = ta.change(time("D"))
+    if newDay
         dailySignal := 0
 
     if permission and barstate.isconfirmed and emaTrendOk
@@ -89,10 +90,9 @@ if isDaily
         t2Triggered := true
         dailySignal := 2
 
-    // Reset permission after daily T2 label has been drawn
+    // Reset permission after drawing the daily label.
     permission := false
 
-    // Daily T3 logic (only on daily timeframe)
     var bool permissionT3 = false
     permissionT3 := (close > open) and (open > ema10) and (close > ema10)
     if permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
@@ -103,11 +103,10 @@ if isDaily
 // ----------------------------
 // 1‑HOUR SIGNAL LOGIC
 // ----------------------------
-
 var int oneHourSignal = 0
 if timeframe.period == "60"
-    // Reset oneHourSignal at the start of a new 1‑hour candle.
-    if ta.change(time("60"))
+    newHour = ta.change(time("60"))
+    if newHour
         oneHourSignal := 0
 
     if permission and barstate.isconfirmed and emaTrendOk
@@ -119,11 +118,10 @@ if timeframe.period == "60"
 // ----------------------------
 // 4‑HOUR SIGNAL LOGIC
 // ----------------------------
-
 var int fourHourSignal = 0
 if timeframe.period == "240"
-    // Reset fourHourSignal at the start of a new 4‑hour candle.
-    if ta.change(time("240"))
+    new4Hour = ta.change(time("240"))
+    if new4Hour
         fourHourSignal := 0
 
     if permission and barstate.isconfirmed and emaTrendOk
@@ -147,7 +145,6 @@ if timeframe.period == "15"
                   color=color.new(color.orange, 0), textcolor=color.white)
         strategy.entry("Entry_15min", strategy.long)
         permission := false
-        // Place a trailing stop below the 200EMA.
         strategy.exit("Exit_15min", "Entry_15min", stop=ema200)
 
 // For 1‑minute signals: permitted by the 1‑hour signal.
