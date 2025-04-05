@@ -111,3 +111,20 @@ if (timeframe.period == "60") and (dailyPerm != 0) and permission and barstate.i
 if (timeframe.period == "240") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="T2_4h", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
     permission := false
+
+
+// ----------------------------
+// Lower Timeframe Labeling for 15min , 1min and 10sec
+// ----------------------------
+
+if (timeframe.period == "15") and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="INT", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
+    permission := false
+
+if (timeframe.period == "1") and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, color=color.new(color.blue, 0), textcolor=color.white)
+    permission := false
+
+if (timeframe.period == "10") and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+    permission := false
