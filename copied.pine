@@ -1,7 +1,7 @@
 //@version=5
-indicator("Tier 2 Pattern with Daily Dependent Lower TF", overlay=true, shorttitle="T2DP")
+indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
 
-// Input resolution (daily is used for the primary signals)
+// Define timeframe flag
 isDaily = timeframe.isdaily
 
 // EMA lengths
@@ -26,7 +26,9 @@ emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
-// ----- Variables used in the T2/T3 logic -----
+// -----------------------
+// T2/T3 Logic Variables
+// -----------------------
 var bool restricted       = false
 var bool bearishCandidate = false
 var bool justReset        = false
@@ -44,7 +46,6 @@ if restricted
 t2Triggered := false
 var bool permission = false
 
-// T2 permission logic (applies on both daily and lower TF)
 if not restricted and not justReset and emaTrendOk
     condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
     condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
@@ -55,40 +56,47 @@ if not restricted and not justReset and emaTrendOk
         permission       := true
         bearishCandidate := false
 
-// Set restriction if candle opens or closes below ema20
 if not restricted and not justReset
     if (open < ema20) or (close < ema20)
         restricted       := true
         bearishCandidate := false
 
-// ----- Daily T2/T3 Labeling and Daily Signal Generation -----
-// We use a variable dailySignal to store the daily trigger:
-// 0 = none, 2 = T2, 3 = T3
+// -----------------------
+// Daily T2/T3 Labeling and Daily Signal Generation
+// -----------------------
+// The daily logic remains completely unchanged.
+// dailySignal stores the daily trigger: 0 = none, 2 = T2, 3 = T3.
 var int dailySignal = 0
 
-if isDaily and barstate.isconfirmed and emaTrendOk
-    // Daily T2 logic
-    if permission
-        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-        t2Triggered  := true
-        dailySignal  := 2
-    // Daily T3 logic (only if T2 was not triggered)
-    var bool permissionT3 = false
-    permissionT3 := (close > open) and (open > ema10) and (close > ema10)
-    if permissionT3 and not t2Triggered
-        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
-        dailySignal := 3
+if isDaily and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    t2Triggered := true
+    dailySignal := 2
 
-// ----- Retrieve Daily Signal for Lower Timeframes -----
-// The call to request.security is made outside any conditional structure.
+permission := false
+
+var bool permissionT3 = false
+if isDaily and emaTrendOk
+    permissionT3 := (close > open) and (open > ema10) and (close > ema10)
+
+if isDaily and permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
+    label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
+    dailySignal := 3
+
+// -----------------------
+// Lower Timeframe Labeling
+// -----------------------
+// On lower timeframes (4h and 1h), we want to allow T2 logic only if yesterday's daily bar
+// produced a T2 or T3 signal. This permission lasts for the day and resets at the new daily candle.
+// The call to request.security is unconditional.
 dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
 
-// ----- Lower Timeframe (e.g. 4h and 1h) Labeling -----
-// On lower timeframes, we want to allow T2 logic only if yesterday's daily bar produced a T2 or T3 signal.
 if not isDaily and dailyPerm != 0 and barstate.isconfirmed and emaTrendOk
-    // Reuse the same T2 logic on lower timeframe for labeling.
     if permission
-        // Use the color and text based on the daily permission signal
         labelText  = dailyPerm == 2 ? "T2" : "T3"
         labelColor = dailyPerm == 2 ? color.new(color.green, 0) : color.new(color.orange, 0)
         label.new(x=bar_index, y=high, text=labelText, style=label.style_label_down, color=labelColor, textcolor=color.white)
+
+// Reset the permission at the start of a new day on lower timeframes.
+if not isDaily and ta.change(time("D"))
+    permission := false
