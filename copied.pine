@@ -1,20 +1,16 @@
 //@version=5
 indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
 
-// Define timeframe flag
 isDaily = timeframe.isdaily
 
-// EMA lengths
 emaLen10  = 10
 emaLen20  = 20
 emaLen200 = 200
 
-// Calculate EMAs
 ema10  = ta.ema(close, emaLen10)
 ema20  = ta.ema(close, emaLen20)
 ema200 = ta.ema(close, emaLen200)
 
-// Plot EMAs
 plot(ema10, title="EMA 10", color=color.blue)
 plot(ema20, title="EMA 20", color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
@@ -22,13 +18,12 @@ plot(ema200, title="EMA 200", color=color.orange)
 // Ensure labels are only drawn when EMA 10 > EMA 20 and EMA 20 > EMA200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
-// Function to check if a candle crosses an EMA value
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
-// --------------------------------------
-// T2/T3 Logic (applies on all timeframes)
-// --------------------------------------
+// ----------------------------
+// T2/T3 Logic (all timeframes)
+// ----------------------------
 
 // Variables used in the logic
 var bool restricted       = false
@@ -48,8 +43,11 @@ if restricted
 t2Triggered := false
 var bool permission = false
 
+// Evaluate T2 conditions using the same logic for all timeframes
 if not restricted and not justReset and emaTrendOk
+    // Direct Bullish Signal (condA)
     condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+    // Bearish Candidate turning Bullish
     condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
     if condBearCandidate
         bearishCandidate := true
@@ -58,32 +56,33 @@ if not restricted and not justReset and emaTrendOk
         permission       := true
         bearishCandidate := false
 
+// Apply restriction if candle opens or closes below ema20
 if not restricted and not justReset
     if (open < ema20) or (close < ema20)
         restricted       := true
         bearishCandidate := false
 
-// --------------------------------------
+// ----------------------------
 // Daily Labeling (unchanged)
-// --------------------------------------
-if isDaily
-    if permission and barstate.isconfirmed and emaTrendOk
-        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-        t2Triggered := true
+// ----------------------------
+if isDaily and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    t2Triggered := true
 
-    // Reset permission for daily logic
+if isDaily
+    // Reset permission after daily T2 label has been drawn
     permission := false
 
-    // T3 logic on daily timeframe
+    // Daily T3 logic (only on daily timeframe)
     var bool permissionT3 = false
-    if emaTrendOk
-        permissionT3 := (close > open) and (open > ema10) and (close > ema10)
+    permissionT3 := (close > open) and (open > ema10) and (close > ema10)
     if permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
         label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
 
-// --------------------------------------
+// ----------------------------
 // Lower Timeframe Labeling for 1h and 4h
-// --------------------------------------
-if not isDaily and (timeframe.period == "60" or timeframe.period == "240")
-    if permission and barstate.isconfirmed and emaTrendOk
-        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+// ----------------------------
+if (timeframe.period == "60" or timeframe.period == "240") and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    // Reset permission after drawing the label on lower timeframe
+    permission := false
