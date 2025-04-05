@@ -1,5 +1,5 @@
 //@version=5
-indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
+indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP", calc_on_every_tick=false)
 
 // Determine if the current chart is daily
 isDaily = timeframe.isdaily
@@ -98,11 +98,11 @@ if isDaily
 // Lower Timeframe Labeling for 1h and 4h
 // ----------------------------
 
-// Retrieve the previous daily candle's dailySignal.
-// This value will be 0 if no label was generated, or 2/3 if a T2 or T3 was produced.
-dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
+// Retrieve the previous daily candle's dailySignal using lookahead=barmerge.lookahead_off.
+// This ensures we only use confirmed historical data.
+dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1], lookahead=barmerge.lookahead_off)
 
 if (timeframe.period == "60" or timeframe.period == "240") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    // Reset permission after drawing the label on lower timeframe
+    // Reset permission after drawing the lower timeframe label
     permission := false
