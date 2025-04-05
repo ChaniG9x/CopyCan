@@ -1,5 +1,9 @@
 //@version=5
-indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
+indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP", calc_on_every_tick=false)
+
+// ----------------------------
+// COMMON CALCULATIONS & FUNCTIONS
+// ----------------------------
 
 // Determine if the current chart is daily
 isDaily = timeframe.isdaily
@@ -27,7 +31,7 @@ crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
 // ----------------------------
-// T2/T3 Logic (all timeframes)
+// COMMON T2/T3 LOGIC (for all timeframes)
 // ----------------------------
 
 // Variables used in the logic
@@ -48,7 +52,7 @@ if restricted
 t2Triggered := false
 var bool permission = false
 
-// Evaluate T2 conditions using the same logic for all timeframes
+// Evaluate T2 conditions (applied on every chart)
 if not restricted and not justReset and emaTrendOk
     // Direct Bullish Signal (condA)
     condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
@@ -68,63 +72,87 @@ if not restricted and not justReset
         bearishCandidate := false
 
 // ----------------------------
-// Daily Labeling and dailySignal assignment
+// DAILY SIGNAL LOGIC
 // ----------------------------
 
 // dailySignal: 0 = none, 2 = T2, 3 = T3
 var int dailySignal = 0
 
 if isDaily
-    // At the beginning of a new daily candle, reset dailySignal.
+    // Reset dailySignal at the beginning of a new day.
     if ta.change(time("D"))
         dailySignal := 0
 
     if permission and barstate.isconfirmed and emaTrendOk
-        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, 
+                  color=color.new(color.green, 0), textcolor=color.white)
         t2Triggered := true
         dailySignal := 2
 
-    // Reset permission after daily T2 label has been drawn
+    // Reset permission after drawing the daily label
     permission := false
 
     // Daily T3 logic (only on daily timeframe)
     var bool permissionT3 = false
     permissionT3 := (close > open) and (open > ema10) and (close > ema10)
     if permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
-        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
+        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, 
+                  color=color.new(color.orange, 0), textcolor=color.white)
         dailySignal := 3
 
 // ----------------------------
-// Lower Timeframe Labeling for 1h and 4h
+// 1‑HOUR SIGNAL LOGIC
 // ----------------------------
 
-// Retrieve the previous daily candle's dailySignal using lookahead=barmerge.lookahead_off.
-// This ensures we only use confirmed historical data.
-dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1], lookahead=barmerge.lookahead_off)
+var int oneHourSignal = 0
+if timeframe.period == "60"
+    // Reset oneHourSignal at the start of a new 1h candle.
+    if ta.change(time("60"))
+        oneHourSignal := 0
 
-// For 1h signals: if previous daily candle had a T2/T3 and conditions are met, label with "T2_1h"
-if (timeframe.period == "60") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="T2_1h", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    permission := false
-
-// For 4h signals: if previous daily candle had a T2/T3 and conditions are met, label with "T2_4h"
-if (timeframe.period == "240") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="T2_4h", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    permission := false
-
+    if permission and barstate.isconfirmed and emaTrendOk
+        label.new(x=bar_index, y=high, text="T2_1h", style=label.style_label_down, 
+                  color=color.new(color.green, 0), textcolor=color.white)
+        oneHourSignal := 2
+        permission := false
 
 // ----------------------------
-// Lower Timeframe Labeling for 15min , 1min and 10sec
+// 4‑HOUR SIGNAL LOGIC
 // ----------------------------
 
-if (timeframe.period == "15") and permission and barstate.isconfirmed and emaTrendOk
+var int fourHourSignal = 0
+if timeframe.period == "240"
+    // Reset fourHourSignal at the start of a new 4h candle.
+    if ta.change(time("240"))
+        fourHourSignal := 0
+
+    if permission and barstate.isconfirmed and emaTrendOk
+        label.new(x=bar_index, y=high, text="T2_4h", style=label.style_label_down, 
+                  color=color.new(color.green, 0), textcolor=color.white)
+        fourHourSignal := 2
+        permission := false
+
+// ----------------------------
+// LOWER TIMEFRAME LABELING (using higher timeframe permissions)
+// ----------------------------
+
+// Retrieve previous higher timeframe signals using request.security with lookahead off.
+oneHourPerm = request.security(syminfo.tickerid, "60", oneHourSignal[1], lookahead=barmerge.lookahead_off)
+fourHourPerm = request.security(syminfo.tickerid, "240", fourHourSignal[1], lookahead=barmerge.lookahead_off)
+
+// For 15‑minute signals: permitted by either the 4‑hour or the 1‑hour signal.
+if (timeframe.period == "15") and ((fourHourPerm != 0) or (oneHourPerm != 0)) and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="INT", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
     permission := false
 
-if (timeframe.period == "1") and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, color=color.new(color.blue, 0), textcolor=color.white)
+// For 1‑minute signals: permitted by the 1‑hour signal.
+if (timeframe.period == "1") and (oneHourPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, 
+              color=color.new(color.blue, 0), textcolor=color.white)
     permission := false
 
-if (timeframe.period == "10S") and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+// For 10‑second signals: also permitted by the 1‑hour signal.
+if (timeframe.period == "10S") and (oneHourPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, 
+              color=color.new(color.red, 0), textcolor=color.white)
     permission := false
