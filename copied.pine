@@ -1,80 +1,45 @@
 //@version=5
-strategy("Cascading Multi-Timeframe Strategy", overlay=true)
+indicator("Tier 2 Daily Pattern", overlay=true)
 
-// --- Define Timeframes ---
-dailyTimeframe = "D"
-hour4Timeframe = "240"
-hour1Timeframe = "60"
-min15Timeframe = "15"
-min1Timeframe = "1"
-min10secTimeframe = "10"
+// Define EMAs
+ema10 = ta.ema(close, 10)
+ema20 = ta.ema(close, 20)
+ema200 = ta.ema(close, 200)
 
-// --- Define EMAs ---
-emaShortPeriod = 10
-emaMediumPeriod = 20
-emaLongPeriod = 200
+// Conditions for the Tier 2 Pattern
+bullish_condition = close > open and (close > ema10 or close > ema20)
+bearish_condition = close < open and (close < ema10 or close < ema20)
 
-// --- Get EMA values for multiple timeframes ---
-emaDaily10 = request.security(dailyTimeframe, "EMA", close, emaShortPeriod)
-emaDaily20 = request.security(dailyTimeframe, "EMA", close, emaMediumPeriod)
-emaDaily200 = request.security(dailyTimeframe, "EMA", close, emaLongPeriod)
+// EMA 10 > EMA 20 > EMA 200
+ema_condition = ema10 > ema20 and ema20 > ema200
 
-ema4H10 = request.security(hour4Timeframe, "EMA", close, emaShortPeriod)
-ema4H20 = request.security(hour4Timeframe, "EMA", close, emaMediumPeriod)
-ema4H200 = request.security(hour4Timeframe, "EMA", close, emaLongPeriod)
+// Permission logic
+permission = na
+if (ema_condition)
+    if (bullish_condition and close > ema10)
+        permission := true
+    if (bearish_condition and close > ema10 and close[1] > ema10)
+        permission := true
 
-ema1H10 = request.security(hour1Timeframe, "EMA", close, emaShortPeriod)
-ema1H20 = request.security(hour1Timeframe, "EMA", close, emaMediumPeriod)
-ema1H200 = request.security(hour1Timeframe, "EMA", close, emaLongPeriod)
+// Restriction logic
+restriction = na
+if (close < ema20)
+    restriction := true
 
-ema15Min10 = request.security(min15Timeframe, "EMA", close, emaShortPeriod)
-ema15Min20 = request.security(min15Timeframe, "EMA", close, emaMediumPeriod)
-ema15Min200 = request.security(min15Timeframe, "EMA", close, emaLongPeriod)
+// Debugging Label
+label_permission = na
+if (permission)
+    label_permission := label.new(bar_index, high, "T2", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
 
-// --- Cascading Logic for Entry Conditions ---
-bullishDailyTrend = emaDaily10 > emaDaily20 and emaDaily20 > emaDaily200
-bullish4HTrend = ema4H10 > ema4H20 and ema4H20 > ema4H200
-bullish1HTrend = ema1H10 > ema1H20 and ema1H20 > ema1H200
-bullish15MinTrend = ema15Min10 > ema15Min20 and ema15Min20 > ema15Min200
+// Reset permission if restricted
+if (restriction)
+    permission := na
 
-// --- Entry Conditions based on Cascading Logic ---
-canEnterLong = bullishDailyTrend and bullish4HTrend and bullish1HTrend and bullish15MinTrend
+// Plot EMAs
+plot(ema10, color=color.blue, linewidth=2, title="EMA 10")
+plot(ema20, color=color.red, linewidth=2, title="EMA 20")
+plot(ema200, color=color.orange, linewidth=2, title="EMA 200")
 
-// --- Exit Conditions ---
-stopLossLevel = emaDaily200 // Stop-loss based on EMA 200
-takeProfitLevel = close * 1.02 // Take-profit 2% above entry price
-
-// --- Execute Strategy ---
-if canEnterLong
-    strategy.entry("Long", strategy.long, stop=stopLossLevel, limit=takeProfitLevel)
-
-// --- Labels for Tracking Entries ---
-plotshape(series=canEnterLong, title="Entry Signal", location=location.belowbar, color=color.green, style=shape.labelup, text="ENTRY")
-
-// --- Dynamic Stop Loss based on EMA 200 ---
-strategy.exit("Exit", from_entry="Long", stop=stopLossLevel, limit=takeProfitLevel)
-
-// --- Additional Exit Conditions (Optional) ---
-// In case you want to take profit dynamically based on another factor
-takeProfitDynamic = close * 1.05  // Adjust this as needed for dynamic take-profit based on market conditions
-strategy.exit("TakeProfitDynamic", from_entry="Long", limit=takeProfitDynamic)
-
-// --- Exit Logic for Bearish Conditions ---
-// If bearish trends are detected, close the position
-bearishDailyTrend = emaDaily10 < emaDaily20 and emaDaily20 < emaDaily200
-bearish4HTrend = ema4H10 < ema4H20 and ema4H20 < ema4H200
-bearish1HTrend = ema1H10 < ema1H20 and ema1H20 < ema1H200
-bearish15MinTrend = ema15Min10 < ema15Min20 and ema15Min20 < ema15Min200
-
-canExitLong = bearishDailyTrend or bearish4HTrend or bearish1HTrend or bearish15MinTrend
-if canExitLong
-    strategy.close("Long", comment="Exit due to Bearish Trend")
-
-// --- Additional Risk Management: Trailing Stop (Optional) ---
-trailStopLevel = close * 0.98  // Adjust trailing stop level
-strategy.exit("Trailing Stop", from_entry="Long", trail_price=trailStopLevel)
-
-// --- Backtest Metrics Visualization ---
-plot(emaDaily10, color=color.blue, title="Daily EMA 10")
-plot(emaDaily20, color=color.orange, title="Daily EMA 20")
-plot(emaDaily200, color=color.red, title="Daily EMA 200")
+// Display labels if permission is met
+if (permission)
+    label_permission
