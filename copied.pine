@@ -15,6 +15,7 @@ plot(ema10, title="EMA 10", color=color.blue)
 plot(ema20, title="EMA 20", color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
 
+// Ensure labels are only drawn when EMA 10 > EMA 20 and EMA 20 > EMA 200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
 crosses(emaVal) =>
@@ -50,7 +51,7 @@ if not restricted and not justReset
         restricted := true
         bearishCandidate := false
 
-if isDaily and permission and barstate.isconfirmed
+if isDaily and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
     t2Triggered := true
 
@@ -60,5 +61,5 @@ var bool permissionT3 = false
 if isDaily and emaTrendOk
     permissionT3 := (close > open) and (open > ema10) and (close > ema10)
 
-if isDaily and permissionT3 and barstate.isconfirmed and not t2Triggered
+if isDaily and permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
     label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
