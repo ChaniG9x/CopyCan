@@ -102,7 +102,12 @@ if isDaily
 // This ensures we only use confirmed historical data.
 dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1], lookahead=barmerge.lookahead_off)
 
-if (timeframe.period == "60" or timeframe.period == "240") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    // Reset permission after drawing the lower timeframe label
+// For 1h signals: if previous daily candle had a T2/T3 and conditions are met, label with "T2_1h"
+if (timeframe.period == "60") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="T2_1h", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    permission := false
+
+// For 4h signals: if previous daily candle had a T2/T3 and conditions are met, label with "T2_4h"
+if (timeframe.period == "240") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="T2_4h", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
     permission := false
