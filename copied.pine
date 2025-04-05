@@ -141,26 +141,29 @@ oneHourPerm = request.security(syminfo.tickerid, "60", oneHourSignal[1], lookahe
 fourHourPerm = request.security(syminfo.tickerid, "240", fourHourSignal[1], lookahead=barmerge.lookahead_off)
 
 // For 15‑minute signals: permitted if either the 4‑hour or the 1‑hour signal is nonzero.
-if (timeframe.period == "15") and ((fourHourPerm != 0) or (oneHourPerm != 0)) and barstate.isconfirmed and emaTrendOk and permission
-    label.new(x=bar_index, y=high, text="INT", style=label.style_label_down, 
-              color=color.new(color.orange, 0), textcolor=color.white)
-    strategy.entry("Entry_15min", strategy.long)
-    permission := false
-    // Place a trailing stop below the 200EMA.
-    strategy.exit("Exit_15min", "Entry_15min", stop=ema200)
+if timeframe.period == "15"
+    if ((fourHourPerm != 0) or (oneHourPerm != 0)) and barstate.isconfirmed and emaTrendOk and permission
+        label.new(x=bar_index, y=high, text="INT", style=label.style_label_down, 
+                  color=color.new(color.orange, 0), textcolor=color.white)
+        strategy.entry("Entry_15min", strategy.long)
+        permission := false
+        // Place a trailing stop below the 200EMA.
+        strategy.exit("Exit_15min", "Entry_15min", stop=ema200)
 
 // For 1‑minute signals: permitted by the 1‑hour signal.
-if (timeframe.period == "1") and (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk and permission
-    label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, 
-              color=color.new(color.blue, 0), textcolor=color.white)
-    strategy.entry("Entry_1min", strategy.long)
-    permission := false
-    strategy.exit("Exit_1min", "Entry_1min", stop=ema200)
+if timeframe.period == "1"
+    if (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk and permission
+        label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, 
+                  color=color.new(color.blue, 0), textcolor=color.white)
+        strategy.entry("Entry_1min", strategy.long)
+        permission := false
+        strategy.exit("Exit_1min", "Entry_1min", stop=ema200)
 
 // For 10‑second signals: permitted by the 1‑hour signal.
-if (timeframe.period == "10S") and (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk and permission
-    label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, 
-              color=color.new(color.red, 0), textcolor=color.white)
-    strategy.entry("Entry_10S", strategy.long)
-    permission := false
-    strategy.exit("Exit_10S", "Entry_10S", stop=ema200)
+if timeframe.period == "10S"
+    if (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk and permission
+        label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, 
+                  color=color.new(color.red, 0), textcolor=color.white)
+        strategy.entry("Entry_10S", strategy.long)
+        permission := false
+        strategy.exit("Exit_10S", "Entry_10S", stop=ema200)
