@@ -7,24 +7,21 @@ ema20 = ta.ema(close, 20)
 ema200 = ta.ema(close, 200)
 
 // Conditions for Tier 2 Pattern (🔁)
-bullish_cross_10_20 = close > open and (low < ema10 and close > ema10)
-bullish_cross_20 = close > open and (low < ema20 and close > ema20)
+bullish_condition = close > open and (low < ema10 and close > ema10)
+bearish_condition = close < open and (high > ema10 and close > ema10)
 
 // EMA 10 > EMA 20 > EMA 200 condition
 ema_condition = ema10 > ema20 and ema20 > ema200
 
-// Condition 1: Bullish candle crosses 10 or 20, and closes bullish above 10 EMA
+// Condition 1: Bullish candle closes above 10 EMA
 condition_t2_met = false
 if ema_condition
-    if bullish_cross_10_20
-        condition_t2_met := true
-    if bullish_cross_20 and close > ema10
+    if bullish_condition and close > ema10
         condition_t2_met := true
 
-// Condition 2: Bearish candle crosses 10 or 20, closes above 10 EMA, and the next day is bullish and closes above 10 EMA
-bearish_cross_10_20 = close < open and (high > ema10 and close > ema10)
+// Condition 2: Bearish candle closes above 10 EMA, and the next day is bullish and closes above 10 EMA
 next_day_bullish = close[1] > open[1] and close[1] > ema10
-condition_t2_met := condition_t2_met or (bearish_cross_10_20 and next_day_bullish)
+condition_t2_met := condition_t2_met or (bearish_condition and close > ema10 and next_day_bullish)
 
 // Restriction condition: If candle's open or close is below 20 EMA, wait for bullish candle to close above 10 EMA
 restriction_condition = (open < ema20 or close < ema20)
