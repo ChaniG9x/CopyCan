@@ -26,32 +26,21 @@ crosses(emaVal) =>
     // If the candle's low is below and its high is above the EMA, we assume a cross occurred
     (low < emaVal) and (high > emaVal)
 
-// Persistent variables to manage state across candles
-var bool restricted = false      // True if waiting for a reset candle after restriction condition
-var bool bearishCandidate = false  // Set when a bearish candidate pattern is detected (requires confirmation on next candle)
+// Persistent variable to manage bearish candidate state across candles
+var bool bearishCandidate = false
 
 // Reset the bearish candidate if the candle does not follow through
 if not (barstate.islast)
     bearishCandidate := false
 
-// Reset logic for the restricted state: if currently restricted, wait for a bullish candle closing above EMA10
-if restricted
-    if (close > open) and (close > ema10)
-        // This candle resets the restriction, but is not counted as a valid Tier 2 pattern
-        restricted := false
-        bearishCandidate := false
-
-// Check for restriction condition on the current candle:
-// If a candle's open OR close is below the EMA20, then we set the restriction.
-// This check happens only if we're not already in a restricted state.
-if not restricted and ( (open < ema20) or (close < ema20) )
-    restricted := true
+// Check previous day's open and close condition relative to EMA20
+prevCandleValid = (open[1] >= ema20[1]) and (close[1] >= ema20[1])
 
 // Variable to flag permission (i.e. valid Tier 2 Daily Pattern)
 var bool permission = false
 
-// Process patterns only if we are not in a restricted state and the EMA trend is valid
-if not restricted and emaTrendOk
+// Process patterns only if the previous candle meets the EMA20 condition and the EMA trend is valid
+if prevCandleValid and emaTrendOk
 
     // Condition A: Single bullish candle pattern
     // - Candle must be bullish (close > open)
