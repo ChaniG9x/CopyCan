@@ -1,169 +1,80 @@
 //@version=5
-strategy("Tier 2 Daily Pattern Strategy", overlay=true, shorttitle="T2DP", calc_on_every_tick=false)
+strategy("Cascading Multi-Timeframe Strategy", overlay=true)
 
-// ----------------------------
-// COMMON CALCULATIONS & FUNCTIONS
-// ----------------------------
+// --- Define Timeframes ---
+dailyTimeframe = "D"
+hour4Timeframe = "240"
+hour1Timeframe = "60"
+min15Timeframe = "15"
+min1Timeframe = "1"
+min10secTimeframe = "10"
 
-// Determine if the current chart is daily
-isDaily = timeframe.isdaily
+// --- Define EMAs ---
+emaShortPeriod = 10
+emaMediumPeriod = 20
+emaLongPeriod = 200
 
-// EMA lengths
-emaLen10  = 10
-emaLen20  = 20
-emaLen200 = 200
+// --- Get EMA values for multiple timeframes ---
+emaDaily10 = request.security(dailyTimeframe, "EMA", close, emaShortPeriod)
+emaDaily20 = request.security(dailyTimeframe, "EMA", close, emaMediumPeriod)
+emaDaily200 = request.security(dailyTimeframe, "EMA", close, emaLongPeriod)
 
-// Calculate EMAs
-ema10  = ta.ema(close, emaLen10)
-ema20  = ta.ema(close, emaLen20)
-ema200 = ta.ema(close, emaLen200)
+ema4H10 = request.security(hour4Timeframe, "EMA", close, emaShortPeriod)
+ema4H20 = request.security(hour4Timeframe, "EMA", close, emaMediumPeriod)
+ema4H200 = request.security(hour4Timeframe, "EMA", close, emaLongPeriod)
 
-// Plot EMAs
-plot(ema10, title="EMA 10", color=color.blue)
-plot(ema20, title="EMA 20", color=color.red)
-plot(ema200, title="EMA 200", color=color.orange)
+ema1H10 = request.security(hour1Timeframe, "EMA", close, emaShortPeriod)
+ema1H20 = request.security(hour1Timeframe, "EMA", close, emaMediumPeriod)
+ema1H200 = request.security(hour1Timeframe, "EMA", close, emaLongPeriod)
 
-// Ensure labels are only drawn when EMA 10 > EMA 20 and EMA 20 > EMA200
-emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
+ema15Min10 = request.security(min15Timeframe, "EMA", close, emaShortPeriod)
+ema15Min20 = request.security(min15Timeframe, "EMA", close, emaMediumPeriod)
+ema15Min200 = request.security(min15Timeframe, "EMA", close, emaLongPeriod)
 
-// Function to check if a candle crosses an EMA value
-crosses(emaVal) =>
-    ta.crossover(close, emaVal)
+// --- Cascading Logic for Entry Conditions ---
+bullishDailyTrend = emaDaily10 > emaDaily20 and emaDaily20 > emaDaily200
+bullish4HTrend = ema4H10 > ema4H20 and ema4H20 > ema4H200
+bullish1HTrend = ema1H10 > ema1H20 and ema1H20 > ema1H200
+bullish15MinTrend = ema15Min10 > ema15Min20 and ema15Min20 > ema15Min200
 
-// ----------------------------
-// COMMON T2/T3 LOGIC (applies on all timeframes)
-// ----------------------------
+// --- Entry Conditions based on Cascading Logic ---
+canEnterLong = bullishDailyTrend and bullish4HTrend and bullish1HTrend and bullish15MinTrend
 
-// Variables used in the logic
-var bool restricted       = false
-var bool bearishCandidate = false
-var bool justReset        = false
-var bool t2Triggered      = false
+// --- Exit Conditions ---
+stopLossLevel = emaDaily200 // Stop-loss based on EMA 200
+takeProfitLevel = close * 1.02 // Take-profit 2% above entry price
 
-justReset := false
+// --- Execute Strategy ---
+if canEnterLong
+    strategy.entry("Long", strategy.long, stop=stopLossLevel, limit=takeProfitLevel)
 
-// Reset restriction if the current candle is bullish and above ema10
-if restricted
-    if (close > open) and (close > ema10)
-        restricted       := false
-        justReset        := true
-        bearishCandidate := false
+// --- Labels for Tracking Entries ---
+plotshape(series=canEnterLong, title="Entry Signal", location=location.belowbar, color=color.green, style=shape.labelup, text="ENTRY")
 
-t2Triggered := false
-var bool permission = false
+// --- Dynamic Stop Loss based on EMA 200 ---
+strategy.exit("Exit", from_entry="Long", stop=stopLossLevel, limit=takeProfitLevel)
 
-// Evaluate T2 conditions (applied on every chart)
-if not restricted and not justReset and emaTrendOk
-    // Direct Bullish Signal (condA)
-    condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
-    // Bearish Candidate turning Bullish
-    condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
-    if condBearCandidate
-        bearishCandidate := true
-    condBConfirm = bearishCandidate and (close > open) and (close > ema10)
-    if condA or condBConfirm
-        permission       := true
-        bearishCandidate := false
+// --- Additional Exit Conditions (Optional) ---
+// In case you want to take profit dynamically based on another factor
+takeProfitDynamic = close * 1.05  // Adjust this as needed for dynamic take-profit based on market conditions
+strategy.exit("TakeProfitDynamic", from_entry="Long", limit=takeProfitDynamic)
 
-// Apply restriction if candle opens or closes below ema20
-if not restricted and not justReset
-    if (open < ema20) or (close < ema20)
-        restricted       := true
-        bearishCandidate := false
+// --- Exit Logic for Bearish Conditions ---
+// If bearish trends are detected, close the position
+bearishDailyTrend = emaDaily10 < emaDaily20 and emaDaily20 < emaDaily200
+bearish4HTrend = ema4H10 < ema4H20 and ema4H20 < ema4H200
+bearish1HTrend = ema1H10 < ema1H20 and ema1H20 < ema1H200
+bearish15MinTrend = ema15Min10 < ema15Min20 and ema15Min20 < ema15Min200
 
-// ----------------------------
-// DAILY SIGNAL LOGIC
-// ----------------------------
+canExitLong = bearishDailyTrend or bearish4HTrend or bearish1HTrend or bearish15MinTrend
+if canExitLong
+    strategy.close("Long", comment="Exit due to Bearish Trend")
 
-// dailySignal: 0 = none, 2 = T2, 3 = T3
-var int dailySignal = 0
+// --- Additional Risk Management: Trailing Stop (Optional) ---
+trailStopLevel = close * 0.98  // Adjust trailing stop level
+strategy.exit("Trailing Stop", from_entry="Long", trail_price=trailStopLevel)
 
-if isDaily
-    // Store result of new day check in a variable.
-    newDay = ta.change(time("D"))
-    if newDay
-        dailySignal := 0
-
-    if permission and barstate.isconfirmed and emaTrendOk
-        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, 
-                  color=color.new(color.green, 0), textcolor=color.white)
-        t2Triggered := true
-        dailySignal := 2
-
-    // Reset permission after drawing the daily label.
-    permission := false
-
-    var bool permissionT3 = false
-    permissionT3 := (close > open) and (open > ema10) and (close > ema10)
-    if permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
-        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, 
-                  color=color.new(color.orange, 0), textcolor=color.white)
-        dailySignal := 3
-
-// ----------------------------
-// 1‑HOUR SIGNAL LOGIC
-// ----------------------------
-
-var int oneHourSignal = 0
-if timeframe.period == "60"
-    newHour = ta.change(time("60"))
-    if newHour
-        oneHourSignal := 0
-
-    if permission and barstate.isconfirmed and emaTrendOk
-        label.new(x=bar_index, y=high, text="T2_1h", style=label.style_label_down, 
-                  color=color.new(color.green, 0), textcolor=color.white)
-        oneHourSignal := 2
-        permission := false
-
-// ----------------------------
-// 4‑HOUR SIGNAL LOGIC
-// ----------------------------
-
-var int fourHourSignal = 0
-if timeframe.period == "240"
-    new4Hour = ta.change(time("240"))
-    if new4Hour
-        fourHourSignal := 0
-
-    if permission and barstate.isconfirmed and emaTrendOk
-        label.new(x=bar_index, y=high, text="T2_4h", style=label.style_label_down, 
-                  color=color.new(color.green, 0), textcolor=color.white)
-        fourHourSignal := 2
-        permission := false
-
-// ----------------------------
-// LOWER TIMEFRAME ENTRIES & LABELS
-// ----------------------------
-
-// Retrieve previous higher timeframe signals using request.security with lookahead off.
-oneHourPerm = request.security(syminfo.tickerid, "60", oneHourSignal[1], lookahead=barmerge.lookahead_off)
-fourHourPerm = request.security(syminfo.tickerid, "240", fourHourSignal[1], lookahead=barmerge.lookahead_off)
-
-// For 15‑minute signals: permitted if either the 4‑hour or the 1‑hour signal is nonzero.
-if timeframe.period == "15"
-    if ((fourHourPerm != 0) or (oneHourPerm != 0)) and barstate.isconfirmed and emaTrendOk and permission
-        label.new(x=bar_index, y=high, text="INT", style=label.style_label_down, 
-                  color=color.new(color.orange, 0), textcolor=color.white)
-        strategy.entry("Entry_15min", strategy.long)
-        permission := false
-        strategy.exit("Exit_15min", "Entry_15min", stop=ema200)
-
-// For 1‑minute signals: permitted by the 1‑hour signal.
-if timeframe.period == "1"
-    if (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk and permission
-        label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, 
-                  color=color.new(color.blue, 0), textcolor=color.white)
-        strategy.entry("Entry_1min", strategy.long)
-        permission := false
-        strategy.exit("Exit_1min", "Entry_1min", stop=ema200)
-
-// For 10‑second signals: permitted by the 1‑hour signal.
-if timeframe.period == "10S"
-    if (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk and permission
-        label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, 
-                  color=color.new(color.red, 0), textcolor=color.white)
-        strategy.entry("Entry_10S", strategy.long)
-        permission := false
-        strategy.exit("Exit_10S", "Entry_10S", stop=ema200)
-
+// --- Backtest Metrics Visualization ---
+plot(emaDaily10, color=color.blue, title="Daily EMA 10")
+plot(emaDaily20, color=color.orange, title="Daily EMA 20")
+plot(emaDaily200, color=color.red, title="Daily EMA 200")
