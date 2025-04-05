@@ -21,34 +21,34 @@ var bool previousDayT2 = na
 var bool previous4HT2 = na
 var bool previous1HT2 = na
 
-// Request previous daily candle's T2 label status
-previousDayT2 := request.security(syminfo.tickerid, "D", (emaTrendOk and (close > open)) ? true : false)
+// Request the previous day's T2 label status
+previousDayT2 = request.security(syminfo.tickerid, "D", (emaTrendOk and (close > open)) ? true : false)
 
-// Request previous 4-hour candle's T2 label status
-previous4HT2 := request.security(syminfo.tickerid, "240", (emaTrendOk and (close > open)) ? true : false)
+// Request the previous 4-hour candle's T2 label status
+previous4HT2 = request.security(syminfo.tickerid, "240", (emaTrendOk and (close > open)) ? true : false)
 
-// Request previous 1-hour candle's T2 label status
-previous1HT2 := request.security(syminfo.tickerid, "60", (emaTrendOk and (close > open)) ? true : false)
+// Request the previous 1-hour candle's T2 label status
+previous1HT2 = request.security(syminfo.tickerid, "60", (emaTrendOk and (close > open)) ? true : false)
 
 // Plot labels based on the previous candle's T2 label status
 
 // **For 1H and 4H labels, based on previous daily T2 label**
-if timeframe.isminutes and timeframe.multiplier == 60 and previousDayT2
+if timeframe.isminutes and timeframe.multiplier == 60 and previousDayT2 and emaTrendOk
     label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
-if timeframe.isminutes and timeframe.multiplier == 240 and previousDayT2
+if timeframe.isminutes and timeframe.multiplier == 240 and previousDayT2 and emaTrendOk
     label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
 // **For 15m and 1m labels, based on previous 4H T2 label**
-if timeframe.isminutes and timeframe.multiplier == 15 and previous4HT2
+if timeframe.isminutes and timeframe.multiplier == 15 and previous4HT2 and emaTrendOk
     label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
-if timeframe.isminutes and timeframe.multiplier == 1 and previous4HT2
+if timeframe.isminutes and timeframe.multiplier == 1 and previous4HT2 and emaTrendOk
     label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
 // **For 1m and 10sec labels, based on previous 1H T2 label**
-if timeframe.isminutes and timeframe.multiplier == 1 and previous1HT2
+if timeframe.isminutes and timeframe.multiplier == 1 and previous1HT2 and emaTrendOk
     label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
-if timeframe.isminutes and timeframe.multiplier == 10 and previous1HT2
+if timeframe.isminutes and timeframe.multiplier == 10 and previous1HT2 and emaTrendOk
     label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
