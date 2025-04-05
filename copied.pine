@@ -125,6 +125,6 @@ if (timeframe.period == "1") and permission and barstate.isconfirmed and emaTren
     label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, color=color.new(color.blue, 0), textcolor=color.white)
     permission := false
 
-if (timeframe.period == "10") and permission and barstate.isconfirmed and emaTrendOk
+if (timeframe.period == "10s") and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
     permission := false
