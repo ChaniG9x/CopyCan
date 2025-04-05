@@ -1,43 +1,98 @@
 //@version=5
-indicator("Tier 2 Daily Pattern", overlay=true)
+indicator("Tier 2 Daily Pattern (CAPA)", overlay=true, shorttitle="T2DP")
 
-// Define EMAs
-ema10 = ta.ema(close, 10)
-ema20 = ta.ema(close, 20)
-ema200 = ta.ema(close, 200)
+// We only want to display labels on the daily timeframe
+isDaily = timeframe.isdaily
 
-// Conditions for Tier 2 Pattern (🔁)
-bullish_condition = close > open and (low < ema10 and close > ema10)
-bearish_condition = close < open and (high > ema10 and close > ema10)
+// EMA lengths and calculations
+emaLen10  = 10
+emaLen20  = 20
+emaLen200 = 200
 
-// EMA 10 > EMA 20 > EMA 200 condition
-ema_condition = ema10 > ema20 and ema20 > ema200
+ema10  = ta.ema(close, emaLen10)
+ema20  = ta.ema(close, emaLen20)
+ema200 = ta.ema(close, emaLen200)
 
-// Condition 1: Bullish candle closes above 10 EMA
-condition_t2_met = false
-if ema_condition
-    if bullish_condition and close > ema10
-        condition_t2_met := true
+// Plot EMAs with specified colors
+plot(ema10,  title="EMA 10",  color=color.blue)
+plot(ema20,  title="EMA 20",  color=color.red)
+plot(ema200, title="EMA 200", color=color.orange)
 
-// Condition 2: Bearish candle closes above 10 EMA, and the next day is bullish and closes above 10 EMA
-next_day_bullish = close[1] > open[1] and close[1] > ema10
-condition_t2_met := condition_t2_met or (bearish_condition and close > ema10 and next_day_bullish)
+// Check EMA hierarchy condition: EMA10 > EMA20 > EMA200
+emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
-// Restriction condition: If candle's open or close is below 20 EMA, wait for bullish candle to close above 10 EMA
-restriction_condition = (open < ema20 or close < ema20)
+// A helper function to detect if the candle crosses a given EMA
+crosses(emaVal) =>
+    (low < emaVal) and (high > emaVal)
 
-// First bullish close above 10 EMA does not count for Tier 2 Pattern
-first_bullish_close_above_10 = close > ema10 and close[1] < ema10
+// Persistent variables to manage states across candles
+var bool restricted        = false  // True if waiting for a reset candle after restriction
+var bool bearishCandidate  = false  // Set when a bearish candidate pattern is detected (waiting for next candle)
+var bool justReset         = false  // True on the bar that exits restriction, so we skip pattern detection on that bar
 
-// Reset condition after first bullish close above 10 EMA
-if first_bullish_close_above_10
-    condition_t2_met := false
+// Reset justReset to false at the start of each new bar
+justReset := false
 
-// Debugging label logic: Green "T2" label when conditions are met
-if condition_t2_met and not restriction_condition
-    label.new(bar_index, high, "T2", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+// If we are currently restricted, check if this candle resets the restriction
+if restricted
+    // Reset if we get a bullish candle closing above the 10 EMA
+    if (close > open) and (close > ema10)
+        restricted := false
+        justReset  := true
+        // We also reset any pending bearish candidate when we come out of restriction
+        bearishCandidate := false
 
-// Plot EMAs
-plot(ema10, color=color.blue, linewidth=2, title="EMA 10")
-plot(ema20, color=color.red, linewidth=2, title="EMA 20")
-plot(ema200, color=color.orange, linewidth=2, title="EMA 200")
+// Next, we handle pattern detection only if:
+// 1) We are not restricted
+// 2) This is not the reset bar
+// 3) The EMA trend condition is valid
+var bool permission = false
+if not restricted and not justReset and emaTrendOk
+    // Condition A: Single bullish candle
+    // - Candle is bullish
+    // - Candle crosses EMA10 or EMA20
+    // - Candle closes above EMA10
+    condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+
+    // Condition B involves a two-candle sequence (bearish then bullish)
+    // First, detect a bearish candidate candle:
+    // - Candle is bearish
+    // - Candle crosses EMA10 or EMA20
+    // - Candle closes above EMA10
+    condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+
+    // If we find a bearish candidate, mark it
+    if condBearCandidate
+        bearishCandidate := true
+
+    // Check if the current candle confirms the bearish candidate
+    condBConfirm = bearishCandidate and (close > open) and (close > ema10)
+
+    // If either Condition A or Condition B is met, we set permission
+    if condA or condBConfirm
+        permission := true
+        // Once a bearish candidate pattern is used, reset it
+        bearishCandidate := false
+
+// After pattern detection, check if the current candle triggers restriction
+// If a candle's open or close is below the 20 EMA, we become restricted (unless we just reset).
+// Note: If we just reset on this candle, we skip setting restriction again on the same bar.
+if not restricted and not justReset
+    if (open < ema20) or (close < ema20)
+        restricted := true
+        // Also reset any pending bearish candidate
+        bearishCandidate := false
+
+// Plot a green "T2" label on the daily timeframe if permission is granted
+if isDaily and permission and barstate.isconfirmed
+    label.new(
+       x         = bar_index,
+       y         = high,
+       text      = "T2",
+       style     = label.style_label_down,
+       color     = color.new(color.green, 0),
+       textcolor = color.white
+    )
+
+// Reset permission for the next bar
+permission := false
