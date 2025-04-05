@@ -1,16 +1,20 @@
 //@version=5
 indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
 
+// Determine if the current chart is daily
 isDaily = timeframe.isdaily
 
+// EMA lengths
 emaLen10  = 10
 emaLen20  = 20
 emaLen200 = 200
 
+// Calculate EMAs
 ema10  = ta.ema(close, emaLen10)
 ema20  = ta.ema(close, emaLen20)
 ema200 = ta.ema(close, emaLen200)
 
+// Plot EMAs
 plot(ema10, title="EMA 10", color=color.blue)
 plot(ema20, title="EMA 20", color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
@@ -18,6 +22,7 @@ plot(ema200, title="EMA 200", color=color.orange)
 // Ensure labels are only drawn when EMA 10 > EMA 20 and EMA 20 > EMA200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
+// Function to check if a candle crosses an EMA value
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
@@ -63,11 +68,17 @@ if not restricted and not justReset
         bearishCandidate := false
 
 // ----------------------------
-// Daily Labeling (unchanged)
+// Daily Labeling (unchanged plus goahead flag)
 // ----------------------------
+
+// Create a daily flag variable to signal that a label was drawn.
+// When a daily T2 or T3 label is generated, we set dailyGoAhead to true.
+var bool dailyGoAhead = false
+
 if isDaily and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
     t2Triggered := true
+    dailyGoAhead := true
 
 if isDaily
     // Reset permission after daily T2 label has been drawn
@@ -78,11 +89,21 @@ if isDaily
     permissionT3 := (close > open) and (open > ema10) and (close > ema10)
     if permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
         label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
+        dailyGoAhead := true
+
+    // Reset the daily goahead flag at the beginning of a new day
+    if ta.change(time("D"))
+        dailyGoAhead := false
 
 // ----------------------------
 // Lower Timeframe Labeling for 1h and 4h
 // ----------------------------
-if (timeframe.period == "60" or timeframe.period == "240") and permission and barstate.isconfirmed and emaTrendOk
+
+// Retrieve the daily "goahead" flag from the previous daily candle.
+// This means that lower timeframes will only place labels if the previous daily candle had a label.
+goaheadDaily = request.security(syminfo.tickerid, "D", dailyGoAhead[1])
+
+if (timeframe.period == "60" or timeframe.period == "240") and goaheadDaily and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
     // Reset permission after drawing the label on lower timeframe
     permission := false
