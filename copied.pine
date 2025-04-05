@@ -75,6 +75,10 @@ if not restricted and not justReset
 var int dailySignal = 0
 
 if isDaily
+    // At the beginning of a new daily candle, reset dailySignal.
+    if ta.change(time("D"))
+        dailySignal := 0
+
     if permission and barstate.isconfirmed and emaTrendOk
         label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
         t2Triggered := true
@@ -95,10 +99,10 @@ if isDaily
 // ----------------------------
 
 // Retrieve the previous daily candle's dailySignal.
-// If it is nonzero then the lower timeframe is allowed to label.
+// This value will be 0 if no label was generated, or 2/3 if a T2 or T3 was produced.
 dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
 
 if (timeframe.period == "60" or timeframe.period == "240") and (dailyPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    // Reset permission after drawing the lower timeframe label
+    // Reset permission after drawing the label on lower timeframe
     permission := false
