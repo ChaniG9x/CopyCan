@@ -28,7 +28,7 @@ emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
 // Function to check if a candle crosses an EMA value
 crosses(emaVal) =>
-    (low < emaVal) and (high > emaVal)
+    ta.crossover(close, emaVal)
 
 // ----------------------------
 // COMMON T2/T3 LOGIC (applies on all timeframes)
@@ -103,6 +103,7 @@ if isDaily
 // ----------------------------
 // 1‑HOUR SIGNAL LOGIC
 // ----------------------------
+
 var int oneHourSignal = 0
 if timeframe.period == "60"
     newHour = ta.change(time("60"))
@@ -118,6 +119,7 @@ if timeframe.period == "60"
 // ----------------------------
 // 4‑HOUR SIGNAL LOGIC
 // ----------------------------
+
 var int fourHourSignal = 0
 if timeframe.period == "240"
     new4Hour = ta.change(time("240"))
@@ -164,3 +166,4 @@ if timeframe.period == "10S"
         strategy.entry("Entry_10S", strategy.long)
         permission := false
         strategy.exit("Exit_10S", "Entry_10S", stop=ema200)
+
