@@ -1,10 +1,8 @@
 //@version=5
 indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
 
-// We only want to display labels on the daily timeframe
 isDaily = timeframe.isdaily
 
-// EMA lengths and calculations
 emaLen10  = 10
 emaLen20  = 20
 emaLen200 = 200
@@ -13,86 +11,52 @@ ema10  = ta.ema(close, emaLen10)
 ema20  = ta.ema(close, emaLen20)
 ema200 = ta.ema(close, emaLen200)
 
-// Plot EMAs with specified colors
-plot(ema10,  title="EMA 10",  color=color.blue)
-plot(ema20,  title="EMA 20",  color=color.red)
+plot(ema10, title="EMA 10", color=color.blue)
+plot(ema20, title="EMA 20", color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
 
-// Check EMA hierarchy condition: EMA10 > EMA20 > EMA200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
-// A helper function to detect if the candle crosses a given EMA
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
-// Persistent variables to manage states across candles
-var bool restricted        = false  // True if waiting for a reset candle after restriction
-var bool bearishCandidate  = false  // Set when a bearish candidate pattern is detected (waiting for next candle)
-var bool justReset         = false  // True on the bar that exits restriction, so we skip pattern detection on that bar
+var bool restricted       = false
+var bool bearishCandidate = false
+var bool justReset        = false
 
-// Reset `justReset` to false at the start of each new bar
 justReset := false
 
-// If we are currently restricted, check if this candle resets the restriction
 if restricted
-    // Reset if we get a bullish candle closing above the 10 EMA
     if (close > open) and (close > ema10)
         restricted := false
         justReset  := true
-        // We also reset any pending bearish candidate when we come out of restriction
         bearishCandidate := false
 
-// Next, we handle pattern detection only if:
-// 1) We are not restricted
-// 2) This is not the reset bar
-// 3) The EMA trend condition is valid
 var bool permission = false
 if not restricted and not justReset and emaTrendOk
-    // Condition A: Single bullish candle
-    // - Candle is bullish
-    // - Candle crosses EMA10 or EMA20
-    // - Candle closes above EMA10
     condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
-
-    // Condition B involves a two-candle sequence (bearish then bullish)
-    // First, detect a bearish candidate candle:
-    // - Candle is bearish
-    // - Candle crosses EMA10 or EMA20
-    // - Candle closes above EMA10
     condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
-
-    // If we find a bearish candidate, mark it
     if condBearCandidate
         bearishCandidate := true
-
-    // Check if the current candle confirms the bearish candidate
     condBConfirm = bearishCandidate and (close > open) and (close > ema10)
-
-    // If either Condition A or Condition B is met, we set permission
     if condA or condBConfirm
         permission := true
-        // Once a bearish candidate pattern is used, reset it
         bearishCandidate := false
 
-// After pattern detection, check if the current candle triggers restriction
-// If a candle's open or close is below the 20 EMA, we become restricted (unless we just reset).
-// Note: If we just reset on this candle, we skip setting restriction again on the same bar.
 if not restricted and not justReset
     if (open < ema20) or (close < ema20)
         restricted := true
-        // Also reset any pending bearish candidate
         bearishCandidate := false
 
-// Plot a green "T2" label on the daily timeframe if permission is granted
 if isDaily and permission and barstate.isconfirmed
-    label.new(
-       x         = bar_index,
-       y         = high,
-       text      = "T2",
-       style     = label.style_label_down,
-       color     = color.new(color.green, 0),
-       textcolor = color.white
-    )
+    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// Reset permission for the next bar
 permission := false
+
+// T3 Debugging Label: EMA trend must be valid and candle is bullish with both open and close above EMA10
+var bool permissionT3 = false
+if isDaily and emaTrendOk
+    permissionT3 := (close > open) and (open > ema10) and (close > ema10)
+
+if isDaily and permissionT3 and barstate.isconfirmed
+    label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
