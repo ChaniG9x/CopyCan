@@ -1,16 +1,20 @@
 //@version=5
-indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP")
+indicator("Tier 2 Pattern with Daily Dependent Lower TF", overlay=true, shorttitle="T2DP")
 
+// Input resolution (daily is used for the primary signals)
 isDaily = timeframe.isdaily
 
+// EMA lengths
 emaLen10  = 10
 emaLen20  = 20
 emaLen200 = 200
 
+// Calculate EMAs
 ema10  = ta.ema(close, emaLen10)
 ema20  = ta.ema(close, emaLen20)
 ema200 = ta.ema(close, emaLen200)
 
+// Plot EMAs
 plot(ema10, title="EMA 10", color=color.blue)
 plot(ema20, title="EMA 20", color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
@@ -18,24 +22,29 @@ plot(ema200, title="EMA 200", color=color.orange)
 // Ensure labels are only drawn when EMA 10 > EMA 20 and EMA 20 > EMA 200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
+// Function to check if a candle crosses an EMA value
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
-var bool restricted        = false
-var bool bearishCandidate  = false
-var bool justReset         = false
-var bool t2Triggered       = false
+// ----- Variables used in the T2/T3 logic -----
+var bool restricted       = false
+var bool bearishCandidate = false
+var bool justReset        = false
+var bool t2Triggered      = false
 
 justReset := false
 
+// Reset restriction if current candle is bullish and above ema10
 if restricted
     if (close > open) and (close > ema10)
-        restricted := false
-        justReset  := true
+        restricted       := false
+        justReset        := true
         bearishCandidate := false
 
 t2Triggered := false
 var bool permission = false
+
+// T2 permission logic (applies on both daily and lower TF)
 if not restricted and not justReset and emaTrendOk
     condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
     condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
@@ -43,23 +52,45 @@ if not restricted and not justReset and emaTrendOk
         bearishCandidate := true
     condBConfirm = bearishCandidate and (close > open) and (close > ema10)
     if condA or condBConfirm
-        permission := true
+        permission     := true
         bearishCandidate := false
 
+// Set restriction if candle opens or closes below ema20
 if not restricted and not justReset
     if (open < ema20) or (close < ema20)
-        restricted := true
+        restricted       := true
         bearishCandidate := false
 
-if isDaily and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-    t2Triggered := true
+// ----- Daily T2/T3 Labeling and Daily Signal Generation -----
+// We use a variable dailySignal to store the daily trigger:
+// 0 = none, 2 = T2, 3 = T3
+var int dailySignal = 0
 
-permission := false
-
-var bool permissionT3 = false
-if isDaily and emaTrendOk
+if isDaily and barstate.isconfirmed and emaTrendOk
+    // Daily T2 logic
+    if permission
+        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+        t2Triggered  := true
+        dailySignal  := 2
+    // Daily T3 logic (only if T2 was not triggered)
+    var bool permissionT3 = false
     permissionT3 := (close > open) and (open > ema10) and (close > ema10)
+    if permissionT3 and not t2Triggered
+        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
+        dailySignal := 3
 
-if isDaily and permissionT3 and barstate.isconfirmed and not t2Triggered and emaTrendOk
-    label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
+// ----- Lower Timeframe (e.g. 4h and 1h) Labeling -----
+// On lower timeframes, we want to allow T2 logic only if yesterday's daily bar produced a T2 or T3 signal.
+// We retrieve the previous daily signal using request.security.
+// This value will be 0 if no daily signal was produced or 2 for T2 and 3 for T3.
+if not isDaily
+    dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
+    // Only if a valid daily signal (2 or 3) is present do we proceed
+    if dailyPerm != 0 and barstate.isconfirmed and emaTrendOk
+        // Reuse the same T2 logic on lower timeframe for labeling.
+        // (Note: The 'permission' variable is computed per bar on the lower timeframe.)
+        if permission
+            // Use the color and text based on the daily permission signal
+            labelText  = dailyPerm == 2 ? "T2" : "T3"
+            labelColor = dailyPerm == 2 ? color.new(color.green, 0) : color.new(color.orange, 0)
+            label.new(x=bar_index, y=high, text=labelText, style=label.style_label_down, color=labelColor, textcolor=color.white)
