@@ -1,60 +1,108 @@
 //@version=5
-indicator("Multi-Timeframe T2 Labels Fixed", overlay=true)
+indicator("Tier 2 Pattern with Cascading (CAPA)", overlay=true, shorttitle="T2DP")
 
-// === 1. Calculate EMAs on current timeframe ===
-ema10  = ta.ema(close, 10)
-ema20  = ta.ema(close, 20)
-ema200 = ta.ema(close, 200)
+// ===========================
+// 1. Base T2 Pattern Logic (Stateful)
+// ===========================
 
-// Plot EMAs
+// EMA lengths and calculations
+emaLen10  = 10
+emaLen20  = 20
+emaLen200 = 200
+
+ema10  = ta.ema(close, emaLen10)
+ema20  = ta.ema(close, emaLen20)
+ema200 = ta.ema(close, emaLen200)
+
+// Plot EMAs with specified colors
 plot(ema10, title="EMA 10", color=color.blue)
 plot(ema20, title="EMA 20", color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
 
-// === 2. Define T2 condition function for a given timeframe ===
-t2ConditionFunc() =>
-    _ema10  = ta.ema(close, 10)
-    _ema20  = ta.ema(close, 20)
-    _ema200 = ta.ema(close, 200)
-    _trendOk = (_ema10 > _ema20) and (_ema20 > _ema200)
-    _bullish = (close > open)
-    _trendOk and _bullish
-
-// === 3. Request previous candle's T2 condition for higher timeframes ===
-// Use [1] to get the condition from the previous candle
-
-// Daily: For 1H and 4H dependency
-previousDayT2 = request.security(syminfo.tickerid, "D", t2ConditionFunc(), lookahead=barmerge.lookahead_off)[1]
-
-// 4-hour: For 15m and 1m dependency
-previous4HT2 = request.security(syminfo.tickerid, "240", t2ConditionFunc(), lookahead=barmerge.lookahead_off)[1]
-
-// 1-hour: For 10sec and 1m dependency
-previous1HT2 = request.security(syminfo.tickerid, "60", t2ConditionFunc(), lookahead=barmerge.lookahead_off)[1]
-
-// === 4. Define current timeframe T2 condition (using current chart's EMAs) ===
+// Check EMA hierarchy condition: EMA10 > EMA20 > EMA200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-currentT2 = emaTrendOk and (close > open)
 
-// === 5. Plot labels only when all conditions are met and only on confirmed bars ===
+// A helper function to detect if the candle crosses a given EMA
+crosses(emaVal) =>
+    (low < emaVal) and (high > emaVal)
 
-// For 1H and 4H charts (dependent on previous daily T2)
-if timeframe.isminutes and timeframe.multiplier == 60 and barstate.isconfirmed and previousDayT2 and currentT2
-    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+// --- State Management for T2 pattern ---
+var bool restricted       = false  // True if we are restricted due to low open/close
+var bool bearishCandidate = false  // Set when a bearish candidate pattern is detected (waiting for confirmation)
+var bool justReset        = false  // True on the bar that resets the restriction
 
-if timeframe.isminutes and timeframe.multiplier == 240 and barstate.isconfirmed and previousDayT2 and currentT2
-    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+// Reset justReset at the start of each bar
+justReset := false
 
-// For 15m and 1m charts (dependent on previous 4H T2)
-if timeframe.isminutes and timeframe.multiplier == 15 and barstate.isconfirmed and previous4HT2 and currentT2
-    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+// If currently restricted, check if this candle resets restriction (bullish close above ema10)
+if restricted
+    if (close > open) and (close > ema10)
+        restricted := false
+        justReset  := true
+        bearishCandidate := false
 
-if timeframe.isminutes and timeframe.multiplier == 1 and barstate.isconfirmed and previous4HT2 and currentT2
-    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+// Evaluate T2 pattern only if not restricted and not just reset, and EMA trend is OK
+var bool permission = false
+if not restricted and not justReset and emaTrendOk
+    // Condition A: Single bullish candle (crossing ema10 or ema20 and closing above ema10)
+    condA = (close > open) and ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and (close > ema10)
+    // Condition B: Two-candle sequence (bearish candidate then bullish confirmation)
+    condBearCandidate = (close < open) and ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and (close > ema10)
+    if condBearCandidate
+        bearishCandidate := true
+    condBConfirm = bearishCandidate and (close > open) and (close > ema10)
+    if condA or condBConfirm
+        permission := true
+        bearishCandidate := false
 
-// For 1m and 10sec charts (dependent on previous 1H T2)
-if timeframe.isminutes and timeframe.multiplier == 1 and barstate.isconfirmed and previous1HT2 and currentT2
-    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+// After pattern detection, check if the current candle should trigger restriction
+if not restricted and not justReset
+    if (open < ema20) or (close < ema20)
+        restricted := true
+        bearishCandidate := false
 
-if timeframe.isminutes and timeframe.multiplier == 10 and barstate.isconfirmed and previous1HT2 and currentT2
-    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+// ===========================
+// 2. Cascading Logic: Get Higher Timeframe T2 Status
+// ===========================
+
+// For cascading purposes we use a simplified T2 condition: 
+//   (EMA alignment and bullish candle)
+// This is used solely to determine the "permission flag" from higher timeframes.
+f_simpleT2() =>
+    _ema10 = ta.ema(close, 10)
+    _ema20 = ta.ema(close, 20)
+    _ema200 = ta.ema(close, 200)
+    (_ema10 > _ema20 and _ema20 > _ema200) and (close > open)
+
+// Request previous higher timeframe status (using offset [1] for the previous completed candle)
+previousDayT2 = request.security(syminfo.tickerid, "D", f_simpleT2(), lookahead=barmerge.lookahead_off)[1]
+previous4HT2  = request.security(syminfo.tickerid, "240", f_simpleT2(), lookahead=barmerge.lookahead_off)[1]
+previous1HT2  = request.security(syminfo.tickerid, "60", f_simpleT2(), lookahead=barmerge.lookahead_off)[1]
+
+// ===========================
+// 3. Determine Cascading Permission Based on Current Chart Timeframe
+// ===========================
+var bool cascadePermission = false
+
+if timeframe.isdaily
+    // On daily charts, no cascading dependency is needed.
+    cascadePermission := true
+else if timeframe.isminutes
+    // For 1H and 4H charts, require previous daily T2 status.
+    if (timeframe.multiplier == 60 or timeframe.multiplier == 240)
+        cascadePermission := previousDayT2
+    // For 15m and 1m charts, require previous 4H T2 status.
+    else if (timeframe.multiplier == 15 or timeframe.multiplier == 1)
+        cascadePermission := previous4HT2
+    // For 10-second charts (if available), require previous 1H T2 status.
+    else if (timeframe.multiplier == 10)
+        cascadePermission := previous1HT2
+
+// ===========================
+// 4. Plot the Label if All Conditions Are Met
+// ===========================
+if permission and barstate.isconfirmed and not restricted and cascadePermission
+    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+
+// Reset permission for the next bar
+permission := false
