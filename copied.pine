@@ -1,5 +1,5 @@
 //@version=5
-indicator("Tier 2 Daily Pattern", overlay=true, shorttitle="T2DP", calc_on_every_tick=false)
+strategy("Tier 2 Daily Pattern Strategy", overlay=true, shorttitle="T2DP", calc_on_every_tick=false)
 
 // ----------------------------
 // COMMON CALCULATIONS & FUNCTIONS
@@ -31,7 +31,7 @@ crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
 // ----------------------------
-// COMMON T2/T3 LOGIC (for all timeframes)
+// COMMON T2/T3 LOGIC (applies on all timeframes)
 // ----------------------------
 
 // Variables used in the logic
@@ -79,7 +79,7 @@ if not restricted and not justReset
 var int dailySignal = 0
 
 if isDaily
-    // Reset dailySignal at the beginning of a new day.
+    // At the beginning of a new daily candle, reset dailySignal.
     if ta.change(time("D"))
         dailySignal := 0
 
@@ -89,7 +89,7 @@ if isDaily
         t2Triggered := true
         dailySignal := 2
 
-    // Reset permission after drawing the daily label
+    // Reset permission after daily T2 label has been drawn
     permission := false
 
     // Daily T3 logic (only on daily timeframe)
@@ -106,7 +106,7 @@ if isDaily
 
 var int oneHourSignal = 0
 if timeframe.period == "60"
-    // Reset oneHourSignal at the start of a new 1h candle.
+    // Reset oneHourSignal at the start of a new 1‑hour candle.
     if ta.change(time("60"))
         oneHourSignal := 0
 
@@ -122,7 +122,7 @@ if timeframe.period == "60"
 
 var int fourHourSignal = 0
 if timeframe.period == "240"
-    // Reset fourHourSignal at the start of a new 4h candle.
+    // Reset fourHourSignal at the start of a new 4‑hour candle.
     if ta.change(time("240"))
         fourHourSignal := 0
 
@@ -133,26 +133,31 @@ if timeframe.period == "240"
         permission := false
 
 // ----------------------------
-// LOWER TIMEFRAME LABELING (using higher timeframe permissions)
+// LOWER TIMEFRAME ENTRIES & LABELS
 // ----------------------------
 
 // Retrieve previous higher timeframe signals using request.security with lookahead off.
 oneHourPerm = request.security(syminfo.tickerid, "60", oneHourSignal[1], lookahead=barmerge.lookahead_off)
 fourHourPerm = request.security(syminfo.tickerid, "240", fourHourSignal[1], lookahead=barmerge.lookahead_off)
 
-// For 15‑minute signals: permitted by either the 4‑hour or the 1‑hour signal.
-if (timeframe.period == "15") and ((fourHourPerm != 0) or (oneHourPerm != 0)) and permission and barstate.isconfirmed and emaTrendOk
-    label.new(x=bar_index, y=high, text="INT", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
-    permission := false
+// For 15‑minute signals: permitted if either the 4‑hour or the 1‑hour signal is nonzero.
+if (timeframe.period == "15") and ((fourHourPerm != 0) or (oneHourPerm != 0)) and barstate.isconfirmed and emaTrendOk
+    label.new(x=bar_index, y=high, text="INT", style=label.style_label_down, 
+              color=color.new(color.orange, 0), textcolor=color.white)
+    strategy.entry("Entry_15min", strategy.long)
+    // Place a trailing stop below the 200EMA.
+    strategy.exit("Exit_15min", "Entry_15min", stop=ema200)
 
 // For 1‑minute signals: permitted by the 1‑hour signal.
-if (timeframe.period == "1") and (oneHourPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
+if (timeframe.period == "1") and (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="1min", style=label.style_label_down, 
               color=color.new(color.blue, 0), textcolor=color.white)
-    permission := false
+    strategy.entry("Entry_1min", strategy.long)
+    strategy.exit("Exit_1min", "Entry_1min", stop=ema200)
 
-// For 10‑second signals: also permitted by the 1‑hour signal.
-if (timeframe.period == "10S") and (oneHourPerm != 0) and permission and barstate.isconfirmed and emaTrendOk
+// For 10‑second signals: permitted by the 1‑hour signal.
+if (timeframe.period == "10S") and (oneHourPerm != 0) and barstate.isconfirmed and emaTrendOk
     label.new(x=bar_index, y=high, text="SCP", style=label.style_label_down, 
               color=color.new(color.red, 0), textcolor=color.white)
-    permission := false
+    strategy.entry("Entry_10S", strategy.long)
+    strategy.exit("Exit_10S", "Entry_10S", stop=ema200)
