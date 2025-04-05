@@ -45,9 +45,9 @@ if restricted
 var bool permission = false
 if not restricted and not justReset and emaTrendOk
     // Condition A: Single bullish candle (crossing ema10 or ema20 and closing above ema10)
-    condA = (close > open) and ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and (close > ema10)
+    condA = (close > open) and (((low < ema10 and high > ema10) or (low < ema20 and high > ema20))) and (close > ema10)
     // Condition B: Two-candle sequence (bearish candidate then bullish confirmation)
-    condBearCandidate = (close < open) and ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and (close > ema10)
+    condBearCandidate = (close < open) and (((low < ema10 and high > ema10) or (low < ema20 and high > ema20))) and (close > ema10)
     if condBearCandidate
         bearishCandidate := true
     condBConfirm = bearishCandidate and (close > open) and (close > ema10)
@@ -55,19 +55,22 @@ if not restricted and not justReset and emaTrendOk
         permission := true
         bearishCandidate := false
 
-// After pattern detection, check if the current candle should trigger restriction
+// After pattern detection, if candle's open or close is below ema20, become restricted.
 if not restricted and not justReset
     if (open < ema20) or (close < ema20)
         restricted := true
         bearishCandidate := false
+
+// Current T2 condition on this chart:
+currentT2 = permission and emaTrendOk
 
 // ===========================
 // 2. Cascading Logic: Get Higher Timeframe T2 Status
 // ===========================
 
 // For cascading purposes we use a simplified T2 condition: 
-//   (EMA alignment and bullish candle)
-// This is used solely to determine the "permission flag" from higher timeframes.
+// (EMA alignment and bullish candle)
+// This function is used solely to determine the permission flag from higher timeframes.
 f_simpleT2() =>
     _ema10 = ta.ema(close, 10)
     _ema20 = ta.ema(close, 20)
@@ -82,26 +85,33 @@ previous1HT2  = request.security(syminfo.tickerid, "60", f_simpleT2(), lookahead
 // ===========================
 // 3. Determine Cascading Permission Based on Current Chart Timeframe
 // ===========================
+
+// We want the permission to "lock in" only at the start of a new higher timeframe period.
 var bool cascadePermission = false
+
+// Define new period flags for higher timeframes
+newDay = ta.change(time("D"))
+new4H  = ta.change(time("240"))
+new1H  = ta.change(time("60"))
 
 if timeframe.isdaily
     // On daily charts, no cascading dependency is needed.
-    cascadePermission := true
+    cascadePermission := newDay
 else if timeframe.isminutes
-    // For 1H and 4H charts, require previous daily T2 status.
+    // For 1H and 4H charts, require previous daily T2 status, and only on the first bar of a new day.
     if (timeframe.multiplier == 60 or timeframe.multiplier == 240)
-        cascadePermission := previousDayT2
-    // For 15m and 1m charts, require previous 4H T2 status.
+        cascadePermission := newDay and previousDayT2
+    // For 15m and 1m charts, require previous 4H T2 status, and only on the first bar of a new 4H period.
     else if (timeframe.multiplier == 15 or timeframe.multiplier == 1)
-        cascadePermission := previous4HT2
-    // For 10-second charts (if available), require previous 1H T2 status.
+        cascadePermission := new4H and previous4HT2
+    // For 10-second charts (if available), require previous 1H T2 status, and only on the first bar of a new 1H period.
     else if (timeframe.multiplier == 10)
-        cascadePermission := previous1HT2
+        cascadePermission := new1H and previous1HT2
 
 // ===========================
 // 4. Plot the Label if All Conditions Are Met
 // ===========================
-if permission and barstate.isconfirmed and not restricted and cascadePermission
+if currentT2 and cascadePermission and barstate.isconfirmed and not restricted
     label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // Reset permission for the next bar
