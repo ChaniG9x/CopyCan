@@ -1,8 +1,5 @@
 //@version=5
-indicator("Tier 2 Daily Pattern (CAPA)", overlay=true, shorttitle="T2DP")
-
-// We only want to display labels on the daily timeframe
-isDaily = timeframe.isdaily
+indicator("Tier 2 Pattern (CAPA)", overlay=true, shorttitle="T2DP")
 
 // EMA lengths and calculations
 emaLen10  = 10
@@ -83,8 +80,8 @@ if not restricted and not justReset
         // Also reset any pending bearish candidate
         bearishCandidate := false
 
-// Plot a green "T2" label on the daily timeframe if permission is granted
-if isDaily and permission and barstate.isconfirmed
+// Plot a green "T2" label on the timeframe if permission is granted
+if permission and barstate.isconfirmed and not restricted
     label.new(
        x         = bar_index,
        y         = high,
