@@ -52,7 +52,7 @@ if not restricted and not justReset and emaTrendOk
         bearishCandidate := true
     condBConfirm = bearishCandidate and (close > open) and (close > ema10)
     if condA or condBConfirm
-        permission     := true
+        permission       := true
         bearishCandidate := false
 
 // Set restriction if candle opens or closes below ema20
@@ -79,18 +79,16 @@ if isDaily and barstate.isconfirmed and emaTrendOk
         label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
         dailySignal := 3
 
+// ----- Retrieve Daily Signal for Lower Timeframes -----
+// The call to request.security is made outside any conditional structure.
+dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
+
 // ----- Lower Timeframe (e.g. 4h and 1h) Labeling -----
 // On lower timeframes, we want to allow T2 logic only if yesterday's daily bar produced a T2 or T3 signal.
-// We retrieve the previous daily signal using request.security.
-// This value will be 0 if no daily signal was produced or 2 for T2 and 3 for T3.
-if not isDaily
-    dailyPerm = request.security(syminfo.tickerid, "D", dailySignal[1])
-    // Only if a valid daily signal (2 or 3) is present do we proceed
-    if dailyPerm != 0 and barstate.isconfirmed and emaTrendOk
-        // Reuse the same T2 logic on lower timeframe for labeling.
-        // (Note: The 'permission' variable is computed per bar on the lower timeframe.)
-        if permission
-            // Use the color and text based on the daily permission signal
-            labelText  = dailyPerm == 2 ? "T2" : "T3"
-            labelColor = dailyPerm == 2 ? color.new(color.green, 0) : color.new(color.orange, 0)
-            label.new(x=bar_index, y=high, text=labelText, style=label.style_label_down, color=labelColor, textcolor=color.white)
+if not isDaily and dailyPerm != 0 and barstate.isconfirmed and emaTrendOk
+    // Reuse the same T2 logic on lower timeframe for labeling.
+    if permission
+        // Use the color and text based on the daily permission signal
+        labelText  = dailyPerm == 2 ? "T2" : "T3"
+        labelColor = dailyPerm == 2 ? color.new(color.green, 0) : color.new(color.orange, 0)
+        label.new(x=bar_index, y=high, text=labelText, style=label.style_label_down, color=labelColor, textcolor=color.white)
