@@ -1,14 +1,10 @@
 //@version=5
 indicator("Multi-Timeframe T2 Labels", overlay=true)
 
-// EMA lengths and calculations
-emaLen10  = 10
-emaLen20  = 20
-emaLen200 = 200
-
-ema10  = ta.ema(close, emaLen10)
-ema20  = ta.ema(close, emaLen20)
-ema200 = ta.ema(close, emaLen200)
+// EMA calculations
+ema10  = ta.ema(close, 10)
+ema20  = ta.ema(close, 20)
+ema200 = ta.ema(close, 200)
 
 // Plot EMAs
 plot(ema10,  title="EMA 10",  color=color.blue)
@@ -20,41 +16,39 @@ emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
+// Variables to track previous T2 label status for different timeframes
 var bool previousDayT2 = na
 var bool previous4HT2 = na
 var bool previous1HT2 = na
 
-// Check if the previous daily candle had a T2 label
-if timeframe.isdaily
-    previousDayT2 := (emaTrendOk and (close > open)) // Example of T2 condition
+// Request previous daily candle's T2 label status
+previousDayT2 := request.security(syminfo.tickerid, "D", (emaTrendOk and (close > open)) ? true : false)
 
-// Check if the previous 4-hour candle had a T2 label
-if timeframe.isminutes and timeframe.multiplier == 240 // For 4H timeframe
-    previous4HT2 := (emaTrendOk and (close > open)) // Example of T2 condition on 4H
+// Request previous 4-hour candle's T2 label status
+previous4HT2 := request.security(syminfo.tickerid, "240", (emaTrendOk and (close > open)) ? true : false)
 
-// Check if the previous 1-hour candle had a T2 label
-if timeframe.isminutes and timeframe.multiplier == 60 // For 1H timeframe
-    previous1HT2 := (emaTrendOk and (close > open)) // Example of T2 condition on 1H
+// Request previous 1-hour candle's T2 label status
+previous1HT2 := request.security(syminfo.tickerid, "60", (emaTrendOk and (close > open)) ? true : false)
 
-// Plot labels on different timeframes based on the conditions above
+// Plot labels based on the previous candle's T2 label status
 
-// **For 1H and 4H labels:**
+// **For 1H and 4H labels, based on previous daily T2 label**
 if timeframe.isminutes and timeframe.multiplier == 60 and previousDayT2
-    label.new(bar_index, high, "T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
 if timeframe.isminutes and timeframe.multiplier == 240 and previousDayT2
-    label.new(bar_index, high, "T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
-// **For 15m and 1m labels based on 4H:**
+// **For 15m and 1m labels, based on previous 4H T2 label**
 if timeframe.isminutes and timeframe.multiplier == 15 and previous4HT2
-    label.new(bar_index, high, "T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
 if timeframe.isminutes and timeframe.multiplier == 1 and previous4HT2
-    label.new(bar_index, high, "T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
-// **For 1m and 10sec labels based on 1H:**
+// **For 1m and 10sec labels, based on previous 1H T2 label**
 if timeframe.isminutes and timeframe.multiplier == 1 and previous1HT2
-    label.new(bar_index, high, "T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
 
 if timeframe.isminutes and timeframe.multiplier == 10 and previous1HT2
-    label.new(bar_index, high, "T2", color=color.green, textcolor=color.white, style=label.style_label_down)
+    label.new(bar_index, high, text="T2", color=color.green, textcolor=color.white, style=label.style_label_down)
