@@ -83,31 +83,40 @@ pattern_1m_from1h = gate_1h and request.security(syminfo.tickerid, "1",  f_tier2
 pattern_10s       = gate_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // ---------------------- Debugging Labels ----------------------
-// These labels appear only where permission has been granted.
+// The following labels are only drawn if the chart's current resolution matches the intended timeframe.
 
-if dailyGate
+// Daily gate label appears only on a Daily chart.
+if timeframe.period == "D" and dailyGate
     label.new(bar_index, high, "Daily Gate", style=label.style_label_down, color=color.blue, textcolor=color.white)
 
-if pattern_4h
+// 4h pattern label appears only on a 4h chart.
+if timeframe.period == "240" and pattern_4h
     label.new(bar_index, high, "4h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-if pattern_1h
+// 1h pattern label appears only on a 1h chart.
+if timeframe.period == "60" and pattern_1h
     label.new(bar_index, high, "1h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-if gate_4h
+// 4h gate label appears only on a 4h chart.
+if timeframe.period == "240" and gate_4h
     label.new(bar_index, low, "4h Gate", style=label.style_label_up, color=color.purple, textcolor=color.white)
 
-if pattern_15m
+// 15m pattern label appears only on a 15min chart.
+if timeframe.period == "15" and pattern_15m
     label.new(bar_index, low, "15m Pattern", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if pattern_1m_from4h
+// 1m (from 4h) label appears only on a 1min chart.
+if timeframe.period == "1" and pattern_1m_from4h
     label.new(bar_index, low, "1m (from 4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if gate_1h
+// 1h gate label appears only on a 1h chart.
+if timeframe.period == "60" and gate_1h
     label.new(bar_index, high, "1h Gate", style=label.style_label_left, color=color.red, textcolor=color.white)
 
-if pattern_1m_from1h
+// 1m (from 1h) label appears only on a 1min chart.
+if timeframe.period == "1" and pattern_1m_from1h
     label.new(bar_index, high, "1m (from 1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
 
-if pattern_10s
+// 10s pattern label appears only on a 10-sec chart.
+if timeframe.period == "10S" and pattern_10s
     label.new(bar_index, high, "10s Pattern", style=label.style_label_left, color=color.red, textcolor=color.white)
