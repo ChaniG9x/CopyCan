@@ -1,222 +1,157 @@
 //@version=5
-indicator("Hierarchical T2 Pattern (CAPA) Example", overlay=true)
+indicator("Tier 2 Pattern with Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
-//---------------------------------------------------
-// 1. Define a helper function for the T2 pattern
-//---------------------------------------------------
-f_t2_pattern(_close, _open, _high, _low, emaLen10, emaLen20, emaLen200) =>
-    // Calculate EMAs
-    _ema10  = ta.ema(_close, emaLen10)
-    _ema20  = ta.ema(_close, emaLen20)
-    _ema200 = ta.ema(_close, emaLen200)
+// --------------------------------------------------------
+// 1. Plot the local chart's EMAs (for visual reference)
+// --------------------------------------------------------
+ema10_main  = ta.ema(close, 10)
+ema20_main  = ta.ema(close, 20)
+ema200_main = ta.ema(close, 200)
+plot(ema10_main, title="EMA 10", color=color.blue)
+plot(ema20_main, title="EMA 20", color=color.red)
+plot(ema200_main, title="EMA 200", color=color.orange)
 
-    // Check the EMA hierarchy
-    _emaTrendOk = (_ema10 > _ema20) and (_ema20 > _ema200)
+// --------------------------------------------------------
+// 2. Helper function to detect if current candle crosses an EMA
+// --------------------------------------------------------
+crosses(_ema) =>
+    (low < _ema) and (high > _ema)
 
-    // A helper for "crosses" logic
-    crosses(_low, _high, val) =>
-        (_low < val) and (_high > val)
+// --------------------------------------------------------
+// 3. Tier 2 Pattern function for a single timeframe
+//    (same logic you already have, returning a boolean)
+// --------------------------------------------------------
+f_tier2Pattern() =>
+    // EMA calculations
+    emaLen10  = 10
+    emaLen20  = 20
+    emaLen200 = 200
 
-    // We need persistent variables for restriction logic
-    // Because these are function-scoped, we will return them and store them in global-scope variables
-    var bool _restricted       = false
-    var bool _bearishCandidate = false
-    var bool _justReset        = false
-    var bool _permission       = false
+    ema10  = ta.ema(close, emaLen10)
+    ema20  = ta.ema(close, emaLen20)
+    ema200 = ta.ema(close, emaLen200)
 
-    // Reset justReset to false on each call
-    _justReset := false
+    // EMA hierarchy: 10 > 20 > 200
+    emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
-    // If restricted, check if we can reset
-    if _restricted
-        // Reset if we get a bullish candle that closes above the 10 EMA
-        if (_close > _open) and (_close > _ema10)
-            _restricted       := false
-            _justReset        := true
-            _bearishCandidate := false
+    // Persistent variables
+    var bool restricted       = false
+    var bool bearishCandidate = false
+    var bool justReset        = false
 
-    // Main pattern logic, only if not restricted, not a reset bar, and EMAs are in an uptrend
-    if (not _restricted) and (not _justReset) and _emaTrendOk
-        // Condition A: single bullish candle
-        condA = (_close > _open) and (crosses(_low, _high, _ema10) or crosses(_low, _high, _ema20)) and (_close > _ema10)
+    // Reset justReset on each bar
+    justReset := false
 
-        // Condition B: two-candle sequence (bearish, then bullish)
-        condBearCandidate = (_close < _open) and (crosses(_low, _high, _ema10) or crosses(_low, _high, _ema20)) and (_close > _ema10)
+    // If restricted, check if this candle resets restriction
+    if restricted
+        // Reset if bullish and closes above ema10
+        if (close > open) and (close > ema10)
+            restricted       := false
+            justReset        := true
+            bearishCandidate := false
+
+    // Pattern detection runs only if not restricted, not a reset bar, and EMAs are in an uptrend
+    var bool permission = false
+    if not restricted and not justReset and emaTrendOk
+        // Condition A: single bullish candle that crosses EMA10 or EMA20, then closes above EMA10
+        condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+
+        // Condition B: two-candle sequence
+        condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
         if condBearCandidate
-            _bearishCandidate := true
+            bearishCandidate := true
 
-        condBConfirm = _bearishCandidate and (_close > _open) and (_close > _ema10)
+        condBConfirm = bearishCandidate and (close > open) and (close > ema10)
 
-        // If either Condition A or Condition B is met, we have permission
+        // If either condition is met, permission is granted
         if condA or condBConfirm
-            _permission := true
-            // Reset the bearish candidate if used
-            _bearishCandidate := false
+            permission       := true
+            bearishCandidate := false
 
-    // Check if the current candle triggers restriction
-    // If open or close is below the 20 EMA, become restricted (unless we just reset)
-    if (not _restricted) and (not _justReset)
-        if (_open < _ema20) or (_close < _ema20)
-            _restricted       := true
-            _bearishCandidate := false
+    // After pattern detection, check if current candle triggers restriction
+    if not restricted and not justReset
+        if (open < ema20) or (close < ema20)
+            restricted       := true
+            bearishCandidate := false
 
-    // Return all key data points
-    [
-     _ema10, _ema20, _ema200,        // EMAs for optional plotting
-     _restricted, _bearishCandidate, // States
-     _justReset, _permission         // Additional booleans
-    ]
+    // Final result for this timeframe bar
+    // Only true if bar is confirmed, permission is granted, and not restricted
+    result = permission and barstate.isconfirmed and not restricted
 
+    // Reset the permission flag for next bar
+    permission := false
 
-//---------------------------------------------------
-// 2. Pull in each timeframe’s data using request.security
-//---------------------------------------------------
+    result
 
-//--- Daily
-dailyClose = request.security(syminfo.tickerid, "D", close)
-dailyOpen  = request.security(syminfo.tickerid, "D", open)
-dailyHigh  = request.security(syminfo.tickerid, "D", high)
-dailyLow   = request.security(syminfo.tickerid, "D", low)
+// --------------------------------------------------------
+// 4. Request the daily, 4h, 1h, 15m, 1m, 10s data
+//    BUT we will shift the higher timeframe's result
+//    by [1] so we only read a fully closed bar
+// --------------------------------------------------------
 
-//--- 4h
-fhClose = request.security(syminfo.tickerid, "240", close)
-fhOpen  = request.security(syminfo.tickerid, "240", open)
-fhHigh  = request.security(syminfo.tickerid, "240", high)
-fhLow   = request.security(syminfo.tickerid, "240", low)
+// --- Daily (we shift by [1] so that on the current bar, we see the *previous* daily bar's result)
+dailyPatternRaw = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+dailyConfirmed  = dailyPatternRaw[1]  // The previous daily candle's T2 pattern result
 
-//--- 1h
-onehClose = request.security(syminfo.tickerid, "60", close)
-onehOpen  = request.security(syminfo.tickerid, "60", open)
-onehHigh  = request.security(syminfo.tickerid, "60", high)
-onehLow   = request.security(syminfo.tickerid, "60", low)
+// --- 4h (we also shift by [1], so it uses the *previous* 4h bar)
+pattern_4h_raw = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_4h_prev = pattern_4h_raw[1]  
+// The 4h gate is true only if dailyConfirmed was true *and* the previous 4h bar's pattern was true
+pattern_4h = dailyConfirmed and pattern_4h_prev
 
-//--- 15min
-fifteenClose = request.security(syminfo.tickerid, "15", close)
-fifteenOpen  = request.security(syminfo.tickerid, "15", open)
-fifteenHigh  = request.security(syminfo.tickerid, "15", high)
-fifteenLow   = request.security(syminfo.tickerid, "15", low)
+// --- 1h (similarly, shift by [1] for the previous 1h bar)
+pattern_1h_raw = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1h_prev = pattern_1h_raw[1]
+pattern_1h = dailyConfirmed and pattern_1h_prev
 
-//--- 1min (for the 4h branch)
-onemClose_4h = request.security(syminfo.tickerid, "1", close)
-onemOpen_4h  = request.security(syminfo.tickerid, "1", open)
-onemHigh_4h  = request.security(syminfo.tickerid, "1", high)
-onemLow_4h   = request.security(syminfo.tickerid, "1", low)
+// --- 15m (depends on the *previous* 4h bar, so we check pattern_4h, but we do NOT shift the 15m result itself)
+// Because we want to see if the current 15m candle is valid AND if the gating 4h bar has fully closed bullish
+pattern_15m_raw = request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_15m_from4h = pattern_4h and pattern_15m_raw
 
-//--- 1min (for the 1h branch)
-onemClose_1h = request.security(syminfo.tickerid, "1", close)
-onemOpen_1h  = request.security(syminfo.tickerid, "1", open)
-onemHigh_1h  = request.security(syminfo.tickerid, "1", high)
-onemLow_1h   = request.security(syminfo.tickerid, "1", low)
+// --- 1m from 4h
+pattern_1m_raw_4h = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1m_from4h = pattern_4h and pattern_1m_raw_4h
 
-//--- 10sec
-tenSecClose = request.security(syminfo.tickerid, "10S", close)  // May not be supported
-tenSecOpen  = request.security(syminfo.tickerid, "10S", open)
-tenSecHigh  = request.security(syminfo.tickerid, "10S", high)
-tenSecLow   = request.security(syminfo.tickerid, "10S", low)
+// --- 1m from 1h
+pattern_1m_raw_1h = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1m_from1h = pattern_1h and pattern_1m_raw_1h
 
-//---------------------------------------------------
-// 3. Evaluate each timeframe’s T2 pattern
-//    and store permission booleans
-//---------------------------------------------------
+// --- 10s from 1h
+pattern_10s_raw_1h = request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_10s_from1h = pattern_1h and pattern_10s_raw_1h
 
-//--- DAILY
-[ ema10D, ema20D, ema200D,
-  restrictedD, bearCandidateD,
-  justResetD, permissionD ] =
-  f_t2_pattern(dailyClose, dailyOpen, dailyHigh, dailyLow, 10, 20, 200)
+// --------------------------------------------------------
+// 5. Debugging labels
+// --------------------------------------------------------
+// We only show labels when the chart's current timeframe
+// matches the timeframe in question, so it doesn't clutter
+// all timeframes.
 
-//--- 4H (only evaluate if daily has permission)
-var bool is4hPerm = false
-[ ema10_4H, ema20_4H, ema200_4H,
-  restricted4H, bearCandidate4H,
-  justReset4H, permission4H ] =
-  f_t2_pattern(fhClose, fhOpen, fhHigh, fhLow, 10, 20, 200)
-is4hPerm := permissionD and permission4H
+// --- DAILY label
+if timeframe.period == "D" and dailyPatternRaw
+    label.new(bar_index, high, "Daily T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-//--- 1H (also only evaluate if daily has permission)
-var bool is1hPerm = false
-[ ema10_1H, ema20_1H, ema200_1H,
-  restricted1H, bearCandidate1H,
-  justReset1H, permission1H ] =
-  f_t2_pattern(onehClose, onehOpen, onehHigh, onehLow, 10, 20, 200)
-is1hPerm := permissionD and permission1H
+// --- 4H label
+if timeframe.period == "240" and pattern_4h_raw
+    label.new(bar_index, high, "4H T2", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
-//--- 15min (depends on 4H permission)
-var bool is15mPerm = false
-[ ema10_15m, ema20_15m, ema200_15m,
-  restricted15m, bearCandidate15m,
-  justReset15m, permission15m ] =
-  f_t2_pattern(fifteenClose, fifteenOpen, fifteenHigh, fifteenLow, 10, 20, 200)
-is15mPerm := is4hPerm and permission15m
+// --- 1H label
+if timeframe.period == "60" and pattern_1h_raw
+    label.new(bar_index, high, "1H T2", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-//--- 1min (branch under 4H)
-var bool is1mPerm_4h = false
-[ ema10_1m_4h, ema20_1m_4h, ema200_1m_4h,
-  restricted1m_4h, bearCandidate1m_4h,
-  justReset1m_4h, permission1m_4h ] =
-  f_t2_pattern(onemClose_4h, onemOpen_4h, onemHigh_4h, onemLow_4h, 10, 20, 200)
-is1mPerm_4h := is4hPerm and permission1m_4h
+// --- 15m label (this indicates a 15m T2 that is *allowed* by 4h)
+if timeframe.period == "15" and pattern_15m_from4h
+    label.new(bar_index, low, "15m(4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-//--- 1min (branch under 1H)
-var bool is1mPerm_1h = false
-[ ema10_1m_1h, ema20_1m_1h, ema200_1m_1h,
-  restricted1m_1h, bearCandidate1m_1h,
-  justReset1m_1h, permission1m_1h ] =
-  f_t2_pattern(onemClose_1h, onemOpen_1h, onemHigh_1h, onemLow_1h, 10, 20, 200)
-is1mPerm_1h := is1hPerm and permission1m_1h
+// --- 1m label for the 4h branch
+if timeframe.period == "1" and pattern_1m_from4h
+    label.new(bar_index, low, "1m(4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-//--- 10sec (branch under 1H)
-var bool is10sPerm = false
-[ ema10_10s, ema20_10s, ema200_10s,
-  restricted10s, bearCandidate10s,
-  justReset10s, permission10s ] =
-  f_t2_pattern(tenSecClose, tenSecOpen, tenSecHigh, tenSecLow, 10, 20, 200)
-is10sPerm := is1hPerm and permission10s
+// --- 1m label for the 1h branch
+if timeframe.period == "1" and pattern_1m_from1h
+    label.new(bar_index, low, "1m(1h)", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-//---------------------------------------------------
-// 4. Plot or label signals
-//---------------------------------------------------
-
-// For demonstration, label each timeframe’s “permission” when it happens
-// (This is optional and purely for illustration.)
-if barstate.isconfirmed
-    // Label if daily gave permission
-    if permissionD
-        label.new(bar_index, high, style=label.style_label_down, color=color.green, textcolor=color.white, text="Daily Permission")
-
-    // Label if 4h fired and daily permission was true
-    if is4hPerm
-        label.new(bar_index, high, style=label.style_label_down, color=color.fuchsia, textcolor=color.white, text="4H Permission")
-
-    // Label if 1h fired and daily permission was true
-    if is1hPerm
-        label.new(bar_index, high, style=label.style_label_down, color=color.yellow, textcolor=color.black, text="1H Permission")
-
-    // Label if 15m fired and 4H permission was true
-    if is15mPerm
-        label.new(bar_index, high, style=label.style_label_down, color=color.aqua, textcolor=color.black, text="15m Permission")
-
-    // Label if 1m (4H branch) fired
-    if is1mPerm_4h
-        label.new(bar_index, high, style=label.style_label_down, color=color.orange, textcolor=color.black, text="1m-4H")
-
-    // Label if 1m (1H branch) fired
-    if is1mPerm_1h
-        label.new(bar_index, high, style=label.style_label_down, color=color.navy, textcolor=color.white, text="1m-1H")
-
-    // Label if 10s fired (1H branch)
-    if is10sPerm
-        label.new(bar_index, high, style=label.style_label_down, color=color.gray, textcolor=color.white, text="10s-1H")
-
-// Optionally, plot the EMAs of the current chart’s timeframe
-// (Not the higher or lower ones requested via security)
-emaLen10  = 10
-emaLen20  = 20
-emaLen200 = 200
-ema10  = ta.ema(close, emaLen10)
-ema20  = ta.ema(close, emaLen20)
-ema200 = ta.ema(close, emaLen200)
-
-plot(ema10,  color=color.blue,   title="EMA 10 (Local)")
-plot(ema20,  color=color.red,    title="EMA 20 (Local)")
-plot(ema200, color=color.orange, title="EMA 200 (Local)")
+// --- 10s label for the 1h branch
+if timeframe.period == "10S" and pattern_10s_from1h
+    label.new(bar_index, high, "10s(1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
