@@ -1,339 +1,397 @@
 //@version=5
-indicator("Tier 2 Pattern (CAPA) - MTF Cascading with Labels", overlay=true, max_labels_count=500)
+indicator("Tier 2 Pattern (CAPA) - MTF Cascading with Labels", overlay=true)
 
 //----------------------------------------------------
 //  HELPER FUNCTIONS
 //----------------------------------------------------
 
-// Check if price crosses EMA
-crosses(emaVal) => 
-    low < emaVal and high > emaVal
+// Returns true if the current candle crosses a given EMA
+crosses(emaVal) =>
+    (low < emaVal) and (high > emaVal)
 
-// Get EMAs for any timeframe
-f_getEMAs(tf) => 
+// Retrieves standard EMAs for a given timeframe
+f_getEMAs(tf) =>
     [
-        request.security(syminfo.tickerid, tf, ta.ema(close, 10)),
-        request.security(syminfo.tickerid, tf, ta.ema(close, 20)),
-        request.security(syminfo.tickerid, tf, ta.ema(close, 200))
+        request.security(syminfo.tickerid, tf, ta.ema(close, 10),  lookahead=barmerge.lookahead_on),
+        request.security(syminfo.tickerid, tf, ta.ema(close, 20),  lookahead=barmerge.lookahead_on),
+        request.security(syminfo.tickerid, tf, ta.ema(close, 200), lookahead=barmerge.lookahead_on)
     ]
 
 //----------------------------------------------------
-//  DAILY LOGIC
+//  1) DAILY LOGIC
+//     Grants permission to 4h and 1h
 //----------------------------------------------------
+var bool dailyRestricted       = false
+var bool dailyBearishCandidate = false
+var bool dailyJustReset        = false
+var bool dailyPermission       = false
 
 f_dailyLogic() =>
-    var bool restricted = false
-    var bool bearCandidate = false
-    var bool justReset = false
-    
-    [e10, e20, e200] = f_getEMAs("D")
-    emaTrendOK = e10 > e20 and e20 > e200
-    justReset := false
-    
-    if restricted and (close > open) and (close > e10)
-        restricted := false
-        justReset := true
-        bearCandidate := false
-    
-    bool permission = false
-    if not restricted and not justReset and emaTrendOK
-        bool condBear = (close < open) and (crosses(e10) or crosses(e20)) and (close > e10)
-        if condBear
-            bearCandidate := true
-        
-        bool condA = (close > open) and (crosses(e10) or crosses(e20)) and (close > e10)
-        bool condB = bearCandidate and (close > open) and (close > e10)
-        
-        if condA or condB
-            permission := true
-            bearCandidate := false
-    
-    if not restricted and not justReset and ((open < e20) or (close < e20))
-        restricted := true
-        bearCandidate := false
-    
-    bool finalPermission = permission and barstate.isconfirmed and not restricted
-    [finalPermission, restricted, bearCandidate, justReset]
+    [dEma10, dEma20, dEma200] = f_getEMAs("D")
 
-[dailyPerm, dailyRestrict, dailyBear, dailyReset] = request.security(syminfo.tickerid, "D", f_dailyLogic())
+    // Check if EMAs line up
+    emaTrendOk = (dEma10 > dEma20) and (dEma20 > dEma200)
 
-//----------------------------------------------------
-//  4-HOUR LOGIC
-//----------------------------------------------------
+    // Reset justReset on each new daily bar
+    dailyJustReset := false
 
-f_4hLogic() =>
-    var bool restricted = false
-    var bool bearCandidate = false
-    var bool justReset = false
-    
-    [e10, e20, e200] = f_getEMAs("240")
-    emaTrendOK = e10 > e20 and e20 > e200
-    justReset := false
-    
-    if restricted and (close > open) and (close > e10)
-        restricted := false
-        justReset := true
-        bearCandidate := false
-    
-    bool permission = false
-    if not restricted and not justReset and emaTrendOK and dailyPerm
-        bool condBear = (close < open) and (crosses(e10) or crosses(e20) and (close > e10)
-        if condBear
-            bearCandidate := true
-        
-        bool condA = (close > open) and (crosses(e10) or crosses(e20) and (close > e10)
-        bool condB = bearCandidate and (close > open) and (close > e10)
-        
-        if condA or condB
-            permission := true
-            bearCandidate := false
-    
-    if not restricted and not justReset and ((open < e20) or (close < e20))
-        restricted := true
-        bearCandidate := false
-    
-    bool finalPermission = permission and barstate.isconfirmed and not restricted
-    [finalPermission, restricted, bearCandidate, justReset]
+    // If restricted, see if we can reset
+    if dailyRestricted
+        // Reset if bullish candle closing above the 10 EMA
+        if (close > open) and (close > dEma10)
+            dailyRestricted := false
+            dailyJustReset  := true
+            dailyBearishCandidate := false
 
-[fourHPerm, fourHRestrict, fourHBear, fourHReset] = request.security(syminfo.tickerid, "240", f_4hLogic())
+    _permission = false
+    // Conditions only if not restricted, not justReset, and EMAs are good
+    if not dailyRestricted and not dailyJustReset and emaTrendOk
+        // Condition A
+        condA = (close > open) and (crosses(dEma10) or crosses(dEma20)) and (close > dEma10)
+
+        // Condition B: Bearish candle, then bullish candle
+        condBearCandidate = (close < open) and (crosses(dEma10) or crosses(dEma20)) and (close > dEma10)
+        if condBearCandidate
+            dailyBearishCandidate := true
+
+        condBConfirm = dailyBearishCandidate and (close > open) and (close > dEma10)
+
+        if condA or condBConfirm
+            _permission := true
+            dailyBearishCandidate := false
+
+    // Check if we trigger restriction
+    if not dailyRestricted and not dailyJustReset
+        if (open < dEma20) or (close < dEma20)
+            dailyRestricted := true
+            dailyBearishCandidate := false
+
+    // Confirm permission at bar close
+    if _permission and barstate.isconfirmed and not dailyRestricted
+        dailyPermission := true
+    else
+        dailyPermission := false
+
+// Run the daily logic in a security call
+request.security(syminfo.tickerid, "D", f_dailyLogic(), lookahead=barmerge.lookahead_on)
+
+// If dailyPermission is true on a daily chart, draw a label for debugging
+if dailyPermission and timeframe.period == "D"
+    label.new(bar_index, high, style=label.style_label_down, text="Daily T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  1-HOUR LOGIC
+//  2) 4-HOUR LOGIC
+//     Depends on dailyPermission
+//     Grants permission to 15min and 1min
 //----------------------------------------------------
+var bool fourHRestricted       = false
+var bool fourHBearishCandidate = false
+var bool fourHJustReset        = false
+var bool fourHPermission       = false
 
-f_1hLogic() =>
-    var bool restricted = false
-    var bool bearCandidate = false
-    var bool justReset = false
-    
-    [e10, e20, e200] = f_getEMAs("60")
-    emaTrendOK = e10 > e20 and e20 > e200
-    justReset := false
-    
-    if restricted and (close > open) and (close > e10)
-        restricted := false
-        justReset := true
-        bearCandidate := false
-    
-    bool permission = false
-    if not restricted and not justReset and emaTrendOK and dailyPerm
-        bool condBear = (close < open) and (crosses(e10) or crosses(e20) and (close > e10)
-        if condBear
-            bearCandidate := true
-        
-        bool condA = (close > open) and (crosses(e10) or crosses(e20)) and (close > e10)
-        bool condB = bearCandidate and (close > open) and (close > e10)
-        
-        if condA or condB
-            permission := true
-            bearCandidate := false
-    
-    if not restricted and not justReset and ((open < e20) or (close < e20))
-        restricted := true
-        bearCandidate := false
-    
-    bool finalPermission = permission and barstate.isconfirmed and not restricted
-    [finalPermission, restricted, bearCandidate, justReset]
+f_fourHourLogic(_dailyPerm) =>
+    [ema10_4h, ema20_4h, ema200_4h] = f_getEMAs("240")
+    emaTrendOk_4h = (ema10_4h > ema20_4h) and (ema20_4h > ema200_4h)
 
-[oneHPerm, oneHRestrict, oneHBear, oneHReset] = request.security(syminfo.tickerid, "60", f_1hLogic())
+    fourHJustReset := false
 
-//----------------------------------------------------
-//  15-MINUTE LOGIC
-//----------------------------------------------------
+    if fourHRestricted
+        if (close > open) and (close > ema10_4h)
+            fourHRestricted := false
+            fourHJustReset  := true
+            fourHBearishCandidate := false
 
-f_15mLogic() =>
-    var bool restricted = false
-    var bool bearCandidate = false
-    var bool justReset = false
-    
-    [e10, e20, e200] = f_getEMAs("15")
-    emaTrendOK = e10 > e20 and e20 > e200
-    justReset := false
-    
-    if restricted and (close > open) and (close > e10)
-        restricted := false
-        justReset := true
-        bearCandidate := false
-    
-    bool permission = false
-    if not restricted and not justReset and emaTrendOK and fourHPerm
-        bool condBear = (close < open) and (crosses(e10) or crosses(e20) and (close > e10)
-        if condBear
-            bearCandidate := true
-        
-        bool condA = (close > open) and (crosses(e10) or crosses(e20)) and (close > e10)
-        bool condB = bearCandidate and (close > open) and (close > e10)
-        
-        if condA or condB
-            permission := true
-            bearCandidate := false
-    
-    if not restricted and not justReset and ((open < e20) or (close < e20))
-        restricted := true
-        bearCandidate := false
-    
-    bool finalPermission = permission and barstate.isconfirmed and not restricted
-    [finalPermission, restricted, bearCandidate, justReset]
+    _permission4h = false
 
-[fifteenPerm, fifteenRestrict, fifteenBear, fifteenReset] = request.security(syminfo.tickerid, "15", f_15mLogic())
+    // Only check pattern if dailyPermission is true
+    if not fourHRestricted and not fourHJustReset and emaTrendOk_4h and _dailyPerm
+        condA_4h = (close > open) and (crosses(ema10_4h) or crosses(ema20_4h)) and (close > ema10_4h)
+        condBearCandidate_4h = (close < open) and (crosses(ema10_4h) or crosses(ema20_4h)) and (close > ema10_4h)
+        if condBearCandidate_4h
+            fourHBearishCandidate := true
+
+        condBConfirm_4h = fourHBearishCandidate and (close > open) and (close > ema10_4h)
+
+        if condA_4h or condBConfirm_4h
+            _permission4h := true
+            fourHBearishCandidate := false
+
+    if not fourHRestricted and not fourHJustReset
+        if (open < ema20_4h) or (close < ema20_4h)
+            fourHRestricted := true
+            fourHBearishCandidate := false
+
+    if _permission4h and barstate.isconfirmed and not fourHRestricted
+        fourHPermission := true
+    else
+        fourHPermission := false
+
+request.security(syminfo.tickerid, "240", f_fourHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
+
+// Label for 4h signals if you are on a 4h chart
+if fourHPermission and timeframe.period == "240"
+    label.new(bar_index, high, style=label.style_label_down, text="4H T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  1-MINUTE LOGIC (from 4h)
+//  3) 1-HOUR LOGIC
+//     Also depends on dailyPermission
+//     Grants permission to 1min & 10sec
 //----------------------------------------------------
+var bool oneHRestricted       = false
+var bool oneHBearishCandidate = false
+var bool oneHJustReset        = false
+var bool oneHPermission       = false
 
-f_1m4hLogic() =>
-    var bool restricted = false
-    var bool bearCandidate = false
-    var bool justReset = false
-    
-    [e10, e20, e200] = f_getEMAs("1")
-    emaTrendOK = e10 > e20 and e20 > e200
-    justReset := false
-    
-    if restricted and (close > open) and (close > e10)
-        restricted := false
-        justReset := true
-        bearCandidate := false
-    
-    bool permission = false
-    if not restricted and not justReset and emaTrendOK and fourHPerm
-        bool condBear = (close < open) and (crosses(e10) or crosses(e20) and (close > e10)
-        if condBear
-            bearCandidate := true
-        
-        bool condA = (close > open) and (crosses(e10) or crosses(e20)) and (close > e10)
-        bool condB = bearCandidate and (close > open) and (close > e10)
-        
-        if condA or condB
-            permission := true
-            bearCandidate := false
-    
-    if not restricted and not justReset and ((open < e20) or (close < e20))
-        restricted := true
-        bearCandidate := false
-    
-    bool finalPermission = permission and barstate.isconfirmed and not restricted
-    [finalPermission, restricted, bearCandidate, justReset]
+f_oneHourLogic(_dailyPerm) =>
+    [ema10_1h, ema20_1h, ema200_1h] = f_getEMAs("60")
+    emaTrendOk_1h = (ema10_1h > ema20_1h) and (ema20_1h > ema200_1h)
 
-[oneM4hPerm, oneM4hRestrict, oneM4hBear, oneM4hReset] = request.security(syminfo.tickerid, "1", f_1m4hLogic())
+    oneHJustReset := false
 
-//----------------------------------------------------
-//  1-MINUTE LOGIC (from 1h)
-//----------------------------------------------------
+    if oneHRestricted
+        if (close > open) and (close > ema10_1h)
+            oneHRestricted := false
+            oneHJustReset  := true
+            oneHBearishCandidate := false
 
-f_1m1hLogic() =>
-    var bool restricted = false
-    var bool bearCandidate = false
-    var bool justReset = false
-    
-    [e10, e20, e200] = f_getEMAs("1")
-    emaTrendOK = e10 > e20 and e20 > e200
-    justReset := false
-    
-    if restricted and (close > open) and (close > e10)
-        restricted := false
-        justReset := true
-        bearCandidate := false
-    
-    bool permission = false
-    if not restricted and not justReset and emaTrendOK and oneHPerm
-        bool condBear = (close < open) and (crosses(e10) or crosses(e20) and (close > e10)
-        if condBear
-            bearCandidate := true
-        
-        bool condA = (close > open) and (crosses(e10) or crosses(e20)) and (close > e10)
-        bool condB = bearCandidate and (close > open) and (close > e10)
-        
-        if condA or condB
-            permission := true
-            bearCandidate := false
-    
-    if not restricted and not justReset and ((open < e20) or (close < e20))
-        restricted := true
-        bearCandidate := false
-    
-    bool finalPermission = permission and barstate.isconfirmed and not restricted
-    [finalPermission, restricted, bearCandidate, justReset]
+    _permission1h = false
 
-[oneM1hPerm, oneM1hRestrict, oneM1hBear, oneM1hReset] = request.security(syminfo.tickerid, "1", f_1m1hLogic())
+    if not oneHRestricted and not oneHJustReset and emaTrendOk_1h and _dailyPerm
+        condA_1h = (close > open) and (crosses(ema10_1h) or crosses(ema20_1h)) and (close > ema10_1h)
+        condBearCandidate_1h = (close < open) and (crosses(ema10_1h) or crosses(ema20_1h)) and (close > ema10_1h)
+        if condBearCandidate_1h
+            oneHBearishCandidate := true
+
+        condBConfirm_1h = oneHBearishCandidate and (close > open) and (close > ema10_1h)
+
+        if condA_1h or condBConfirm_1h
+            _permission1h := true
+            oneHBearishCandidate := false
+
+    if not oneHRestricted and not oneHJustReset
+        if (open < ema20_1h) or (close < ema20_1h)
+            oneHRestricted := true
+            oneHBearishCandidate := false
+
+    if _permission1h and barstate.isconfirmed and not oneHRestricted
+        oneHPermission := true
+    else
+        oneHPermission := false
+
+request.security(syminfo.tickerid, "60", f_oneHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
+
+// Label for 1h signals if you are on a 1h chart
+if oneHPermission and timeframe.period == "60"
+    label.new(bar_index, high, style=label.style_label_down, text="1H T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  10-SECOND LOGIC
+//  4) 15-MIN LOGIC (depends on 4h permission)
 //----------------------------------------------------
+var bool fifteenMRestricted       = false
+var bool fifteenMBearishCandidate = false
+var bool fifteenMJustReset        = false
+var bool fifteenMPermission       = false
 
-f_10sLogic() =>
-    var bool restricted = false
-    var bool bearCandidate = false
-    var bool justReset = false
-    
-    [e10, e20, e200] = f_getEMAs("10S")
-    emaTrendOK = e10 > e20 and e20 > e200
-    justReset := false
-    
-    if restricted and (close > open) and (close > e10)
-        restricted := false
-        justReset := true
-        bearCandidate := false
-    
-    bool permission = false
-    if not restricted and not justReset and emaTrendOK and oneHPerm
-        bool condBear = (close < open) and (crosses(e10) or crosses(e20) and (close > e10))
-        if condBear
-            bearCandidate := true
-        
-        bool condA = (close > open) and (crosses(e10) or crosses(e20)) and (close > e10)
-        bool condB = bearCandidate and (close > open) and (close > e10)
-        
-        if condA or condB
-            permission := true
-            bearCandidate := false
-    
-    if not restricted and not justReset and ((open < e20) or (close < e20))
-        restricted := true
-        bearCandidate := false
-    
-    bool finalPermission = permission and barstate.isconfirmed and not restricted
-    [finalPermission, restricted, bearCandidate, justReset]
+f_fifteenMinLogic(_4hPerm) =>
+    [ema10_15, ema20_15, ema200_15] = f_getEMAs("15")
+    emaTrendOk_15 = (ema10_15 > ema20_15) and (ema20_15 > ema200_15)
 
-[tenSPerm, tenSRestrict, tenSBear, tenSReset] = request.security(syminfo.tickerid, "10S", f_10sLogic())
+    fifteenMJustReset := false
 
-//----------------------------------------------------
-//  LABEL DRAWING
-//----------------------------------------------------
+    if fifteenMRestricted
+        if (close > open) and (close > ema10_15)
+            fifteenMRestricted := false
+            fifteenMJustReset  := true
+            fifteenMBearishCandidate := false
 
-drawLabel(text, color) =>
-    label.new(bar_index, high, text=text, 
-     style=label.style_label_down, 
-     color=color.new(color, 90), 
-     textcolor=color.white, 
-     size=size.small)
+    _permission15m = false
 
-// Current timeframe labels
-if dailyPerm and timeframe.period == "D"
-    drawLabel("Daily T2", color.green)
+    if not fifteenMRestricted and not fifteenMJustReset and emaTrendOk_15 and _4hPerm
+        condA_15 = (close > open) and (crosses(ema10_15) or crosses(ema20_15)) and (close > ema10_15)
+        condBearCandidate_15 = (close < open) and (crosses(ema10_15) or crosses(ema20_15)) and (close > ema10_15)
+        if condBearCandidate_15
+            fifteenMBearishCandidate := true
 
-if fourHPerm and timeframe.period == "240"
-    drawLabel("4H T2", color.blue)
+        condBConfirm_15 = fifteenMBearishCandidate and (close > open) and (close > ema10_15)
 
-if oneHPerm and timeframe.period == "60"
-    drawLabel("1H T2", color.purple)
+        if condA_15 or condBConfirm_15
+            _permission15m := true
+            fifteenMBearishCandidate := false
 
-if fifteenPerm and timeframe.period == "15"
-    drawLabel("15m T2", color.orange)
+    if not fifteenMRestricted and not fifteenMJustReset
+        if (open < ema20_15) or (close < ema20_15)
+            fifteenMRestricted := true
+            fifteenMBearishCandidate := false
 
-if oneM4hPerm and timeframe.period == "1"
-    drawLabel("1m(4h) T2", color.teal)
+    if _permission15m and barstate.isconfirmed and not fifteenMRestricted
+        fifteenMPermission := true
+    else
+        fifteenMPermission := false
 
-if oneM1hPerm and timeframe.period == "1"
-    drawLabel("1m(1h) T2", color.fuchsia)
+request.security(syminfo.tickerid, "15", f_fifteenMinLogic(fourHPermission), lookahead=barmerge.lookahead_on)
 
-if tenSPerm and timeframe.period == "10S"
-    drawLabel("10s T2", color.red)
+// Label for 15min signals if you are on a 15min chart
+if fifteenMPermission and timeframe.period == "15"
+    label.new(bar_index, high, style=label.style_label_down, text="15m T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  EMA PLOTS
+//  5) 1-MIN LOGIC (two branches: from 4h and from 1h)
 //----------------------------------------------------
+// 5.a) 1-min from 4h
+var bool oneM_4hRestricted       = false
+var bool oneM_4hBearishCandidate = false
+var bool oneM_4hJustReset        = false
+var bool oneM_4hPermission       = false
 
-plot(ta.ema(close, 10), "EMA 10", color.new(color.blue, 0))
-plot(ta.ema(close, 20), "EMA 20", color.new(color.red, 0))
-plot(ta.ema(close, 200), "EMA 200", color.new(color.orange, 0))
+f_oneMinFrom4hLogic(_4hPerm) =>
+    [ema10_1m4h, ema20_1m4h, ema200_1m4h] = f_getEMAs("1")
+    emaTrendOk_1m4h = (ema10_1m4h > ema20_1m4h) and (ema20_1m4h > ema200_1m4h)
+
+    oneM_4hJustReset := false
+
+    if oneM_4hRestricted
+        if (close > open) and (close > ema10_1m4h)
+            oneM_4hRestricted := false
+            oneM_4hJustReset  := true
+            oneM_4hBearishCandidate := false
+
+    _permission1m4h = false
+    if not oneM_4hRestricted and not oneM_4hJustReset and emaTrendOk_1m4h and _4hPerm
+        condA_1m4h = (close > open) and (crosses(ema10_1m4h) or crosses(ema20_1m4h)) and (close > ema10_1m4h)
+        condBearCandidate_1m4h = (close < open) and (crosses(ema10_1m4h) or crosses(ema20_1m4h)) and (close > ema10_1m4h)
+        if condBearCandidate_1m4h
+            oneM_4hBearishCandidate := true
+
+        condBConfirm_1m4h = oneM_4hBearishCandidate and (close > open) and (close > ema10_1m4h)
+
+        if condA_1m4h or condBConfirm_1m4h
+            _permission1m4h := true
+            oneM_4hBearishCandidate := false
+
+    if not oneM_4hRestricted and not oneM_4hJustReset
+        if (open < ema20_1m4h) or (close < ema20_1m4h)
+            oneM_4hRestricted := true
+            oneM_4hBearishCandidate := false
+
+    if _permission1m4h and barstate.isconfirmed and not oneM_4hRestricted
+        oneM_4hPermission := true
+    else
+        oneM_4hPermission := false
+
+request.security(syminfo.tickerid, "1", f_oneMinFrom4hLogic(fourHPermission), lookahead=barmerge.lookahead_on)
+
+// Label for 1m signals if you are on a 1m chart from the 4h branch
+if oneM_4hPermission and timeframe.period == "1"
+    label.new(bar_index, high, style=label.style_label_down, text="1m(4h) T2", color=color.new(color.green, 0), textcolor=color.white)
+
+// 5.b) 1-min from 1h
+var bool oneM_1hRestricted       = false
+var bool oneM_1hBearishCandidate = false
+var bool oneM_1hJustReset        = false
+var bool oneM_1hPermission       = false
+
+f_oneMinFrom1hLogic(_1hPerm) =>
+    [ema10_1m1h, ema20_1m1h, ema200_1m1h] = f_getEMAs("1")
+    emaTrendOk_1m1h = (ema10_1m1h > ema20_1m1h) and (ema20_1m1h > ema200_1m1h)
+
+    oneM_1hJustReset := false
+
+    if oneM_1hRestricted
+        if (close > open) and (close > ema10_1m1h)
+            oneM_1hRestricted := false
+            oneM_1hJustReset  := true
+            oneM_1hBearishCandidate := false
+
+    _permission1m1h = false
+    if not oneM_1hRestricted and not oneM_1hJustReset and emaTrendOk_1m1h and _1hPerm
+        condA_1m1h = (close > open) and (crosses(ema10_1m1h) or crosses(ema20_1m1h)) and (close > ema10_1m1h)
+        condBearCandidate_1m1h = (close < open) and (crosses(ema10_1m1h) or crosses(ema20_1m1h)) and (close > ema10_1m1h)
+        if condBearCandidate_1m1h
+            oneM_1hBearishCandidate := true
+
+        condBConfirm_1m1h = oneM_1hBearishCandidate and (close > open) and (close > ema10_1m1h)
+
+        if condA_1m1h or condBConfirm_1m1h
+            _permission1m1h := true
+            oneM_1hBearishCandidate := false
+
+    if not oneM_1hRestricted and not oneM_1hJustReset
+        if (open < ema20_1m1h) or (close < ema20_1m1h)
+            oneM_1hRestricted := true
+            oneM_1hBearishCandidate := false
+
+    if _permission1m1h and barstate.isconfirmed and not oneM_1hRestricted
+        oneM_1hPermission := true
+    else
+        oneM_1hPermission := false
+
+request.security(syminfo.tickerid, "1", f_oneMinFrom1hLogic(oneHPermission), lookahead=barmerge.lookahead_on)
+
+// Label for 1m signals if you are on a 1m chart from the 1h branch
+if oneM_1hPermission and timeframe.period == "1"
+    label.new(bar_index, high, style=label.style_label_down, text="1m(1h) T2", color=color.new(color.green, 0), textcolor=color.white)
+
+//----------------------------------------------------
+// 6) 10-SECOND LOGIC (depends on 1h permission)
+//----------------------------------------------------
+var bool tenSRestricted       = false
+var bool tenSBearishCandidate = false
+var bool tenSJustReset        = false
+var bool tenSPermission       = false
+
+f_tenSecLogic(_1hPerm) =>
+    [ema10_10s, ema20_10s, ema200_10s] = f_getEMAs("10S")
+    emaTrendOk_10s = (ema10_10s > ema20_10s) and (ema20_10s > ema200_10s)
+
+    tenSJustReset := false
+
+    if tenSRestricted
+        if (close > open) and (close > ema10_10s)
+            tenSRestricted := false
+            tenSJustReset  := true
+            tenSBearishCandidate := false
+
+    _permission10s = false
+    if not tenSRestricted and not tenSJustReset and emaTrendOk_10s and _1hPerm
+        condA_10s = (close > open) and (crosses(ema10_10s) or crosses(ema20_10s)) and (close > ema10_10s)
+        condBearCandidate_10s = (close < open) and (crosses(ema10_10s) or crosses(ema20_10s)) and (close > ema10_10s)
+        if condBearCandidate_10s
+            tenSBearishCandidate := true
+
+        condBConfirm_10s = tenSBearishCandidate and (close > open) and (close > ema10_10s)
+
+        if condA_10s or condBConfirm_10s
+            _permission10s := true
+            tenSBearishCandidate := false
+
+    if not tenSRestricted and not tenSJustReset
+        if (open < ema20_10s) or (close < ema20_10s)
+            tenSRestricted := true
+            tenSBearishCandidate := false
+
+    if _permission10s and barstate.isconfirmed and not tenSRestricted
+        tenSPermission := true
+    else
+        tenSPermission := false
+
+request.security(syminfo.tickerid, "10S", f_tenSecLogic(oneHPermission), lookahead=barmerge.lookahead_on)
+
+// Label for 10-second signals if you are on a 10-second chart
+if tenSPermission and timeframe.period == "10S"
+    label.new(bar_index, high, style=label.style_label_down, text="10s T2", color=color.new(color.green, 0), textcolor=color.white)
+
+//----------------------------------------------------
+// PLOT EMAs FOR THE CURRENT CHART TIMEFRAME
+//----------------------------------------------------
+emaLen10  = 10
+emaLen20  = 20
+emaLen200 = 200
+
+ema10  = ta.ema(close, emaLen10)
+ema20  = ta.ema(close, emaLen20)
+ema200 = ta.ema(close, emaLen200)
+
+// Plot them
+plot(ema10,  title="EMA 10",  color=color.blue)
+plot(ema20,  title="EMA 20",  color=color.red)
+plot(ema200, title="EMA 200", color=color.orange)
