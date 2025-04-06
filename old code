@@ -1,6 +1,10 @@
 //@version=5
 indicator("Tier 2 Pattern with Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
+// Helper function defined at the top level
+crosses(_ema) =>
+    (low < _ema) and (high > _ema)
+
 // The stateful Tier 2 pattern detection function
 f_tier2Pattern() =>
     // EMA settings and calculations
@@ -13,10 +17,7 @@ f_tier2Pattern() =>
     // Check EMA hierarchy: EMA10 > EMA20 > EMA200
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
     
-    // Helper function to check if the candle crosses an EMA
-    crosses(_ema) => (low < _ema) and (high > _ema)
-    
-    // Persistent state variables inside the function so that each timeframe instance maintains its own state
+    // Persistent state variables so that each timeframe instance maintains its own state
     var bool restricted       = false   // Set when the candle triggers a restriction
     var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
     var bool justReset        = false   // True on the bar that resets restriction
@@ -79,7 +80,7 @@ pattern_1m_from4h = gate_4h and request.security(syminfo.tickerid, "1",  f_tier2
 // If active, allow searching on the 1min and 10-sec timeframes.
 gate_1h = request.security(syminfo.tickerid, "60", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
 pattern_1m_from1h = gate_1h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_10s       = gate_1h and request.security(syminfo.tickerid, "10", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_10s       = gate_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // ---------------------- Debugging Labels ----------------------
 // These labels appear only where permission has been granted.
