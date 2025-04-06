@@ -57,22 +57,18 @@ var bool fourhConfirmed = false
 var bool onehConfirmed = false
 var bool min1Confirmed = false
 
-// Daily timeframe confirmation (track previous bar confirmation)
+// Get previous daily confirmation
 dailyConfirmed := request.security(syminfo.tickerid, "D", f_tier2Pattern() ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// 4h timeframe confirmation (depends on previous daily confirmation)
+// Pass previous daily confirmation to 4h and 1h
 fourhConfirmed := request.security(syminfo.tickerid, "240", dailyConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-
-// 1h timeframe confirmation (depends on previous 4h confirmation)
 onehConfirmed := request.security(syminfo.tickerid, "60", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// 15m timeframe confirmation (depends on previous 4h confirmation)
+// Pass previous 4h confirmation to 15m and 1m
 min15Confirmed := request.security(syminfo.tickerid, "15", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-
-// 1m timeframe confirmation (depends on previous 1h confirmation)
 min1Confirmed := request.security(syminfo.tickerid, "1", onehConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// 10s timeframe confirmation (depends on previous 1m confirmation)
+// Pass previous 1h confirmation to 1m and 10s
 sec10Confirmed := request.security(syminfo.tickerid, "10S", min1Confirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
 // ------------------- Debugging Labels -------------------
