@@ -13,7 +13,7 @@ plot(ema200_main, title="EMA 200", color=color.orange)
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// The stateful Tier 2 pattern detection function
+// Updated stateful Tier 2 pattern detection function using your reference conditions
 f_tier2Pattern() =>
     // EMA settings and calculations
     emaLen10  = 10
@@ -46,26 +46,27 @@ f_tier2Pattern() =>
         // Condition A: A single bullish candle which crosses EMA10 or EMA20 and closes above EMA10.
         condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         
-        // Condition B is a two-candle sequence. First, mark a bearish candidate candle:
+        // Condition B is a two-candle sequence.
+        // First, detect a bearish candidate candle:
         condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
         // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
         
-        // If either condition is met, permission is granted.
+        // If either Condition A or Condition B is met, permission is granted.
         if condA or condBConfirm
             permission       := true
             bearishCandidate := false
 
-    // After detection, if not in a reset state, check if the current candle should trigger a restriction.
+    // After pattern detection, check if the current candle triggers restriction.
     if not restricted and not justReset
         if (open < ema20) or (close < ema20)
             restricted       := true
             bearishCandidate := false
 
-    // Store the permission result, then reset permission for the next bar.
-    result = permission
+    // Return true only if permission is granted, the bar is confirmed, and we're not restricted.
+    result = permission and barstate.isconfirmed and (not restricted)
     permission := false
     result
 
