@@ -52,7 +52,7 @@ f_tier2Pattern() =>
 
 // ------------------- Cascading Permission Logic -------------------
 
-// Declare persistent variables
+// Declare persistent variables for each confirmation flag
 var bool dailyConfirmed = false
 var bool fourhConfirmed = false
 var bool onehConfirmed = false
@@ -60,18 +60,18 @@ var bool min1Confirmed = false
 var bool min15Confirmed = false
 var bool sec10Confirmed = false
 
-// Get previous daily confirmation
+// Recalculate dailyConfirmed every time a new bar forms
 dailyConfirmed := request.security(syminfo.tickerid, "D", f_tier2Pattern() ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// Pass previous daily confirmation to 4h and 1h
+// Recalculate fourhConfirmed based on the previous daily confirmation
 fourhConfirmed := request.security(syminfo.tickerid, "240", dailyConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 onehConfirmed := request.security(syminfo.tickerid, "60", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// Pass previous 4h confirmation to 15m and 1m
+// Recalculate min15Confirmed based on the previous 4h confirmation
 min15Confirmed := request.security(syminfo.tickerid, "15", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 min1Confirmed := request.security(syminfo.tickerid, "1", onehConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// Pass previous 1h confirmation to 1m and 10s
+// Recalculate sec10Confirmed based on the previous 1m confirmation
 sec10Confirmed := request.security(syminfo.tickerid, "10S", min1Confirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
 // ------------------- Debugging Labels -------------------
