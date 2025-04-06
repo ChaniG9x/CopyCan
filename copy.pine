@@ -1,9 +1,7 @@
-//@version=5
+a//@version=5
 indicator("Tier 2 Pattern with Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
-// --------------------------------------------------------
-// 1. Plot the local chart's EMAs (for visual reference)
-// --------------------------------------------------------
+// Plot EMAs on the chart
 ema10_main  = ta.ema(close, 10)
 ema20_main  = ta.ema(close, 20)
 ema200_main = ta.ema(close, 200)
@@ -11,144 +9,115 @@ plot(ema10_main, title="EMA 10", color=color.blue)
 plot(ema20_main, title="EMA 20", color=color.red)
 plot(ema200_main, title="EMA 200", color=color.orange)
 
-// --------------------------------------------------------
-// 2. Helper function to detect if current candle crosses an EMA
-// --------------------------------------------------------
+// Helper function defined at the top level
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// --------------------------------------------------------
-// 3. Tier 2 Pattern function for a single timeframe
-// --------------------------------------------------------
+// The stateful Tier 2 pattern detection function
 f_tier2Pattern() =>
-    // EMA calculations
+    // EMA settings and calculations
     emaLen10  = 10
     emaLen20  = 20
     emaLen200 = 200
-
     ema10  = ta.ema(close, emaLen10)
     ema20  = ta.ema(close, emaLen20)
     ema200 = ta.ema(close, emaLen200)
-
-    // EMA hierarchy: 10 > 20 > 200
+    // Check EMA hierarchy: EMA10 > EMA20 > EMA200
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-
-    // Persistent variables
-    var bool restricted       = false
-    var bool bearishCandidate = false
-    var bool justReset        = false
-
-    // Reset justReset on each bar
+    
+    // Persistent state variables so that each timeframe instance maintains its own state
+    var bool restricted       = false   // Set when the candle triggers a restriction
+    var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
+    var bool justReset        = false   // True on the bar that resets restriction
+    // Reset justReset at the start of each bar
     justReset := false
 
-    // If restricted, check if this candle resets restriction
+    // If currently restricted, check if this candle resets the restriction.
     if restricted
-        // Reset if bullish and closes above ema10
+        // Reset if a bullish candle closes above EMA10.
         if (close > open) and (close > ema10)
             restricted       := false
             justReset        := true
             bearishCandidate := false
 
-    // Pattern detection runs only if not restricted, not a reset bar, and EMAs are in an uptrend
+    // The detection logic is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
     var bool permission = false
     if not restricted and not justReset and emaTrendOk
-        // Condition A: single bullish candle that crosses EMA10 or EMA20, then closes above EMA10
-        condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
-
-        // Condition B: two-candle sequence
-        condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+        // Condition A: A single bullish candle which crosses EMA10 or EMA20 and closes above EMA10.
+        condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
+        
+        // Condition B is a two-candle sequence. First, mark a bearish candidate candle:
+        condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
-
+        // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
-
-        // If either condition is met, permission is granted
+        
+        // If either condition is met, permission is granted.
         if condA or condBConfirm
             permission       := true
             bearishCandidate := false
 
-    // After pattern detection, check if current candle triggers restriction
+    // After detection, if not in a reset state, check if the current candle should trigger a restriction.
     if not restricted and not justReset
         if (open < ema20) or (close < ema20)
             restricted       := true
             bearishCandidate := false
 
-    // Final result for this timeframe bar
-    // Only true if bar is confirmed, permission is granted, and not restricted
-    result = permission and barstate.isconfirmed and not restricted
-
-    // Reset the permission flag for the next bar
+    // Store the permission result, then reset permission for the next bar.
+    result = permission
     permission := false
-
     result
 
-// --------------------------------------------------------
-// 4. Request the daily, 4h, 1h, 15m, 1m, 10s data
-//    by shifting the higher timeframe's result [1]
-// --------------------------------------------------------
+// ------------------- Cascading Logic -------------------
+// The higher timeframe pattern acts as the gate for lower timeframes.
+// If the previous daily candle shows the pattern, that gives permission for the current day on 4h and 1h.
 
-// --- Daily
-dailyPatternRaw = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-dailyConfirmed  = dailyPatternRaw[1]  // The previous daily candle's T2 pattern result
+// Daily gate: Look at the previous daily candle.
+dailyGate = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
 
-// --- 4h
-pattern_4h_raw = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_4h_prev = pattern_4h_raw[1]  
-pattern_4h = dailyConfirmed and pattern_4h_prev
+// On lower timeframes, the search is allowed only if the higher timeframe had the pattern.
+pattern_4h = dailyGate and request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1h = dailyGate and request.security(syminfo.tickerid, "60",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// --- 1h
-pattern_1h_raw = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_1h_prev = pattern_1h_raw[1]
-pattern_1h = dailyConfirmed and pattern_1h_prev
+// ------------------- 4h Cascade -------------------
+// If the 4h pattern is confirmed, allow search on 15-minute and 1-minute charts.
+pattern_15m_from4h = pattern_4h and request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1m_from4h  = pattern_4h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// --- 15m from 4h
-pattern_15m_raw = request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_15m_from4h = pattern_4h and pattern_15m_raw
+// ------------------- 1h Cascade -------------------
+// If the 1h pattern is confirmed, allow search on 1-minute and 10-second charts.
+pattern_1m_from1h  = pattern_1h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_10s_from1h = pattern_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// --- 1m from 4h
-pattern_1m_raw_4h = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_1m_from4h = pattern_4h and pattern_1m_raw_4h
+// ------------------- Debugging Labels -------------------
+// Each label is only drawn if the chart's current resolution matches the intended timeframe
+// and the corresponding hierarchical permission and pattern is confirmed.
 
-// --- 1m from 1h
-pattern_1m_raw_1h = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_1m_from1h = pattern_1h and pattern_1m_raw_1h
+// Daily label appears only on a Daily chart.
+if timeframe.period == "D" and dailyGate
+    label.new(bar_index, high, "Daily Pattern", style=label.style_label_down, color=color.blue, textcolor=color.white)
 
-// --- 10s from 1h
-pattern_10s_raw_1h = request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_10s_from1h = pattern_1h and pattern_10s_raw_1h
+// 4h label appears only on a 4h chart.
+if timeframe.period == "240" and pattern_4h
+    label.new(bar_index, high, "4h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// --------------------------------------------------------
-// 5. Plot labels only when the condition turns true this bar
-//    (pattern_X and not pattern_X[1])
-// --------------------------------------------------------
+// 1h label appears only on a 1h chart.
+if timeframe.period == "60" and pattern_1h
+    label.new(bar_index, high, "1h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// A tiny function to detect "just turned true" from false
-justTurnedTrue(cond) => cond and not cond[1]
+// 15m label appears only on a 15-min chart.
+if timeframe.period == "15" and pattern_15m_from4h
+    label.new(bar_index, low, "15m Pattern (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// --- DAILY label
-if timeframe.period == "D" and justTurnedTrue(dailyPatternRaw)
-    label.new(bar_index, high, "Daily T2", style=label.style_label_down, color=color.green, textcolor=color.white)
+// 1m labels appear only on a 1-min chart.
+// Identify if the permission came from the 4h gate.
+if timeframe.period == "1" and pattern_1m_from4h
+    label.new(bar_index, low, "1m Pattern (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
+// Identify if the permission came from the 1h gate.
+if timeframe.period == "1" and pattern_1m_from1h
+    label.new(bar_index, low, "1m Pattern (1h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// --- 4H label
-if timeframe.period == "240" and justTurnedTrue(pattern_4h_raw)
-    label.new(bar_index, high, "4H T2", style=label.style_label_down, color=color.orange, textcolor=color.white)
-
-// --- 1H label
-if timeframe.period == "60" and justTurnedTrue(pattern_1h_raw)
-    label.new(bar_index, high, "1H T2", style=label.style_label_down, color=color.red, textcolor=color.white)
-
-// --- 15m label (this indicates a 15m T2 that is allowed by 4h)
-if timeframe.period == "15" and justTurnedTrue(pattern_15m_from4h)
-    label.new(bar_index, low, "15m(4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
-
-// --- 1m label for the 4h branch
-if timeframe.period == "1" and justTurnedTrue(pattern_1m_from4h)
-    label.new(bar_index, low, "1m(4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
-
-// --- 1m label for the 1h branch
-if timeframe.period == "1" and justTurnedTrue(pattern_1m_from1h)
-    label.new(bar_index, low, "1m(1h)", style=label.style_label_up, color=color.red, textcolor=color.white)
-
-// --- 10s label for the 1h branch
-if timeframe.period == "10S" and justTurnedTrue(pattern_10s_from1h)
-    label.new(bar_index, high, "10s(1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
+// 10s label appears only on a 10-sec chart.
+if timeframe.period == "10S" and pattern_10s_from1h
+    label.new(bar_index, high, "10s Pattern (1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
