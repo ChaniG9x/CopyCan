@@ -1,7 +1,7 @@
 //@version=5
-indicator("Tier 2 Pattern with Correct Cascading Unlock (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
+indicator("Tier 2 Pattern with Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
-// === PLOT EMAs ===
+// Plot EMAs on the chart
 ema10_main  = ta.ema(close, 10)
 ema20_main  = ta.ema(close, 20)
 ema200_main = ta.ema(close, 200)
@@ -9,20 +9,19 @@ plot(ema10_main, title="EMA 10", color=color.blue)
 plot(ema20_main, title="EMA 20", color=color.red)
 plot(ema200_main, title="EMA 200", color=color.orange)
 
-// === CROSS CHECK FUNCTION ===
+// Helper function defined at the top level
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// === CORE PATTERN FUNCTION ===
+// Tier 2 pattern detection function
 f_tier2Pattern() =>
     ema10  = ta.ema(close, 10)
     ema20  = ta.ema(close, 20)
     ema200 = ta.ema(close, 200)
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-
-    var bool restricted       = false
+    var bool restricted = false
     var bool bearishCandidate = false
-    var bool justReset        = false
+    var bool justReset = false
     justReset := false
 
     if restricted
@@ -51,52 +50,47 @@ f_tier2Pattern() =>
     permission := false
     result
 
-// === CORRECT GATED HIGHER-TF PERMISSION TRACKING ===
-getGateWithTime(tf) =>
-    ema = request.security(syminfo.tickerid, tf, ta.ema(close, 10))
-    condA = request.security(syminfo.tickerid, tf, (close > open) and (low < ema and high > ema) and (close > ema))
-    condBbear = request.security(syminfo.tickerid, tf, (close[1] < open[1]) and (low[1] < ema and high[1] > ema))
-    condBbull = request.security(syminfo.tickerid, tf, (close > open) and (close > ema))
-    confirmed = condA or (condBbear and condBbull)
-    barTime = request.security(syminfo.tickerid, tf, time)
-    [confirmed, barTime]
+// ------------------- Cascading Permission Logic -------------------
 
-// === GET CONFIRMATION FLAGS AND TIMES ===
-[dailyConfirmed, dailyTime] = getGateWithTime("D")
-[h4Confirmed, h4Time]       = getGateWithTime("240")
-[h1Confirmed, h1Time]       = getGateWithTime("60")
+var bool dailyConfirmed = false
+var bool fourhConfirmed = false
+var bool onehConfirmed = false
+var bool min1Confirmed = false
 
-// === CURRENT TIME ===
-now = time
+// Daily timeframe confirmation (track previous bar confirmation)
+dailyConfirmed := request.security(syminfo.tickerid, "D", f_tier2Pattern() ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// === ENFORCE "NEXT BAR ONLY" UNLOCK WINDOWS ===
-allowThisTF =
-    timeframe.period == "D" ? true :
-    (timeframe.period == "240" or timeframe.period == "60") and dailyConfirmed and now > dailyTime ? true :
-    (timeframe.period == "15" or timeframe.period == "1") and h4Confirmed and now > h4Time ? true :
-    timeframe.period == "10S" and h1Confirmed and now > h1Time ? true :
-    false
+// 4h timeframe confirmation (depends on previous daily confirmation)
+fourhConfirmed := request.security(syminfo.tickerid, "240", dailyConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// === LABEL FUNCTION ===
-plotLabel(cond, yval, txt, col) =>
-    if cond
-        label.new(bar_index, yval, txt, style=label.style_label_down, color=col, textcolor=color.white)
+// 1h timeframe confirmation (depends on previous 4h confirmation)
+onehConfirmed := request.security(syminfo.tickerid, "60", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// === FINAL LABEL PLOTTING WITH GATES ===
-if allowThisTF and timeframe.period == "D" and f_tier2Pattern()
-    plotLabel(true, high, "T2", color.green)
+// 15m timeframe confirmation (depends on previous 4h confirmation)
+min15Confirmed := request.security(syminfo.tickerid, "15", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-if allowThisTF and timeframe.period == "240" and f_tier2Pattern()
-    plotLabel(true, high, "4h", color.orange)
+// 1m timeframe confirmation (depends on previous 1h confirmation)
+min1Confirmed := request.security(syminfo.tickerid, "1", onehConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-if allowThisTF and timeframe.period == "60" and f_tier2Pattern()
-    plotLabel(true, high, "1h", color.red)
+// 10s timeframe confirmation (depends on previous 1m confirmation)
+sec10Confirmed := request.security(syminfo.tickerid, "10S", min1Confirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-if allowThisTF and timeframe.period == "15" and f_tier2Pattern()
+// ------------------- Debugging Labels -------------------
+
+if timeframe.period == "D" and f_tier2Pattern() and dailyConfirmed
+    label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
+
+if timeframe.period == "240" and f_tier2Pattern() and fourhConfirmed
+    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
+
+if timeframe.period == "60" and f_tier2Pattern() and onehConfirmed
+    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
+
+if timeframe.period == "15" and f_tier2Pattern() and min15Confirmed
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if allowThisTF and timeframe.period == "1" and f_tier2Pattern()
+if timeframe.period == "1" and f_tier2Pattern() and min1Confirmed
     label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-if allowThisTF and timeframe.period == "10S" and f_tier2Pattern()
+if timeframe.period == "10S" and f_tier2Pattern() and sec10Confirmed
     label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
