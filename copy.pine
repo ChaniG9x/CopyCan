@@ -1,87 +1,81 @@
 //@version=5
-indicator("Tier 2 Pattern (CAPA)", overlay=true, shorttitle="T2DP")
+indicator("Full Cascading Strategy", overlay=true)
 
-// EMA lengths and calculations
-emaLen10  = 10
-emaLen20  = 20
-emaLen200 = 200
+// --- EMA Calculations for Each Timeframe ---
+ema10 = ta.ema(close, 10)
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
 
-ema10  = ta.ema(close, emaLen10)
-ema20  = ta.ema(close, emaLen20)
-ema200 = ta.ema(close, emaLen200)
+// Plot EMAs
+plot(ema10, title="EMA 10", color=color.blue, linewidth=2)
+plot(ema20, title="EMA 20", color=color.red, linewidth=2)
+plot(ema50, title="EMA 50", color=color.gray, linewidth=2)
+plot(ema200, title="EMA 200", color=color.orange, linewidth=2)
 
-// Plot EMAs with specified colors
-plot(ema10,  title="EMA 10",  color=color.blue)
-plot(ema20,  title="EMA 20",  color=color.red)
-plot(ema200, title="EMA 200", color=color.orange)
+// --- Cascading Confirmation Logic Between Timeframes ---
 
-// Check EMA hierarchy condition: EMA10 > EMA20 > EMA200
-emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
+// Track higher timeframe's confirmation status (flags for previous candle confirmations)
+var bool prevDailyConfirmed = false
+var bool prev4hConfirmed = false
+var bool prev1hConfirmed = false
 
-// A helper function to detect if the candle crosses a given EMA
-crosses(emaVal) =>
-    (low < emaVal) and (high > emaVal)
+// --- Daily Timeframe Confirmation ---
+// Conditions for confirming the daily pattern
+dailyConfirmed = ta.change(time("D")) and (close > open) and (close > ema10) and (close > ema20)  // Example condition
 
-// Persistent variables to manage states across candles
-var bool restricted        = false  // True if waiting for a reset candle after restriction
-var bool bearishCandidate  = false  // Set when a bearish candidate pattern is detected (waiting for next candle)
-var bool justReset         = false  // True on the bar that exits restriction, so we skip pattern detection on that bar
+if dailyConfirmed
+    prevDailyConfirmed := true
 
-// Reset justReset to false at the start of each new bar
-justReset := false
+// --- 4-Hour Timeframe Confirmation ---
+// Conditions for confirming the 4-hour pattern
+fourHConfirmed = request.security(syminfo.tickerid, "D", prevDailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1 and (close > open) and (close > ema10)
 
-// Store label permissions for higher timeframes
-var bool dailyPermission = false
-var bool fourHourPermission = false
-var bool oneHourPermission = false
+// Only allow 4h to search for patterns after daily confirmation
+if fourHConfirmed
+    prev4hConfirmed := true
 
-// Store previous candles' labels
-var bool prevDailyLabel = false
-var bool prev4hLabel = false
-var bool prev1hLabel = false
+// --- 1-Hour Timeframe Confirmation ---
+// Conditions for confirming the 1-hour pattern
+oneHConfirmed = request.security(syminfo.tickerid, "4H", prev4hConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1 and (close > open) and (close > ema10)
 
-// Daily Timeframe Permission (when the daily candle closes and meets the pattern)
-if (ta.change(time("D")))  // A new daily candle
-    // Check daily pattern conditions
-    if (emaTrendOk and (close > open) and crosses(ema10))  // Example condition for pattern
-        dailyPermission := true
-    else
-        dailyPermission := false
+// Only allow 1h to search for patterns after 4h confirmation
+if oneHConfirmed
+    prev1hConfirmed := true
 
-    // Store the label permission for the previous daily candle
-    prevDailyLabel := dailyPermission
+// --- 15-Minute and 1-Minute Timeframe Confirmation ---
+// Conditions for confirming the 15-minute and 1-minute patterns
+fifteenMConfirmed = request.security(syminfo.tickerid, "1H", prev1hConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1 and (close > open) and (close > ema10)
 
-// 4-Hour Timeframe Permission (Check if daily candle had permission)
-fourHourPermission := prevDailyLabel and ta.change(time("240"))  // Reset every new 4-hour candle
-// 1-Hour Timeframe Permission (Check if daily candle had permission)
-oneHourPermission := prevDailyLabel and ta.change(time("60"))  // Reset every new 1-hour candle
+// Allow 15m and 1m to search for patterns after 1h confirmation
+oneMConfirmed = fifteenMConfirmed and (close > open) and (close > ema10)  // Example pattern check
 
-// Lower timeframe permissions based on higher timeframes
-var bool fifteenMinPermission = false
-var bool oneMinPermission = false
-fifteenMinPermission := prev4hLabel and ta.change(time("15"))
-oneMinPermission := prev4hLabel and ta.change(time("1"))
+// --- 10-Second Timeframe Confirmation ---
+// Conditions for confirming the 10-second pattern
+tenSecConfirmed = request.security(syminfo.tickerid, "1M", oneMConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1 and (close > open) and (close > ema10)
 
-// Smallest timeframes (for example 10s and 1m)
-var bool tenSecPermission = false
-var bool oneSecPermission = false
-tenSecPermission := prev1hLabel and ta.change(time("10"))
-oneSecPermission := prev1hLabel and ta.change(time("1"))
+// --- Place Labels After Confirmation for Each Timeframe ---
 
-// --- Enforcing EMA Condition More Strictly ---
+// Daily Pattern Confirmation Label
+if dailyConfirmed
+    label.new(bar_index, high, "Daily Confirmed", color=color.green, textcolor=color.white, style=label.style_label_up)
 
-// Condition A: Single Bullish Candle (candle must close and high above EMA10)
-condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10) and (high > ema10)  // Enforcing high > EMA10
+// 4-Hour Pattern Confirmation Label
+if fourHConfirmed
+    label.new(bar_index, high, "4-Hour Confirmed", color=color.blue, textcolor=color.white, style=label.style_label_up)
 
-// Condition B: Bearish then Bullish Pattern (bearish followed by bullish candle)
-condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
-condBConfirm = bearishCandidate and (close > open) and (close > ema10)
+// 1-Hour Pattern Confirmation Label
+if oneHConfirmed
+    label.new(bar_index, high, "1-Hour Confirmed", color=color.purple, textcolor=color.white, style=label.style_label_up)
 
-// Check if permission is granted for current lower timeframe and meets conditions
-if (fifteenMinPermission or oneMinPermission)
-    if (condA or condBConfirm)
-        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.green, textcolor=color.white)
+// 15-Minute Pattern Confirmation Label
+if fifteenMConfirmed
+    label.new(bar_index, high, "15-Minute Confirmed", color=color.orange, textcolor=color.white, style=label.style_label_up)
 
-if (tenSecPermission or oneSecPermission)
-    if (condA or condBConfirm)
-        label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.green, textcolor=color.white)
+// 1-Minute Pattern Confirmation Label
+if oneMConfirmed
+    label.new(bar_index, high, "1-Minute Confirmed", color=color.red, textcolor=color.white, style=label.style_label_up)
+
+// 10-Second Pattern Confirmation Label
+if tenSecConfirmed
+    label.new(bar_index, high, "10-Second Confirmed", color=color.yellow, textcolor=color.white, style=label.style_label_up)
