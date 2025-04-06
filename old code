@@ -1,105 +1,112 @@
 //@version=5
-indicator("Tier 2 Pattern with Robust Cascading (CAPA)", overlay=true, shorttitle="T2DP")
+indicator("Tier 2 Pattern with Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
-// ===========================
-// 1. Base T2 Pattern Logic (Stateful)
-// ===========================
+// The stateful Tier 2 pattern detection function
+f_tier2Pattern() =>
+    // EMA settings and calculations
+    emaLen10  = 10
+    emaLen20  = 20
+    emaLen200 = 200
+    ema10  = ta.ema(close, emaLen10)
+    ema20  = ta.ema(close, emaLen20)
+    ema200 = ta.ema(close, emaLen200)
+    // Check EMA hierarchy: EMA10 > EMA20 > EMA200
+    emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
+    
+    // Helper function to check if the candle crosses an EMA
+    crosses(_ema) => (low < _ema) and (high > _ema)
+    
+    // Persistent state variables inside the function so that each timeframe instance maintains its own state
+    var bool restricted       = false   // Set when the candle triggers a restriction
+    var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
+    var bool justReset        = false   // True on the bar that resets restriction
+    // Reset justReset at the start of each bar
+    justReset := false
 
-emaLen10  = 10
-emaLen20  = 20
-emaLen200 = 200
+    // If currently restricted, check if this candle resets the restriction.
+    if restricted
+        // Reset if a bullish candle closes above EMA10.
+        if (close > open) and (close > ema10)
+            restricted       := false
+            justReset        := true
+            bearishCandidate := false
 
-ema10  = ta.ema(close, emaLen10)
-ema20  = ta.ema(close, emaLen20)
-ema200 = ta.ema(close, emaLen200)
+    // The detection logic is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
+    var bool permission = false
+    if not restricted and not justReset and emaTrendOk
+        // Condition A: A single bullish candle which crosses EMA10 or EMA20 and closes above EMA10.
+        condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
+        
+        // Condition B is a two-candle sequence. First, mark a bearish candidate candle:
+        condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
+        if condBearCandidate
+            bearishCandidate := true
+        // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
+        condBConfirm = bearishCandidate and (close > open) and (close > ema10)
+        
+        // If either condition is met, permission is granted.
+        if condA or condBConfirm
+            permission       := true
+            bearishCandidate := false
 
-plot(ema10, title="EMA 10", color=color.blue)
-plot(ema20, title="EMA 20", color=color.red)
-plot(ema200, title="EMA 200", color=color.orange)
+    // After detection, if not in a reset state, check if the current candle should trigger a restriction.
+    if not restricted and not justReset
+        if (open < ema20) or (close < ema20)
+            restricted       := true
+            bearishCandidate := false
 
-emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
+    // Store the permission result, then reset permission for the next bar.
+    result = permission
+    permission := false
+    result
 
-crosses(emaVal) =>
-    (low < emaVal) and (high > emaVal)
+// ---------------------- Cascading Gates ----------------------
+// Daily gate: Look at the previous daily candle.
+// If the pattern was present on the previous daily candle, the gate becomes active.
+dailyGate = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
 
-// State Management for the T2 pattern on the current timeframe
-var bool restricted       = false
-var bool bearishCandidate = false
-var bool justReset        = false
+// Use the daily gate to allow pattern search on 4h and 1h for the current day.
+pattern_4h = dailyGate and request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1h = dailyGate and request.security(syminfo.tickerid, "60",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-justReset := false
+// 4h gate: Look at the previous 4h candle.
+// If active, allow searching on 15min and 1min timeframes.
+gate_4h = request.security(syminfo.tickerid, "240", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+pattern_15m      = gate_4h and request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1m_from4h = gate_4h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-if restricted
-    if (close > open) and (close > ema10)
-        restricted := false
-        justReset  := true
-        bearishCandidate := false
+// 1h gate: Look at the previous 1h candle.
+// If active, allow searching on the 1min and 10-sec timeframes.
+gate_1h = request.security(syminfo.tickerid, "60", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+pattern_1m_from1h = gate_1h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_10s       = gate_1h and request.security(syminfo.tickerid, "10", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-var bool permission = false
-if not restricted and not justReset and emaTrendOk
-    // Condition A: Single bullish candle that crosses EMA10/EMA20 and closes above EMA10
-    condA = (close > open) and ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and (close > ema10)
-    // Condition B: Two-candle sequence (bearish candidate then confirmation)
-    condBearCandidate = (close < open) and ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and (close > ema10)
-    if condBearCandidate
-        bearishCandidate := true
-    condBConfirm = bearishCandidate and (close > open) and (close > ema10)
-    if condA or condBConfirm
-        permission := true
-        bearishCandidate := false
+// ---------------------- Debugging Labels ----------------------
+// These labels appear only where permission has been granted.
 
-if not restricted and not justReset
-    if (open < ema20) or (close < ema20)
-        restricted := true
-        bearishCandidate := false
+if dailyGate
+    label.new(bar_index, high, "Daily Gate", style=label.style_label_down, color=color.blue, textcolor=color.white)
 
-currentT2 = permission and emaTrendOk
+if pattern_4h
+    label.new(bar_index, high, "4h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// ===========================
-// 2. Cascading Logic: Higher Timeframe T2 Status
-// ===========================
+if pattern_1h
+    label.new(bar_index, high, "1h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// Define a simplified T2 condition for cascading purposes.
-f_simpleT2() =>
-    _ema10  = ta.ema(close, 10)
-    _ema20  = ta.ema(close, 20)
-    _ema200 = ta.ema(close, 200)
-    (_ema10 > _ema20 and _ema20 > _ema200) and (close > open)
+if gate_4h
+    label.new(bar_index, low, "4h Gate", style=label.style_label_up, color=color.purple, textcolor=color.white)
 
-// Fetch the previous completed candle’s T2 condition from higher timeframes.
-previousDayT2 = request.security(syminfo.tickerid, "D", f_simpleT2(), lookahead=barmerge.lookahead_off)[1]
-previous4HT2  = request.security(syminfo.tickerid, "240", f_simpleT2(), lookahead=barmerge.lookahead_off)[1]
-previous1HT2  = request.security(syminfo.tickerid, "60", f_simpleT2(), lookahead=barmerge.lookahead_off)[1]
+if pattern_15m
+    label.new(bar_index, low, "15m Pattern", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// ===========================
-// 3. Cascading Permission Lock-In (New Period Flags)
-// ===========================
+if pattern_1m_from4h
+    label.new(bar_index, low, "1m (from 4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// Define new period flags: they are true only on the first bar of a new period.
-newDay = ta.change(time("D")) != 0
-new4H  = ta.change(time("240")) != 0
-new1H  = ta.change(time("60")) != 0
+if gate_1h
+    label.new(bar_index, high, "1h Gate", style=label.style_label_left, color=color.red, textcolor=color.white)
 
-var bool cascadePermission = false
+if pattern_1m_from1h
+    label.new(bar_index, high, "1m (from 1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
 
-if timeframe.isdaily
-    // On daily charts, allow permission only on the first bar of a new day.
-    cascadePermission := newDay
-else if timeframe.isminutes
-    // For 1H and 4H charts, grant permission only if it's a new day and the previous daily T2 was true.
-    if (timeframe.multiplier == 60 or timeframe.multiplier == 240)
-        cascadePermission := newDay and previousDayT2
-    // For 15m and 1m charts, grant permission only if it's a new 4H period and the previous 4H T2 was true.
-    else if (timeframe.multiplier == 15 or timeframe.multiplier == 1)
-        cascadePermission := new4H and previous4HT2
-    // For 10-second charts, grant permission only if it's a new 1H period and the previous 1H T2 was true.
-    else if (timeframe.multiplier == 10)
-        cascadePermission := new1H and previous1HT2
-
-// ===========================
-// 4. Plot the T2 Label if All Conditions Are Met
-// ===========================
-if currentT2 and barstate.isconfirmed and not restricted and cascadePermission
-    label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
-
-permission := false
+if pattern_10s
+    label.new(bar_index, high, "10s Pattern", style=label.style_label_left, color=color.red, textcolor=color.white)
