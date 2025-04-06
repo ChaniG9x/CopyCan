@@ -26,7 +26,7 @@ var bool dailyJustReset        = false
 var bool dailyPermission       = false
 
 f_dailyLogic() =>
-{
+(
     [dEma10, dEma20, dEma200] = f_getEMAs("D")
     // Check if EMAs line up
     emaTrendOk = (dEma10 > dEma20) and (dEma20 > dEma200)
@@ -71,7 +71,7 @@ f_dailyLogic() =>
         dailyPermission := false
 
     na
-}
+)
 
 // Run the daily logic inside a security call
 request.security(syminfo.tickerid, "D", f_dailyLogic(), lookahead=barmerge.lookahead_on)
@@ -89,7 +89,7 @@ var bool fourHJustReset        = false
 var bool fourHPermission       = false
 
 f_fourHourLogic(_dailyPerm) =>
-{
+(
     [ema10_4h, ema20_4h, ema200_4h] = f_getEMAs("240")
     emaTrendOk_4h = (ema10_4h > ema20_4h) and (ema20_4h > ema200_4h)
 
@@ -125,7 +125,7 @@ f_fourHourLogic(_dailyPerm) =>
         fourHPermission := false
 
     na
-}
+)
 
 request.security(syminfo.tickerid, "240", f_fourHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
 
@@ -142,7 +142,7 @@ var bool oneHJustReset        = false
 var bool oneHPermission       = false
 
 f_oneHourLogic(_dailyPerm) =>
-{
+(
     [ema10_1h, ema20_1h, ema200_1h] = f_getEMAs("60")
     emaTrendOk_1h = (ema10_1h > ema20_1h) and (ema20_1h > ema200_1h)
 
@@ -176,7 +176,7 @@ f_oneHourLogic(_dailyPerm) =>
         oneHPermission := false
 
     na
-}
+)
 
 request.security(syminfo.tickerid, "60", f_oneHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
 
@@ -193,7 +193,7 @@ var bool fifteenMJustReset        = false
 var bool fifteenMPermission       = false
 
 f_fifteenMinLogic(_4hPerm) =>
-{
+(
     [ema10_15, ema20_15, ema200_15] = f_getEMAs("15")
     emaTrendOk_15 = (ema10_15 > ema20_15) and (ema20_15 > ema200_15)
 
@@ -227,7 +227,7 @@ f_fifteenMinLogic(_4hPerm) =>
         fifteenMPermission := false
 
     na
-}
+)
 
 request.security(syminfo.tickerid, "15", f_fifteenMinLogic(fourHPermission), lookahead=barmerge.lookahead_on)
 
@@ -246,7 +246,7 @@ var bool oneM_4hJustReset        = false
 var bool oneM_4hPermission       = false
 
 f_oneMinFrom4hLogic(_4hPerm) =>
-{
+(
     [ema10_1m4h, ema20_1m4h, ema200_1m4h] = f_getEMAs("1")
     emaTrendOk_1m4h = (ema10_1m4h > ema20_1m4h) and (ema20_1m4h > ema200_1m4h)
 
@@ -280,7 +280,7 @@ f_oneMinFrom4hLogic(_4hPerm) =>
         oneM_4hPermission := false
 
     na
-}
+)
 
 request.security(syminfo.tickerid, "1", f_oneMinFrom4hLogic(fourHPermission), lookahead=barmerge.lookahead_on)
 
@@ -295,7 +295,7 @@ var bool oneM_1hJustReset        = false
 var bool oneM_1hPermission       = false
 
 f_oneMinFrom1hLogic(_1hPerm) =>
-{
+(
     [ema10_1m1h, ema20_1m1h, ema200_1m1h] = f_getEMAs("1")
     emaTrendOk_1m1h = (ema10_1m1h > ema20_1m1h) and (ema20_1m1h > ema200_1m1h)
 
@@ -329,7 +329,7 @@ f_oneMinFrom1hLogic(_1hPerm) =>
         oneM_1hPermission := false
 
     na
-}
+)
 
 request.security(syminfo.tickerid, "1", f_oneMinFrom1hLogic(oneHPermission), lookahead=barmerge.lookahead_on)
 
@@ -346,7 +346,7 @@ var bool tenSJustReset        = false
 var bool tenSPermission       = false
 
 f_tenSecLogic(_1hPerm) =>
-{
+(
     [ema10_10s, ema20_10s, ema200_10s] = f_getEMAs("10S")
     emaTrendOk_10s = (ema10_10s > ema20_10s) and (ema20_10s > ema200_10s)
 
@@ -380,7 +380,7 @@ f_tenSecLogic(_1hPerm) =>
         tenSPermission := false
 
     na
-}
+)
 
 request.security(syminfo.tickerid, "10S", f_tenSecLogic(oneHPermission), lookahead=barmerge.lookahead_on)
 
