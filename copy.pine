@@ -13,7 +13,7 @@ plot(ema200_main, title="EMA 200", color=color.orange)
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// Updated stateful Tier 2 pattern detection function using your reference conditions
+// Updated stateful Tier 2 pattern detection function (reflecting your reference candlestick conditions)
 f_tier2Pattern() =>
     // EMA settings and calculations
     emaLen10  = 10
@@ -25,7 +25,7 @@ f_tier2Pattern() =>
     // Check EMA hierarchy: EMA10 > EMA20 > EMA200
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
     
-    // Persistent state variables so that each timeframe instance maintains its own state
+    // Persistent state variables (each timeframe instance maintains its own state)
     var bool restricted       = false   // Set when the candle triggers a restriction
     var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
     var bool justReset        = false   // True on the bar that resets restriction
@@ -40,14 +40,14 @@ f_tier2Pattern() =>
             justReset        := true
             bearishCandidate := false
 
-    // The detection logic is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
+    // Pattern detection is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
     var bool permission = false
     if not restricted and not justReset and emaTrendOk
-        // Condition A: A single bullish candle which crosses EMA10 or EMA20 and closes above EMA10.
+        // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10.
         condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         
-        // Condition B is a two-candle sequence.
-        // First, detect a bearish candidate candle:
+        // Condition B: Two-candle sequence.
+        // First, detect a bearish candidate candle.
         condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
@@ -71,19 +71,16 @@ f_tier2Pattern() =>
     result
 
 // ------------------- Cascading Logic -------------------
-// The higher timeframe pattern acts as the gate for lower timeframes.
-// We want the cascading logic to be based on the previous daily candle,
-// so that repainting is avoided. However, for label placement we want to mark
-// the candle that actually confirms the pattern.
+// Previously, we used the previous daily candle ([1] offset) as the gate.
+// Now, we update the cascading logic so that the conditions that cause the daily label
+// (i.e. a confirmed pattern on the current daily candle) grant permission for the lower timeframes.
 
-// Daily gate: Look at the previous daily candle.
-dailyGate = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
-// Also compute the current daily pattern (without offset) for label placement.
-dailyPattern = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// Compute the current daily pattern confirmation (for both label placement and as the gate).
+dailyConfirmed = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// On lower timeframes, the search is allowed only if the higher timeframe had the pattern.
-pattern_4h = dailyGate and request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_1h = dailyGate and request.security(syminfo.tickerid, "60",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// Use dailyConfirmed as the gate for cascading searches on lower timeframes.
+pattern_4h = dailyConfirmed and request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1h = dailyConfirmed and request.security(syminfo.tickerid, "60",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // ------------------- 4h Cascade -------------------
 // If the 4h pattern is confirmed, allow search on 15-minute and 1-minute charts.
@@ -97,10 +94,10 @@ pattern_10s_from1h = pattern_1h and request.security(syminfo.tickerid, "10S", f_
 
 // ------------------- Debugging Labels -------------------
 // Each label is drawn only if the chart's current resolution matches the intended timeframe
-// and the corresponding hierarchical permission and pattern is confirmed.
+// and the corresponding permission and pattern is confirmed.
 
-// DAILY: Use dailyPattern (current candle) for label placement.
-if timeframe.period == "D" and dailyPattern
+// DAILY: Draw the daily label on the current daily candle (based on dailyConfirmed).
+if timeframe.period == "D" and dailyConfirmed
     label.new(bar_index, high, "Daily Pattern", style=label.style_label_down, color=color.blue, textcolor=color.white)
 
 // 4h label appears only on a 4h chart.
