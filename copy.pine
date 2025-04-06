@@ -35,6 +35,11 @@ var bool dailyPermission = false
 var bool fourHourPermission = false
 var bool oneHourPermission = false
 
+// Store previous candles' labels
+var bool prevDailyLabel = false
+var bool prev4hLabel = false
+var bool prev1hLabel = false
+
 // Daily Timeframe Permission (when the daily candle closes and meets the pattern)
 if (ta.change(time("D")))  // A new daily candle
     // Check daily pattern conditions
@@ -43,33 +48,36 @@ if (ta.change(time("D")))  // A new daily candle
     else
         dailyPermission := false
 
+    // Store the label permission for the previous daily candle
+    prevDailyLabel := dailyPermission
+
 // 4-Hour Timeframe Permission (Check if daily candle had permission)
-fourHourPermission := dailyPermission and ta.change(time("240"))  // Reset every new 4-hour candle
+fourHourPermission := prevDailyLabel and ta.change(time("240"))  // Reset every new 4-hour candle
 // 1-Hour Timeframe Permission (Check if daily candle had permission)
-oneHourPermission := dailyPermission and ta.change(time("60"))  // Reset every new 1-hour candle
+oneHourPermission := prevDailyLabel and ta.change(time("60"))  // Reset every new 1-hour candle
 
 // Lower timeframe permissions based on higher timeframes
 var bool fifteenMinPermission = false
 var bool oneMinPermission = false
-fifteenMinPermission := fourHourPermission and ta.change(time("15"))
-oneMinPermission := fourHourPermission and ta.change(time("1"))
+fifteenMinPermission := prev4hLabel and ta.change(time("15"))
+oneMinPermission := prev4hLabel and ta.change(time("1"))
 
 // Smallest timeframes (for example 10s and 1m)
 var bool tenSecPermission = false
 var bool oneSecPermission = false
-tenSecPermission := oneHourPermission and ta.change(time("10"))
-oneSecPermission := oneHourPermission and ta.change(time("1"))
+tenSecPermission := prev1hLabel and ta.change(time("10"))
+oneSecPermission := prev1hLabel and ta.change(time("1"))
 
-// Check if permission is granted for current lower timeframe and meets conditions
-// Example: Check if the candle is bullish or bearish and if it crosses EMA10
-// --- Condition A: Single Bullish Candle ---
-condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+// --- Enforcing EMA Condition More Strictly ---
 
-// --- Condition B: Bearish then Bullish ---
+// Condition A: Single Bullish Candle (candle must close and high above EMA10)
+condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10) and (high > ema10)  // Enforcing high > EMA10
+
+// Condition B: Bearish then Bullish Pattern (bearish followed by bullish candle)
 condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
 condBConfirm = bearishCandidate and (close > open) and (close > ema10)
 
-// Place labels based on pattern conditions
+// Check if permission is granted for current lower timeframe and meets conditions
 if (fifteenMinPermission or oneMinPermission)
     if (condA or condBConfirm)
         label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.green, textcolor=color.white)
@@ -77,4 +85,3 @@ if (fifteenMinPermission or oneMinPermission)
 if (tenSecPermission or oneSecPermission)
     if (condA or condBConfirm)
         label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.green, textcolor=color.white)
-
