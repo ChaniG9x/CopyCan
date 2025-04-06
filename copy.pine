@@ -35,7 +35,7 @@ patternB(ema10, ema20) =>
 
 // === HIGHER TIMEFRAME CONFIRMATION === //
 confirmedPattern(srcTF) =>
-    security(syminfo.tickerid, srcTF, patternA(ta.ema(close, 10), ta.ema(close, 20)) or patternB(ta.ema(close, 10), ta.ema(close, 20)), lookahead=barmerge.lookahead_off)
+    request.security(syminfo.tickerid, srcTF, patternA(ta.ema(close, 10), ta.ema(close, 20)) or patternB(ta.ema(close, 10), ta.ema(close, 20)), lookahead=barmerge.lookahead_off)
 
 // === PERMISSION FLOW === //
 dailyConfirmed = confirmedPattern(tfDaily)
@@ -71,4 +71,3 @@ detected = canScan and (patternA(ema10, ema20) or patternB(ema10, ema20))
 // === LABEL DRAWING === //
 if detected
     label.new(bar_index, high, "Pattern", color=color.green, textcolor=color.white, style=label.style_label_up)
-
