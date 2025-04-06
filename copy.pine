@@ -54,7 +54,7 @@ f_tier2Pattern() =>
         // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
         
-        // If either Condition A or Condition B is met, permission is granted.
+        // If either condition is met, permission is granted.
         if condA or condBConfirm
             permission       := true
             bearishCandidate := false
@@ -72,10 +72,14 @@ f_tier2Pattern() =>
 
 // ------------------- Cascading Logic -------------------
 // The higher timeframe pattern acts as the gate for lower timeframes.
-// If the previous daily candle shows the pattern, that gives permission for the current day on 4h and 1h.
+// We want the cascading logic to be based on the previous daily candle,
+// so that repainting is avoided. However, for label placement we want to mark
+// the candle that actually confirms the pattern.
 
 // Daily gate: Look at the previous daily candle.
 dailyGate = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+// Also compute the current daily pattern (without offset) for label placement.
+dailyPattern = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // On lower timeframes, the search is allowed only if the higher timeframe had the pattern.
 pattern_4h = dailyGate and request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
@@ -92,11 +96,11 @@ pattern_1m_from1h  = pattern_1h and request.security(syminfo.tickerid, "1",  f_t
 pattern_10s_from1h = pattern_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // ------------------- Debugging Labels -------------------
-// Each label is only drawn if the chart's current resolution matches the intended timeframe
+// Each label is drawn only if the chart's current resolution matches the intended timeframe
 // and the corresponding hierarchical permission and pattern is confirmed.
 
-// Daily label appears only on a Daily chart.
-if timeframe.period == "D" and dailyGate
+// DAILY: Use dailyPattern (current candle) for label placement.
+if timeframe.period == "D" and dailyPattern
     label.new(bar_index, high, "Daily Pattern", style=label.style_label_down, color=color.blue, textcolor=color.white)
 
 // 4h label appears only on a 4h chart.
