@@ -9,15 +9,13 @@ indicator("Tier 2 Pattern (CAPA) - MTF Cascading with Labels", overlay=true)
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
-// Retrieves standard EMAs for a given timeframe
+// Retrieves standard EMAs for a given timeframe (single-expression arrow function)
 f_getEMAs(tf) =>
-{
     [
         request.security(syminfo.tickerid, tf, ta.ema(close, 10),  lookahead=barmerge.lookahead_on),
         request.security(syminfo.tickerid, tf, ta.ema(close, 20),  lookahead=barmerge.lookahead_on),
         request.security(syminfo.tickerid, tf, ta.ema(close, 200), lookahead=barmerge.lookahead_on)
     ]
-}
 
 //----------------------------------------------------
 // 1) DAILY LOGIC
@@ -273,6 +271,7 @@ if fifteenMPermission and timeframe.period == "15"
 //----------------------------------------------------
 // 5) 1-MIN LOGIC (two branches: from 4h and from 1h)
 //----------------------------------------------------
+
 // 5.a) 1-min from 4h
 var bool oneM_4hRestricted       = false
 var bool oneM_4hBearishCandidate = false
