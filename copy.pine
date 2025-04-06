@@ -71,8 +71,8 @@ f_tier2Pattern() =>
     result
 
 // ------------------- Cascading Logic -------------------
-// Instead of using the current daily candle's data, we reference the last fully closed daily candle
-// by using an offset ([1]). This means the daily confirmation always comes from confirmed historical data.
+// The cascading logic now uses only the previous daily candle ([1] offset) to grant permission for the lower timeframes.
+// This ensures that lower timeframe labels are based solely on confirmed historical data from the previous daily candle.
 dailyConfirmed = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
 
 // Use dailyConfirmed as the gate for cascading searches on lower timeframes.
@@ -93,7 +93,7 @@ pattern_10s_from1h = pattern_1h and request.security(syminfo.tickerid, "10S", f_
 // Each label is drawn only if the chart's current resolution matches the intended timeframe
 // and the corresponding permission and pattern is confirmed.
 
-// DAILY: Draw the daily label on the current daily candle (based on dailyConfirmed).
+// DAILY: Draw the daily label on the daily candle (based on dailyConfirmed from the previous day).
 if timeframe.period == "D" and dailyConfirmed
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
