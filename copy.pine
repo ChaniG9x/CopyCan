@@ -1,5 +1,5 @@
 //@version=5
-indicator("Tier 2 Pattern with Boolean Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
+indicator("Tier 2 Pattern with Correct Cascading Unlock (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
 // === PLOT EMAs ===
 ema10_main  = ta.ema(close, 10)
@@ -51,51 +51,52 @@ f_tier2Pattern() =>
     permission := false
     result
 
-// === HIGHER TIMEFRAME BOOLEAN CONFIRMATION FLAGS ===
-getPatternBoolean(tf) =>
+// === CORRECT GATED HIGHER-TF PERMISSION TRACKING ===
+getGateWithTime(tf) =>
     ema = request.security(syminfo.tickerid, tf, ta.ema(close, 10))
     condA = request.security(syminfo.tickerid, tf, (close > open) and (low < ema and high > ema) and (close > ema))
     condBbear = request.security(syminfo.tickerid, tf, (close[1] < open[1]) and (low[1] < ema and high[1] > ema))
     condBbull = request.security(syminfo.tickerid, tf, (close > open) and (close > ema))
     confirmed = condA or (condBbear and condBbull)
-    // Return PREVIOUS bar's confirmed flag to use as gate
-    request.security(syminfo.tickerid, tf, confirmed[1], lookahead=barmerge.lookahead_on)
+    barTime = request.security(syminfo.tickerid, tf, time)
+    [confirmed, barTime]
 
-// === GATED BOOLEAN FLAGS FOR EACH TIMEFRAME ===
-dailyConfirmed = getPatternBoolean("D")
-h4Confirmed    = getPatternBoolean("240")
-h1Confirmed    = getPatternBoolean("60")
+// === GET CONFIRMATION FLAGS AND TIMES ===
+[dailyConfirmed, dailyTime] = getGateWithTime("D")
+[h4Confirmed, h4Time]       = getGateWithTime("240")
+[h1Confirmed, h1Time]       = getGateWithTime("60")
 
-// === CURRENT TIMEFRAME DETECTION ===
-tf = timeframe.period
+// === CURRENT TIME ===
+now = time
 
-// === APPLY BOOLEAN GATES BASED ON TIMEFRAME ===
-allowThisTF = 
-    tf == "D" ? true :
-    (tf == "240" or tf == "60") and dailyConfirmed ? true :
-    (tf == "15" or tf == "1") and h4Confirmed ? true :
-    tf == "10S" and h1Confirmed ? true : false
+// === ENFORCE "NEXT BAR ONLY" UNLOCK WINDOWS ===
+allowThisTF =
+    timeframe.period == "D" ? true :
+    (timeframe.period == "240" or timeframe.period == "60") and dailyConfirmed and now > dailyTime ? true :
+    (timeframe.period == "15" or timeframe.period == "1") and h4Confirmed and now > h4Time ? true :
+    timeframe.period == "10S" and h1Confirmed and now > h1Time ? true :
+    false
 
 // === LABEL FUNCTION ===
 plotLabel(cond, yval, txt, col) =>
     if cond
         label.new(bar_index, yval, txt, style=label.style_label_down, color=col, textcolor=color.white)
 
-// === APPLY PATTERNS AND LABELS ===
-if allowThisTF and tf == "D" and f_tier2Pattern()
+// === FINAL LABEL PLOTTING WITH GATES ===
+if allowThisTF and timeframe.period == "D" and f_tier2Pattern()
     plotLabel(true, high, "T2", color.green)
 
-if allowThisTF and tf == "240" and f_tier2Pattern()
+if allowThisTF and timeframe.period == "240" and f_tier2Pattern()
     plotLabel(true, high, "4h", color.orange)
 
-if allowThisTF and tf == "60" and f_tier2Pattern()
+if allowThisTF and timeframe.period == "60" and f_tier2Pattern()
     plotLabel(true, high, "1h", color.red)
 
-if allowThisTF and tf == "15" and f_tier2Pattern()
+if allowThisTF and timeframe.period == "15" and f_tier2Pattern()
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if allowThisTF and tf == "1" and f_tier2Pattern()
+if allowThisTF and timeframe.period == "1" and f_tier2Pattern()
     label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-if allowThisTF and tf == "10S" and f_tier2Pattern()
+if allowThisTF and timeframe.period == "10S" and f_tier2Pattern()
     label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
