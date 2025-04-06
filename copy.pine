@@ -19,7 +19,6 @@ f_getEMAs(tf) =>
 
 //----------------------------------------------------
 // 1) DAILY LOGIC
-//    Grants permission to 4h and 1h
 //----------------------------------------------------
 var bool dailyRestricted       = false
 var bool dailyBearishCandidate = false
@@ -27,60 +26,62 @@ var bool dailyJustReset        = false
 var bool dailyPermission       = false
 
 f_dailyLogic() =>
-(
-    [dEma10, dEma20, dEma200] = f_getEMAs("D"),
+{
+    [dEma10, dEma20, dEma200] = f_getEMAs("D")
     // Check if EMAs line up
-    emaTrendOk = (dEma10 > dEma20) and (dEma20 > dEma200),
+    emaTrendOk = (dEma10 > dEma20) and (dEma20 > dEma200)
+
     // Reset justReset on each new daily bar
-    dailyJustReset := false,
+    dailyJustReset := false
+
     // If restricted, see if we can reset
     if dailyRestricted
         if (close > open) and (close > dEma10)
-            dailyRestricted := false,
-            dailyJustReset  := true,
+            dailyRestricted := false
+            dailyJustReset  := true
             dailyBearishCandidate := false
-    ,
-    _permission = false,
+
+    _permission = false
+
     // Conditions only if not restricted, not justReset, and EMAs are good
     if not dailyRestricted and not dailyJustReset and emaTrendOk
         // Condition A
-        condA = (close > open) and (crosses(dEma10) or crosses(dEma20)) and (close > dEma10),
+        condA = (close > open) and (crosses(dEma10) or crosses(dEma20)) and (close > dEma10)
+
         // Condition B: Bearish candle, then bullish candle
-        condBearCandidate = (close < open) and (crosses(dEma10) or crosses(dEma20)) and (close > dEma10),
+        condBearCandidate = (close < open) and (crosses(dEma10) or crosses(dEma20)) and (close > dEma10)
         if condBearCandidate
             dailyBearishCandidate := true
-        ,
-        condBConfirm = dailyBearishCandidate and (close > open) and (close > dEma10),
+
+        condBConfirm = dailyBearishCandidate and (close > open) and (close > dEma10)
         if condA or condBConfirm
-            _permission := true,
+            _permission := true
             dailyBearishCandidate := false
-    ,
+
     // Check if we trigger restriction
     if not dailyRestricted and not dailyJustReset
         if (open < dEma20) or (close < dEma20)
-            dailyRestricted := true,
+            dailyRestricted := true
             dailyBearishCandidate := false
-    ,
+
     // Confirm permission at bar close
     if _permission and barstate.isconfirmed and not dailyRestricted
         dailyPermission := true
     else
         dailyPermission := false
-    ,
-    na
-)
 
-// Run the daily logic in a security call
+    na
+}
+
+// Run the daily logic inside a security call
 request.security(syminfo.tickerid, "D", f_dailyLogic(), lookahead=barmerge.lookahead_on)
 
-// If dailyPermission is true on a daily chart, draw a label for debugging
+// If dailyPermission is true on a daily chart, draw a label
 if dailyPermission and timeframe.period == "D"
     label.new(bar_index, high, style=label.style_label_down, text="Daily T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
 // 2) 4-HOUR LOGIC
-//    Depends on dailyPermission
-//    Grants permission to 15min and 1min
 //----------------------------------------------------
 var bool fourHRestricted       = false
 var bool fourHBearishCandidate = false
@@ -88,41 +89,43 @@ var bool fourHJustReset        = false
 var bool fourHPermission       = false
 
 f_fourHourLogic(_dailyPerm) =>
-(
-    [ema10_4h, ema20_4h, ema200_4h] = f_getEMAs("240"),
-    emaTrendOk_4h = (ema10_4h > ema20_4h) and (ema20_4h > ema200_4h),
-    fourHJustReset := false,
+{
+    [ema10_4h, ema20_4h, ema200_4h] = f_getEMAs("240")
+    emaTrendOk_4h = (ema10_4h > ema20_4h) and (ema20_4h > ema200_4h)
+
+    fourHJustReset := false
     if fourHRestricted
         if (close > open) and (close > ema10_4h)
-            fourHRestricted := false,
-            fourHJustReset  := true,
+            fourHRestricted := false
+            fourHJustReset  := true
             fourHBearishCandidate := false
-    ,
-    _permission4h = false,
+
+    _permission4h = false
+
     // Only check pattern if dailyPermission is true
     if not fourHRestricted and not fourHJustReset and emaTrendOk_4h and _dailyPerm
-        condA_4h = (close > open) and (crosses(ema10_4h) or crosses(ema20_4h)) and (close > ema10_4h),
-        condBearCandidate_4h = (close < open) and (crosses(ema10_4h) or crosses(ema20_4h)) and (close > ema10_4h),
+        condA_4h = (close > open) and (crosses(ema10_4h) or crosses(ema20_4h)) and (close > ema10_4h)
+        condBearCandidate_4h = (close < open) and (crosses(ema10_4h) or crosses(ema20_4h)) and (close > ema10_4h)
         if condBearCandidate_4h
             fourHBearishCandidate := true
-        ,
-        condBConfirm_4h = fourHBearishCandidate and (close > open) and (close > ema10_4h),
+
+        condBConfirm_4h = fourHBearishCandidate and (close > open) and (close > ema10_4h)
         if condA_4h or condBConfirm_4h
-            _permission4h := true,
+            _permission4h := true
             fourHBearishCandidate := false
-    ,
+
     if not fourHRestricted and not fourHJustReset
         if (open < ema20_4h) or (close < ema20_4h)
-            fourHRestricted := true,
+            fourHRestricted := true
             fourHBearishCandidate := false
-    ,
+
     if _permission4h and barstate.isconfirmed and not fourHRestricted
         fourHPermission := true
     else
         fourHPermission := false
-    ,
+
     na
-)
+}
 
 request.security(syminfo.tickerid, "240", f_fourHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
 
@@ -132,8 +135,6 @@ if fourHPermission and timeframe.period == "240"
 
 //----------------------------------------------------
 // 3) 1-HOUR LOGIC
-//    Also depends on dailyPermission
-//    Grants permission to 1min & 10sec
 //----------------------------------------------------
 var bool oneHRestricted       = false
 var bool oneHBearishCandidate = false
@@ -141,40 +142,41 @@ var bool oneHJustReset        = false
 var bool oneHPermission       = false
 
 f_oneHourLogic(_dailyPerm) =>
-(
-    [ema10_1h, ema20_1h, ema200_1h] = f_getEMAs("60"),
-    emaTrendOk_1h = (ema10_1h > ema20_1h) and (ema20_1h > ema200_1h),
-    oneHJustReset := false,
+{
+    [ema10_1h, ema20_1h, ema200_1h] = f_getEMAs("60")
+    emaTrendOk_1h = (ema10_1h > ema20_1h) and (ema20_1h > ema200_1h)
+
+    oneHJustReset := false
     if oneHRestricted
         if (close > open) and (close > ema10_1h)
-            oneHRestricted := false,
-            oneHJustReset  := true,
+            oneHRestricted := false
+            oneHJustReset  := true
             oneHBearishCandidate := false
-    ,
-    _permission1h = false,
+
+    _permission1h = false
     if not oneHRestricted and not oneHJustReset and emaTrendOk_1h and _dailyPerm
-        condA_1h = (close > open) and (crosses(ema10_1h) or crosses(ema20_1h)) and (close > ema10_1h),
-        condBearCandidate_1h = (close < open) and (crosses(ema10_1h) or crosses(ema20_1h)) and (close > ema10_1h),
+        condA_1h = (close > open) and (crosses(ema10_1h) or crosses(ema20_1h)) and (close > ema10_1h)
+        condBearCandidate_1h = (close < open) and (crosses(ema10_1h) or crosses(ema20_1h)) and (close > ema10_1h)
         if condBearCandidate_1h
             oneHBearishCandidate := true
-        ,
-        condBConfirm_1h = oneHBearishCandidate and (close > open) and (close > ema10_1h),
+
+        condBConfirm_1h = oneHBearishCandidate and (close > open) and (close > ema10_1h)
         if condA_1h or condBConfirm_1h
-            _permission1h := true,
+            _permission1h := true
             oneHBearishCandidate := false
-    ,
+
     if not oneHRestricted and not oneHJustReset
         if (open < ema20_1h) or (close < ema20_1h)
-            oneHRestricted := true,
+            oneHRestricted := true
             oneHBearishCandidate := false
-    ,
+
     if _permission1h and barstate.isconfirmed and not oneHRestricted
         oneHPermission := true
     else
         oneHPermission := false
-    ,
+
     na
-)
+}
 
 request.security(syminfo.tickerid, "60", f_oneHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
 
@@ -191,40 +193,41 @@ var bool fifteenMJustReset        = false
 var bool fifteenMPermission       = false
 
 f_fifteenMinLogic(_4hPerm) =>
-(
-    [ema10_15, ema20_15, ema200_15] = f_getEMAs("15"),
-    emaTrendOk_15 = (ema10_15 > ema20_15) and (ema20_15 > ema200_15),
-    fifteenMJustReset := false,
+{
+    [ema10_15, ema20_15, ema200_15] = f_getEMAs("15")
+    emaTrendOk_15 = (ema10_15 > ema20_15) and (ema20_15 > ema200_15)
+
+    fifteenMJustReset := false
     if fifteenMRestricted
         if (close > open) and (close > ema10_15)
-            fifteenMRestricted := false,
-            fifteenMJustReset  := true,
+            fifteenMRestricted := false
+            fifteenMJustReset  := true
             fifteenMBearishCandidate := false
-    ,
-    _permission15m = false,
+
+    _permission15m = false
     if not fifteenMRestricted and not fifteenMJustReset and emaTrendOk_15 and _4hPerm
-        condA_15 = (close > open) and (crosses(ema10_15) or crosses(ema20_15)) and (close > ema10_15),
-        condBearCandidate_15 = (close < open) and (crosses(ema10_15) or crosses(ema20_15)) and (close > ema10_15),
+        condA_15 = (close > open) and (crosses(ema10_15) or crosses(ema20_15)) and (close > ema10_15)
+        condBearCandidate_15 = (close < open) and (crosses(ema10_15) or crosses(ema20_15)) and (close > ema10_15)
         if condBearCandidate_15
             fifteenMBearishCandidate := true
-        ,
-        condBConfirm_15 = fifteenMBearishCandidate and (close > open) and (close > ema10_15),
+
+        condBConfirm_15 = fifteenMBearishCandidate and (close > open) and (close > ema10_15)
         if condA_15 or condBConfirm_15
-            _permission15m := true,
+            _permission15m := true
             fifteenMBearishCandidate := false
-    ,
+
     if not fifteenMRestricted and not fifteenMJustReset
         if (open < ema20_15) or (close < ema20_15)
-            fifteenMRestricted := true,
+            fifteenMRestricted := true
             fifteenMBearishCandidate := false
-    ,
+
     if _permission15m and barstate.isconfirmed and not fifteenMRestricted
         fifteenMPermission := true
     else
         fifteenMPermission := false
-    ,
+
     na
-)
+}
 
 request.security(syminfo.tickerid, "15", f_fifteenMinLogic(fourHPermission), lookahead=barmerge.lookahead_on)
 
@@ -243,40 +246,41 @@ var bool oneM_4hJustReset        = false
 var bool oneM_4hPermission       = false
 
 f_oneMinFrom4hLogic(_4hPerm) =>
-(
-    [ema10_1m4h, ema20_1m4h, ema200_1m4h] = f_getEMAs("1"),
-    emaTrendOk_1m4h = (ema10_1m4h > ema20_1m4h) and (ema20_1m4h > ema200_1m4h),
-    oneM_4hJustReset := false,
+{
+    [ema10_1m4h, ema20_1m4h, ema200_1m4h] = f_getEMAs("1")
+    emaTrendOk_1m4h = (ema10_1m4h > ema20_1m4h) and (ema20_1m4h > ema200_1m4h)
+
+    oneM_4hJustReset := false
     if oneM_4hRestricted
         if (close > open) and (close > ema10_1m4h)
-            oneM_4hRestricted := false,
-            oneM_4hJustReset  := true,
+            oneM_4hRestricted := false
+            oneM_4hJustReset  := true
             oneM_4hBearishCandidate := false
-    ,
-    _permission1m4h = false,
+
+    _permission1m4h = false
     if not oneM_4hRestricted and not oneM_4hJustReset and emaTrendOk_1m4h and _4hPerm
-        condA_1m4h = (close > open) and (crosses(ema10_1m4h) or crosses(ema20_1m4h)) and (close > ema10_1m4h),
-        condBearCandidate_1m4h = (close < open) and (crosses(ema10_1m4h) or crosses(ema20_1m4h)) and (close > ema10_1m4h),
+        condA_1m4h = (close > open) and (crosses(ema10_1m4h) or crosses(ema20_1m4h)) and (close > ema10_1m4h)
+        condBearCandidate_1m4h = (close < open) and (crosses(ema10_1m4h) or crosses(ema20_1m4h)) and (close > ema10_1m4h)
         if condBearCandidate_1m4h
             oneM_4hBearishCandidate := true
-        ,
-        condBConfirm_1m4h = oneM_4hBearishCandidate and (close > open) and (close > ema10_1m4h),
+
+        condBConfirm_1m4h = oneM_4hBearishCandidate and (close > open) and (close > ema10_1m4h)
         if condA_1m4h or condBConfirm_1m4h
-            _permission1m4h := true,
+            _permission1m4h := true
             oneM_4hBearishCandidate := false
-    ,
+
     if not oneM_4hRestricted and not oneM_4hJustReset
         if (open < ema20_1m4h) or (close < ema20_1m4h)
-            oneM_4hRestricted := true,
+            oneM_4hRestricted := true
             oneM_4hBearishCandidate := false
-    ,
+
     if _permission1m4h and barstate.isconfirmed and not oneM_4hRestricted
         oneM_4hPermission := true
     else
         oneM_4hPermission := false
-    ,
+
     na
-)
+}
 
 request.security(syminfo.tickerid, "1", f_oneMinFrom4hLogic(fourHPermission), lookahead=barmerge.lookahead_on)
 
@@ -291,40 +295,41 @@ var bool oneM_1hJustReset        = false
 var bool oneM_1hPermission       = false
 
 f_oneMinFrom1hLogic(_1hPerm) =>
-(
-    [ema10_1m1h, ema20_1m1h, ema200_1m1h] = f_getEMAs("1"),
-    emaTrendOk_1m1h = (ema10_1m1h > ema20_1m1h) and (ema20_1m1h > ema200_1m1h),
-    oneM_1hJustReset := false,
+{
+    [ema10_1m1h, ema20_1m1h, ema200_1m1h] = f_getEMAs("1")
+    emaTrendOk_1m1h = (ema10_1m1h > ema20_1m1h) and (ema20_1m1h > ema200_1m1h)
+
+    oneM_1hJustReset := false
     if oneM_1hRestricted
         if (close > open) and (close > ema10_1m1h)
-            oneM_1hRestricted := false,
-            oneM_1hJustReset  := true,
+            oneM_1hRestricted := false
+            oneM_1hJustReset  := true
             oneM_1hBearishCandidate := false
-    ,
-    _permission1m1h = false,
+
+    _permission1m1h = false
     if not oneM_1hRestricted and not oneM_1hJustReset and emaTrendOk_1m1h and _1hPerm
-        condA_1m1h = (close > open) and (crosses(ema10_1m1h) or crosses(ema20_1m1h)) and (close > ema10_1m1h),
-        condBearCandidate_1m1h = (close < open) and (crosses(ema10_1m1h) or crosses(ema20_1m1h)) and (close > ema10_1m1h),
+        condA_1m1h = (close > open) and (crosses(ema10_1m1h) or crosses(ema20_1m1h)) and (close > ema10_1m1h)
+        condBearCandidate_1m1h = (close < open) and (crosses(ema10_1m1h) or crosses(ema20_1m1h)) and (close > ema10_1m1h)
         if condBearCandidate_1m1h
             oneM_1hBearishCandidate := true
-        ,
-        condBConfirm_1m1h = oneM_1hBearishCandidate and (close > open) and (close > ema10_1m1h),
+
+        condBConfirm_1m1h = oneM_1hBearishCandidate and (close > open) and (close > ema10_1m1h)
         if condA_1m1h or condBConfirm_1m1h
-            _permission1m1h := true,
+            _permission1m1h := true
             oneM_1hBearishCandidate := false
-    ,
+
     if not oneM_1hRestricted and not oneM_1hJustReset
         if (open < ema20_1m1h) or (close < ema20_1m1h)
-            oneM_1hRestricted := true,
+            oneM_1hRestricted := true
             oneM_1hBearishCandidate := false
-    ,
+
     if _permission1m1h and barstate.isconfirmed and not oneM_1hRestricted
         oneM_1hPermission := true
     else
         oneM_1hPermission := false
-    ,
+
     na
-)
+}
 
 request.security(syminfo.tickerid, "1", f_oneMinFrom1hLogic(oneHPermission), lookahead=barmerge.lookahead_on)
 
@@ -341,40 +346,41 @@ var bool tenSJustReset        = false
 var bool tenSPermission       = false
 
 f_tenSecLogic(_1hPerm) =>
-(
-    [ema10_10s, ema20_10s, ema200_10s] = f_getEMAs("10S"),
-    emaTrendOk_10s = (ema10_10s > ema20_10s) and (ema20_10s > ema200_10s),
-    tenSJustReset := false,
+{
+    [ema10_10s, ema20_10s, ema200_10s] = f_getEMAs("10S")
+    emaTrendOk_10s = (ema10_10s > ema20_10s) and (ema20_10s > ema200_10s)
+
+    tenSJustReset := false
     if tenSRestricted
         if (close > open) and (close > ema10_10s)
-            tenSRestricted := false,
-            tenSJustReset  := true,
+            tenSRestricted := false
+            tenSJustReset  := true
             tenSBearishCandidate := false
-    ,
-    _permission10s = false,
+
+    _permission10s = false
     if not tenSRestricted and not tenSJustReset and emaTrendOk_10s and _1hPerm
-        condA_10s = (close > open) and (crosses(ema10_10s) or crosses(ema20_10s)) and (close > ema10_10s),
-        condBearCandidate_10s = (close < open) and (crosses(ema10_10s) or crosses(ema20_10s)) and (close > ema10_10s),
+        condA_10s = (close > open) and (crosses(ema10_10s) or crosses(ema20_10s)) and (close > ema10_10s)
+        condBearCandidate_10s = (close < open) and (crosses(ema10_10s) or crosses(ema20_10s)) and (close > ema10_10s)
         if condBearCandidate_10s
             tenSBearishCandidate := true
-        ,
-        condBConfirm_10s = tenSBearishCandidate and (close > open) and (close > ema10_10s),
+
+        condBConfirm_10s = tenSBearishCandidate and (close > open) and (close > ema10_10s)
         if condA_10s or condBConfirm_10s
-            _permission10s := true,
+            _permission10s := true
             tenSBearishCandidate := false
-    ,
+
     if not tenSRestricted and not tenSJustReset
         if (open < ema20_10s) or (close < ema20_10s)
-            tenSRestricted := true,
+            tenSRestricted := true
             tenSBearishCandidate := false
-    ,
+
     if _permission10s and barstate.isconfirmed and not tenSRestricted
         tenSPermission := true
     else
         tenSPermission := false
-    ,
+
     na
-)
+}
 
 request.security(syminfo.tickerid, "10S", f_tenSecLogic(oneHPermission), lookahead=barmerge.lookahead_on)
 
