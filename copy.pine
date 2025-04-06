@@ -1,5 +1,5 @@
 //@version=5
-indicator("Cascading MTF Pattern Detector", overlay=true)
+indicator("Cascading MTF Pattern Detector (Next-Phase Logic)", overlay=true)
 
 // === EMA CALCULATIONS ===
 ema10 = ta.ema(close, 10)
@@ -19,14 +19,19 @@ emaBullAlign = ema10 > ema20 and ema20 > ema50 and ema50 > ema200
 condA(ema) => close > open and low < ema and high > ema and close > ema
 condB(ema) => close[1] < open[1] and low[1] < ema and high[1] > ema and close > open and close > ema
 
-// === RESET CONDITION ===
-var bool restricted = false
-if (open < ema20 or close < ema20)
-    restricted := true
-if condA(ema10)
-    restricted := false
+// === CONFIRMATION FUNCTION WITH TIMESTAMP ===
+confirmPattern(tf) =>
+    ema = request.security(syminfo.tickerid, tf, ta.ema(close, 10))
+    confirmed = request.security(syminfo.tickerid, tf, condA(ema) or condB(ema))
+    confirmedTime = request.security(syminfo.tickerid, tf, time)
+    [confirmed, confirmedTime]
 
-// === TIMEFRAME DETECTION ===
+// === GET CONFIRMATION + TIME FROM PARENT TIMEFRAME ===
+[dailyConfirmed, dailyTime] = confirmPattern("D")
+[h4Confirmed, h4Time]       = confirmPattern("240")
+[h1Confirmed, h1Time]       = confirmPattern("60")
+
+// === DETECT CURRENT TIMEFRAME ===
 tf = timeframe.period
 is10s = tf == "10S"
 is1m = tf == "1"
@@ -35,29 +40,31 @@ is1h = tf == "60"
 is4h = tf == "240"
 is1d = tf == "D"
 
-// === CONFIRMATION FUNCTION ===
-getConfirmation(tf) =>
-    ema = request.security(syminfo.tickerid, tf, ta.ema(close, 10))
-    a = request.security(syminfo.tickerid, tf, condA(ema))
-    b = request.security(syminfo.tickerid, tf, condB(ema))
-    a or b
+// === CURRENT BAR TIME ===
+t = time
 
-// === PERMISSION CASCADE ===
-permFromDaily = getConfirmation("D")
-permFrom4H = getConfirmation("240")
-permFrom1H = getConfirmation("60")
+// === NEXT-PHASE UNLOCK LOGIC ===
+// Allow only if we're in a candle AFTER the parent confirmed, using time comparison
 
-// === DETERMINE PERMISSION FOR CURRENT TIMEFRAME ===
-permissionGranted = 
-     is1d ? true :
-     is4h or is1h ? permFromDaily :
-     is15m or (is1m and not is1h and not is4h) ? permFrom4H :
-     is10s ? permFrom1H : false
+dailyUnlock = dailyConfirmed and t > dailyTime
+h4Unlock = h4Confirmed and t > h4Time
+h1Unlock = h1Confirmed and t > h1Time
 
-// === FINAL SIGNAL ===
-patternA = condA(ema10)
-patternB = condB(ema10)
-patternDetected = (patternA or patternB) and not restricted and permissionGranted and emaBullAlign
+permissionGranted =
+    is1d ? true :
+    (is4h or is1h) and dailyUnlock ? true :
+    (is15m or (is1m and not is1h and not is4h)) and h4Unlock ? true :
+    is10s and h1Unlock ? true : false
+
+// === RESET CONDITION ===
+var bool restricted = false
+if (open < ema20 or close < ema20)
+    restricted := true
+if condA(ema10)
+    restricted := false
+
+// === FINAL PATTERN DETECTION ===
+patternDetected = (condA(ema10) or condB(ema10)) and not restricted and permissionGranted and emaBullAlign
 
 // === LABEL ===
 if patternDetected
