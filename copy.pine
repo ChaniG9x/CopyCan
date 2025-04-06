@@ -8,43 +8,60 @@ ema50 = ta.ema(close, 50)
 ema200 = ta.ema(close, 200)
 
 // Pattern conditions
-condA = (close > open) and (low < ema10 and high > ema10) and (close > ema10)  // Bullish Candle Condition A
-condBearish = (close[1] < open[1]) and (low[1] < ema10 and high[1] > ema10)  // Bearish Candle Condition
-condBullish = (close > open) and (close > ema10)  // Bullish Candle Condition
-condBConfirm = condBearish and condBullish  // Bearish to Bullish sequence (Condition B)
+var bool condA = na  // Bullish Candle Condition A
+var bool condBearish = na  // Bearish Candle Condition
+var bool condBullish = na  // Bullish Candle Condition
+var bool condBConfirm = na  // Bearish to Bullish sequence (Condition B)
 
 // Trend conditions (EMA Alignment)
-bullishTrend = ema10 > ema20 and ema20 > ema50 and ema50 > ema200
-bearishTrend = ema10 < ema20 and ema20 < ema50 and ema50 < ema200
+var bool bullishTrend = na
+var bool bearishTrend = na
 
 // Request higher timeframes for pattern confirmation
-prevDailyConfirmed = request.security(syminfo.tickerid, "D", condA or condB ? 1 : 0, lookahead=barmerge.lookahead_off)
-prev4hConfirmed = request.security(syminfo.tickerid, "4H", condA or condB ? 1 : 0, lookahead=barmerge.lookahead_off)
-prev1hConfirmed = request.security(syminfo.tickerid, "1H", condA or condB ? 1 : 0, lookahead=barmerge.lookahead_off)
+var float prevDailyConfirmed = na
+var float prev4hConfirmed = na
+var float prev1hConfirmed = na
 
 // EMA20 reset condition for restriction
-restricted = false
+var bool restricted = false
+
+// Calculate conditions
+condA := (close > open) and (low < ema10 and high > ema10) and (close > ema10)  // Bullish Candle Condition A
+condBearish := (close[1] < open[1]) and (low[1] < ema10 and high[1] > ema10)  // Bearish Candle Condition
+condBullish := (close > open) and (close > ema10)  // Bullish Candle Condition
+condBConfirm := condBearish and condBullish  // Bearish to Bullish sequence (Condition B)
+
+// Trend conditions (EMA Alignment)
+bullishTrend := ema10 > ema20 and ema20 > ema50 and ema50 > ema200
+bearishTrend := ema10 < ema20 and ema20 < ema50 and ema50 < ema200
+
+// Request higher timeframe confirmations
+prevDailyConfirmed := request.security(syminfo.tickerid, "D", condA or condBConfirm ? 1 : 0, lookahead=barmerge.lookahead_off)
+prev4hConfirmed := request.security(syminfo.tickerid, "4H", condA or condBConfirm ? 1 : 0, lookahead=barmerge.lookahead_off)
+prev1hConfirmed := request.security(syminfo.tickerid, "1H", condA or condBConfirm ? 1 : 0, lookahead=barmerge.lookahead_off)
+
+// EMA20 reset condition for restriction
 if (open < ema20) or (close < ema20)
     restricted := true
 
 // Pattern detection logic
 if not restricted
     // Daily → 4h and 1h Permission
-    if prevDailyConfirmed
+    if prevDailyConfirmed == 1
         if condA
             label.new(bar_index, high, "Bullish Candle", color=color.green, style=label.style_label_up, size=size.small)
         if condBConfirm
             label.new(bar_index, high, "Bullish Sequence", color=color.blue, style=label.style_label_up, size=size.small)
 
     // 4h → 15m and 1m Permission
-    if prev4hConfirmed
+    if prev4hConfirmed == 1
         if condA
             label.new(bar_index, high, "Bullish Candle", color=color.green, style=label.style_label_up, size=size.small)
         if condBConfirm
             label.new(bar_index, high, "Bullish Sequence", color=color.blue, style=label.style_label_up, size=size.small)
 
     // 1h → 1m and 10s Permission
-    if prev1hConfirmed
+    if prev1hConfirmed == 1
         if condA
             label.new(bar_index, high, "Bullish Candle", color=color.green, style=label.style_label_up, size=size.small)
         if condBConfirm
