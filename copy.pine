@@ -1,7 +1,7 @@
 //@version=5
-indicator("Tier 2 Pattern with Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
+indicator("Tier 2 Pattern with Boolean Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
-// Plot EMAs on the chart
+// === PLOT EMAs ===
 ema10_main  = ta.ema(close, 10)
 ema20_main  = ta.ema(close, 20)
 ema200_main = ta.ema(close, 200)
@@ -9,91 +9,93 @@ plot(ema10_main, title="EMA 10", color=color.blue)
 plot(ema20_main, title="EMA 20", color=color.red)
 plot(ema200_main, title="EMA 200", color=color.orange)
 
-// Helper function defined at the top level
+// === CROSS CHECK FUNCTION ===
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// Updated stateful Tier 2 pattern detection function (reflecting your reference candlestick conditions)
+// === CORE PATTERN FUNCTION ===
 f_tier2Pattern() =>
-    // EMA settings and calculations
-    emaLen10  = 10
-    emaLen20  = 20
-    emaLen200 = 200
-    ema10  = ta.ema(close, emaLen10)
-    ema20  = ta.ema(close, emaLen20)
-    ema200 = ta.ema(close, emaLen200)
-    // Check EMA hierarchy: EMA10 > EMA20 > EMA200
+    ema10  = ta.ema(close, 10)
+    ema20  = ta.ema(close, 20)
+    ema200 = ta.ema(close, 200)
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-    
-    // Persistent state variables (each timeframe instance maintains its own state)
-    var bool restricted       = false   // Set when the candle triggers a restriction
-    var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
-    var bool justReset        = false   // True on the bar that resets restriction
-    // Reset justReset at the start of each bar
+
+    var bool restricted       = false
+    var bool bearishCandidate = false
+    var bool justReset        = false
     justReset := false
 
-    // If currently restricted, check if this candle resets the restriction.
     if restricted
-        // Reset if a bullish candle closes above EMA10.
         if (close > open) and (close > ema10)
-            restricted       := false
-            justReset        := true
+            restricted := false
+            justReset := true
             bearishCandidate := false
 
-    // Pattern detection is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
     var bool permission = false
     if not restricted and not justReset and emaTrendOk
-        // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10.
         condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
-        
-        // Condition B: Two-candle sequence.
-        // First, detect a bearish candidate candle.
         condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
-        // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
-        
-        // If either condition is met, permission is granted.
         if condA or condBConfirm
-            permission       := true
+            permission := true
             bearishCandidate := false
 
-    // After pattern detection, check if the current candle triggers restriction.
     if not restricted and not justReset
         if (open < ema20) or (close < ema20)
-            restricted       := true
+            restricted := true
             bearishCandidate := false
 
-    // Return true only if permission is granted, the bar is confirmed, and we're not restricted.
     result = permission and barstate.isconfirmed and (not restricted)
     permission := false
     result
 
-// ------------------- Debugging Labels -------------------
-// Each label is drawn only if the chart's current resolution matches the intended timeframe
-// and the corresponding permission and pattern is confirmed.
+// === HIGHER TIMEFRAME BOOLEAN CONFIRMATION FLAGS ===
+getPatternBoolean(tf) =>
+    ema = request.security(syminfo.tickerid, tf, ta.ema(close, 10))
+    condA = request.security(syminfo.tickerid, tf, (close > open) and (low < ema and high > ema) and (close > ema))
+    condBbear = request.security(syminfo.tickerid, tf, (close[1] < open[1]) and (low[1] < ema and high[1] > ema))
+    condBbull = request.security(syminfo.tickerid, tf, (close > open) and (close > ema))
+    confirmed = condA or (condBbear and condBbull)
+    // Return PREVIOUS bar's confirmed flag to use as gate
+    request.security(syminfo.tickerid, tf, confirmed[1], lookahead=barmerge.lookahead_on)
 
-// DAILY: Draw the daily label on the current daily candle (based on f_tier2Pattern).
-if timeframe.period == "D" and f_tier2Pattern()
-    label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
+// === GATED BOOLEAN FLAGS FOR EACH TIMEFRAME ===
+dailyConfirmed = getPatternBoolean("D")
+h4Confirmed    = getPatternBoolean("240")
+h1Confirmed    = getPatternBoolean("60")
 
-// 4h label appears only on a 4h chart.
-if timeframe.period == "240" and f_tier2Pattern()
-    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
+// === CURRENT TIMEFRAME DETECTION ===
+tf = timeframe.period
 
-// 1h label appears only on a 1h chart.
-if timeframe.period == "60" and f_tier2Pattern()
-    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
+// === APPLY BOOLEAN GATES BASED ON TIMEFRAME ===
+allowThisTF = 
+    tf == "D" ? true :
+    (tf == "240" or tf == "60") and dailyConfirmed ? true :
+    (tf == "15" or tf == "1") and h4Confirmed ? true :
+    tf == "10S" and h1Confirmed ? true : false
 
-// 15m label appears only on a 15-min chart.
-if timeframe.period == "15" and f_tier2Pattern()
+// === LABEL FUNCTION ===
+plotLabel(cond, yval, txt, col) =>
+    if cond
+        label.new(bar_index, yval, txt, style=label.style_label_down, color=col, textcolor=color.white)
+
+// === APPLY PATTERNS AND LABELS ===
+if allowThisTF and tf == "D" and f_tier2Pattern()
+    plotLabel(true, high, "T2", color.green)
+
+if allowThisTF and tf == "240" and f_tier2Pattern()
+    plotLabel(true, high, "4h", color.orange)
+
+if allowThisTF and tf == "60" and f_tier2Pattern()
+    plotLabel(true, high, "1h", color.red)
+
+if allowThisTF and tf == "15" and f_tier2Pattern()
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 1m labels appear only on a 1-min chart.
-if timeframe.period == "1" and f_tier2Pattern()
+if allowThisTF and tf == "1" and f_tier2Pattern()
     label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-// 10s label appears only on a 10-sec chart.
-if timeframe.period == "10S" and f_tier2Pattern()
+if allowThisTF and tf == "10S" and f_tier2Pattern()
     label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
