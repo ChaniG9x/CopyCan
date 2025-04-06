@@ -9,7 +9,7 @@ plot(ema10_main, title="EMA 10", color=color.blue)
 plot(ema20_main, title="EMA 20", color=color.red)
 plot(ema200_main, title="EMA 200", color=color.orange)
 
-// Helper function defined at the top level
+// Helper function to check conditions
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
@@ -60,42 +60,50 @@ var bool min1Confirmed = false
 var bool min15Confirmed = false
 var bool sec10Confirmed = false
 
-// Recalculate dailyConfirmed every time a new bar forms
+// Create a variable to store permission for the higher timeframes
+var bool dailyPermissionPrev = false
+var bool fourhPermissionPrev = false
+var bool onehPermissionPrev = false
+
+// Recalculate dailyConfirmed based on the previous day
 dailyConfirmed := request.security(syminfo.tickerid, "D", f_tier2Pattern() ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+dailyPermissionPrev := dailyConfirmed[1] // Previous day's confirmation flag for lower timeframes
 
-// Recalculate fourhConfirmed based on the previous daily confirmation
-fourhConfirmed := request.security(syminfo.tickerid, "240", dailyConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-onehConfirmed := request.security(syminfo.tickerid, "60", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+// Recalculate 4hConfirmed based on the previous day's permission
+fourhConfirmed := request.security(syminfo.tickerid, "240", dailyPermissionPrev ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+fourhPermissionPrev := fourhConfirmed[1] // Previous 4h confirmation flag for lower timeframes
 
-// Recalculate min15Confirmed based on the previous 4h confirmation
-min15Confirmed := request.security(syminfo.tickerid, "15", fourhConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-min1Confirmed := request.security(syminfo.tickerid, "1", onehConfirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+// Recalculate 1hConfirmed based on the previous 4h permission
+onehConfirmed := request.security(syminfo.tickerid, "60", fourhPermissionPrev ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+onehPermissionPrev := onehConfirmed[1] // Previous 1h confirmation flag for lower timeframes
 
-// Recalculate sec10Confirmed based on the previous 1m confirmation
-sec10Confirmed := request.security(syminfo.tickerid, "10S", min1Confirmed[1] ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+// Recalculate 15m and 1m based on the previous 1h permission
+min15Confirmed := request.security(syminfo.tickerid, "15", onehPermissionPrev ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+min1Confirmed := request.security(syminfo.tickerid, "1", min15Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+sec10Confirmed := request.security(syminfo.tickerid, "10S", min1Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
 // ------------------- Debugging Labels -------------------
 
-// Daily label appears only if daily confirmation is true
-if timeframe.period == "D" and f_tier2Pattern() and dailyConfirmed
+// Daily label appears only if previous day confirmed and permission exists
+if timeframe.period == "D" and f_tier2Pattern() and dailyPermissionPrev
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// 4h label appears only if 4h confirmation is true
-if timeframe.period == "240" and f_tier2Pattern() and fourhConfirmed
+// 4h label appears only if previous day confirmed and permission exists
+if timeframe.period == "240" and f_tier2Pattern() and fourhConfirmed and dailyPermissionPrev
     label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
-// 1h label appears only if 1h confirmation is true
-if timeframe.period == "60" and f_tier2Pattern() and onehConfirmed
+// 1h label appears only if previous 4h confirmed and permission exists
+if timeframe.period == "60" and f_tier2Pattern() and onehConfirmed and fourhPermissionPrev
     label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-// 15m label appears only if 15m confirmation is true
-if timeframe.period == "15" and f_tier2Pattern() and min15Confirmed
+// 15m label appears only if previous 1h confirmed and permission exists
+if timeframe.period == "15" and f_tier2Pattern() and min15Confirmed and onehPermissionPrev
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 1m label appears only if 1m confirmation is true
-if timeframe.period == "1" and f_tier2Pattern() and min1Confirmed
+// 1m label appears only if previous 1h confirmed and permission exists
+if timeframe.period == "1" and f_tier2Pattern() and min1Confirmed and onehPermissionPrev
     label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-// 10s label appears only if 10s confirmation is true
-if timeframe.period == "10S" and f_tier2Pattern() and sec10Confirmed
+// 10s label appears only if previous 1m confirmed and permission exists
+if timeframe.period == "10S" and f_tier2Pattern() and sec10Confirmed and min1Confirmed
     label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
