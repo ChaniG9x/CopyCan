@@ -69,62 +69,55 @@ f_tier2Pattern() =>
     permission := false
     result
 
-// ---------------------- Cascading Gates ----------------------
+// ------------------- Cascading Logic -------------------
+// The higher timeframe pattern acts as the gate for lower timeframes.
+// If the previous daily candle shows the pattern, that gives permission for the current day on 4h and 1h.
+
 // Daily gate: Look at the previous daily candle.
-// If the pattern was present on the previous daily candle, the gate becomes active.
 dailyGate = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
 
-// Use the daily gate to allow pattern search on 4h and 1h for the current day.
+// On lower timeframes, the search is allowed only if the higher timeframe had the pattern.
 pattern_4h = dailyGate and request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern_1h = dailyGate and request.security(syminfo.tickerid, "60",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// 4h gate: Look at the previous 4h candle.
-// If active, allow searching on 15min and 1min timeframes.
-gate_4h = request.security(syminfo.tickerid, "240", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
-pattern_15m      = gate_4h and request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_1m_from4h = gate_4h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// ------------------- 4h Cascade -------------------
+// If the 4h pattern is confirmed, allow search on 15-minute and 1-minute charts.
+pattern_15m_from4h = pattern_4h and request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1m_from4h  = pattern_4h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// 1h gate: Look at the previous 1h candle.
-// If active, allow searching on the 1min and 10-sec timeframes.
-gate_1h = request.security(syminfo.tickerid, "60", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
-pattern_1m_from1h = gate_1h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_10s       = gate_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// ------------------- 1h Cascade -------------------
+// If the 1h pattern is confirmed, allow search on 1-minute and 10-second charts.
+pattern_1m_from1h  = pattern_1h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_10s_from1h = pattern_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// ---------------------- Debugging Labels ----------------------
-// The following labels are drawn only if the chart's current resolution matches the intended timeframe.
+// ------------------- Debugging Labels -------------------
+// Each label is only drawn if the chart's current resolution matches the intended timeframe
+// and the corresponding hierarchical permission and pattern is confirmed.
 
-// Daily gate label appears only on a Daily chart.
+// Daily label appears only on a Daily chart.
 if timeframe.period == "D" and dailyGate
-    label.new(bar_index, high, "Daily Gate", style=label.style_label_down, color=color.blue, textcolor=color.white)
+    label.new(bar_index, high, "Daily Pattern", style=label.style_label_down, color=color.blue, textcolor=color.white)
 
-// 4h pattern label appears only on a 4h chart.
+// 4h label appears only on a 4h chart.
 if timeframe.period == "240" and pattern_4h
     label.new(bar_index, high, "4h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// 1h pattern label appears only on a 1h chart.
+// 1h label appears only on a 1h chart.
 if timeframe.period == "60" and pattern_1h
     label.new(bar_index, high, "1h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// 4h gate label appears only on a 4h chart.
-if timeframe.period == "240" and gate_4h
-    label.new(bar_index, low, "4h Gate", style=label.style_label_up, color=color.purple, textcolor=color.white)
+// 15m label appears only on a 15-min chart.
+if timeframe.period == "15" and pattern_15m_from4h
+    label.new(bar_index, low, "15m Pattern (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 15m pattern label appears only on a 15min chart.
-if timeframe.period == "15" and pattern_15m
-    label.new(bar_index, low, "15m Pattern", style=label.style_label_up, color=color.orange, textcolor=color.white)
-
-// 1m (from 4h) label appears only on a 1min chart.
+// 1m labels appear only on a 1-min chart.
+// Identify if the permission came from the 4h gate.
 if timeframe.period == "1" and pattern_1m_from4h
-    label.new(bar_index, low, "1m (from 4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
-
-// 1h gate label appears only on a 1h chart.
-if timeframe.period == "60" and gate_1h
-    label.new(bar_index, high, "1h Gate", style=label.style_label_left, color=color.red, textcolor=color.white)
-
-// 1m (from 1h) label appears only on a 1min chart.
+    label.new(bar_index, low, "1m Pattern (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
+// Identify if the permission came from the 1h gate.
 if timeframe.period == "1" and pattern_1m_from1h
-    label.new(bar_index, high, "1m (from 1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
+    label.new(bar_index, low, "1m Pattern (1h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 10s pattern label appears only on a 10-sec chart.
-if timeframe.period == "10S" and pattern_10s
-    label.new(bar_index, high, "10s Pattern", style=label.style_label_left, color=color.red, textcolor=color.white)
+// 10s label appears only on a 10-sec chart.
+if timeframe.period == "10S" and pattern_10s_from1h
+    label.new(bar_index, high, "10s Pattern (1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
