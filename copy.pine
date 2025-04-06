@@ -1,73 +1,59 @@
 //@version=5
-indicator("MTF Cascading Pattern Detector", overlay=true)
+indicator("Cascading MTF Pattern Detector", overlay=true)
 
-// === INPUTS === //
-tfDaily = "D"
-tf4h = "240"
-tf1h = "60"
-tf15m = "15"
-tf1m = "1"
-tf10s = "10"
+// === EMA CALCULATIONS ===
+ema10 = ta.ema(close, 10)
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
 
-// === EMA CALCULATIONS === //
-getEMAs(src) =>
-    ema10 = ta.ema(src, 10)
-    ema20 = ta.ema(src, 20)
-    ema50 = ta.ema(src, 50)
-    ema200 = ta.ema(src, 200)
-    [ema10, ema20, ema50, ema200]
+// === EMA ALIGNMENT ===
+emaBullAlign = ema10 > ema20 and ema20 > ema50 and ema50 > ema200
 
-[ema10, ema20, ema50, ema200] = getEMAs(close)
+// === PATTERN CONDITIONS ===
+condA(ema) => close > open and low < ema and high > ema and close > ema
+condB(ema) => close[1] < open[1] and low[1] < ema and high[1] > ema and close > open and close > ema
 
-// === EMA ALIGNMENT === //
-isBullishTrend = ema10 > ema20 and ema20 > ema50 and ema50 > ema200
-
-// === PATTERN CONDITIONS === //
-patternA(ema10, ema20) =>
-    (close > open) and
-    ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and
-    (close > ema10)
-
-patternB(ema10, ema20) =>
-    condBearish = (close[1] < open[1]) and ((low[1] < ema10 and high[1] > ema10) or (low[1] < ema20 and high[1] > ema20))
-    condBullish = (close > open) and (close > ema10)
-    condBearish and condBullish
-
-// === HIGHER TIMEFRAME CONFIRMATION === //
-confirmedPattern(srcTF) =>
-    request.security(syminfo.tickerid, srcTF, patternA(ta.ema(close, 10), ta.ema(close, 20)) or patternB(ta.ema(close, 10), ta.ema(close, 20)), lookahead=barmerge.lookahead_off)
-
-// === PERMISSION FLOW === //
-dailyConfirmed = confirmedPattern(tfDaily)
-prevDailyConfirmed = request.security(syminfo.tickerid, tfDaily, dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off)
-
-h4Confirmed = confirmedPattern(tf4h)
-prev4hConfirmed = request.security(syminfo.tickerid, tf4h, h4Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off)
-
-h1Confirmed = confirmedPattern(tf1h)
-prev1hConfirmed = request.security(syminfo.tickerid, tf1h, h1Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off)
-
-// === RESET RESTRICTION === //
-var bool isRestricted = false
-resetCondition = (close > ema10) and isBullishTrend
+// === RESET CONDITION ===
+var bool restricted = false
 if (open < ema20 or close < ema20)
-    isRestricted := true
-else if (resetCondition)
-    isRestricted := false
+    restricted := true
+if condA(ema10)
+    restricted := false
 
-// === ACTIVE TIMEFRAME DETECTION === //
+// === TIMEFRAME DETECTION ===
 tf = timeframe.period
+is10s = tf == "10S"
+is1m = tf == "1"
+is15m = tf == "15"
+is1h = tf == "60"
+is4h = tf == "240"
+is1d = tf == "D"
 
-// === CASCADING PERMISSION LOGIC === //
-allowScan =
-    (tf == tf4h or tf == tf1h) and prevDailyConfirmed or
-    (tf == tf15m or tf == tf1m) and prev4hConfirmed or
-    (tf == tf10s) and prev1hConfirmed
+// === CONFIRMATION FUNCTION ===
+getConfirmation(tf) =>
+    ema = request.security(syminfo.tickerid, tf, ta.ema(close, 10))
+    a = request.security(syminfo.tickerid, tf, condA(ema))
+    b = request.security(syminfo.tickerid, tf, condB(ema))
+    a or b
 
-// === FINAL PATTERN SCAN === //
-canScan = allowScan and not isRestricted
-detected = canScan and (patternA(ema10, ema20) or patternB(ema10, ema20))
+// === PERMISSION CASCADE ===
+permFromDaily = getConfirmation("D")
+permFrom4H = getConfirmation("240")
+permFrom1H = getConfirmation("60")
 
-// === LABEL DRAWING === //
-if detected
-    label.new(bar_index, high, "Pattern", color=color.green, textcolor=color.white, style=label.style_label_up)
+// === DETERMINE PERMISSION FOR CURRENT TIMEFRAME ===
+permissionGranted = 
+     is1d ? true :
+     is4h or is1h ? permFromDaily :
+     is15m or (is1m and not is1h and not is4h) ? permFrom4H :
+     is10s ? permFrom1H : false
+
+// === FINAL SIGNAL ===
+patternA = condA(ema10)
+patternB = condB(ema10)
+patternDetected = (patternA or patternB) and not restricted and permissionGranted and emaBullAlign
+
+// === LABEL ===
+if patternDetected
+    label.new(bar_index, high, "Pattern", style=label.style_label_up, color=color.green, textcolor=color.white)
