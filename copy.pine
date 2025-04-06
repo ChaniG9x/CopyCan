@@ -1,5 +1,8 @@
 //@version=5
-indicator("Cascading Tier 2 Pattern (CAPA)", overlay=true, shorttitle="CT2DP")
+indicator("Cascading Tier 2 Pattern with Debug (CAPA)", overlay=true, shorttitle="CT2DP_Debug")
+
+// ===== User Input for Debugging =====
+showDebug = input.bool(true, title="Show Debugging Labels", group="Debugging")
 
 // ----- EMA Calculations and Plots -----
 emaLen10  = 10
@@ -14,32 +17,32 @@ plot(ema10,  title="EMA 10",  color=color.blue)
 plot(ema20,  title="EMA 20",  color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
 
-// Check EMA hierarchy condition
+// Check EMA hierarchy condition: EMA10 > EMA20 > EMA200
 emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
 // ----- Helper Function -----
-// Detect if the candle crosses a given EMA
+// Check if the candle crosses a given EMA
 crosses(emaVal) =>
     (low < emaVal) and (high > emaVal)
 
 // ----- Pattern Detection on the Current Timeframe -----
-// We use persistent variables to maintain state across bars
+// Persistent variables to maintain state across bars
 var bool restricted       = false  // True if waiting for a reset candle after restriction
 var bool bearishCandidate = false  // True when a bearish candidate pattern is detected
-var bool justReset        = false  // True on the bar that exits restriction so that pattern detection is skipped
+var bool justReset        = false  // True on the bar that exits restriction so pattern detection is skipped
 var bool permission       = false  // True when the pattern is detected on the current bar
 
 // Reset justReset at the start of each new bar
 justReset := false
 
-// If we are restricted, check if the current bar resets restriction
+// If currently restricted, check if this candle resets the restriction
 if restricted
     if (close > open) and (close > ema10)
         restricted := false
         justReset  := true
         bearishCandidate := false
 
-// Pattern detection only occurs when not restricted and not on the reset bar, and if the EMA trend is valid
+// Pattern detection runs only when not restricted, not on a reset bar, and if EMA trend is valid
 if not restricted and not justReset and emaTrendOk
     // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10
     condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
@@ -50,18 +53,18 @@ if not restricted and not justReset and emaTrendOk
         bearishCandidate := true
     condBConfirm = bearishCandidate and (close > open) and (close > ema10)
     
-    // If either condition is met, mark permission true
+    // If either condition is met, mark permission true and reset the bearish candidate
     if condA or condBConfirm
         permission := true
         bearishCandidate := false
 
-// Check for restriction condition: if open or close is below EMA20 (unless we just reset)
+// Check for restriction condition: if open or close is below EMA20 (unless just reset)
 if not restricted and not justReset
     if (open < ema20) or (close < ema20)
         restricted := true
         bearishCandidate := false
 
-// When the candle closes and permission is true (and not restricted), place a label.
+// When the candle closes and permission is true (and not restricted), place the primary label.
 // Also, set a flag that will persist for the entire next period.
 var bool permissionForNext = false
 if barstate.isconfirmed and permission and not restricted
@@ -74,19 +77,32 @@ else
 permission := false
 
 // ----- Cascading Permission via Higher Timeframes -----
-// For lower timeframes, we want to check if the previous closed candle on a higher timeframe
-// had the pattern. That permission should persist for the entire subsequent period.
-// Here we use request.security to retrieve the higher timeframe's permission flag from the previous bar.
+// Retrieve the permission flag from higher timeframes (previous closed candle)
 dailyPermission    = request.security(syminfo.tickerid, "D", permissionForNext[1])
 hourlyPermission   = request.security(syminfo.tickerid, "60", permissionForNext[1])
 fourHourPermission = request.security(syminfo.tickerid, "240", permissionForNext[1])
 
-// ----- Optional Visual Cues for Cascading Permissions -----
-// These labels help verify that the higher timeframe permissions are being received
-// on a lower timeframe chart. They do not affect the main pattern detection.
-if timeframe.multiplier < 1440 and dailyPermission
-    label.new(bar_index, low, "DP", style=label.style_label_up, color=color.new(color.blue, 0), textcolor=color.white)
-if timeframe.multiplier < 60 and hourlyPermission
-    label.new(bar_index, low, "HP", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
-if timeframe.multiplier < 240 and fourHourPermission
-    label.new(bar_index, low, "4HP", style=label.style_label_up, color=color.new(color.orange, 0), textcolor=color.white)
+// ===== Debugging Labels =====
+// Debug labels appear only when showDebug is enabled.
+// They are drawn on the candle where conditions are met and permission is granted.
+
+// Debug label on the current timeframe (only if the candle produced a valid signal)
+if showDebug and barstate.isconfirmed and permissionForNext
+    if timeframe.period == "D"
+        label.new(bar_index, low, "Daily Debug T2", style=label.style_label_up, color=color.new(color.blue, 0), textcolor=color.white)
+    else if timeframe.period == "60"
+        label.new(bar_index, low, "Hourly Debug T2", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
+    else if timeframe.period == "240"
+        label.new(bar_index, low, "4H Debug T2", style=label.style_label_up, color=color.new(color.orange, 0), textcolor=color.white)
+    else
+        label.new(bar_index, low, "Lower Debug T2", style=label.style_label_up, color=color.new(color.purple, 0), textcolor=color.white)
+
+// Debugging permission labels for lower timeframes showing higher timeframe permissions.
+// These appear only on charts that are not already the higher timeframe.
+if showDebug and (timeframe.period != "D") and (timeframe.period != "60") and (timeframe.period != "240")
+    if dailyPermission
+        label.new(bar_index, low, "Daily Perm Debug", style=label.style_label_left, color=color.new(color.blue, 0), textcolor=color.white)
+    if hourlyPermission
+        label.new(bar_index, low, "Hourly Perm Debug", style=label.style_label_left, color=color.new(color.red, 0), textcolor=color.white)
+    if fourHourPermission
+        label.new(bar_index, low, "4H Perm Debug", style=label.style_label_left, color=color.new(color.orange, 0), textcolor=color.white)
