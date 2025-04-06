@@ -13,7 +13,8 @@ plot(ema200_main, title="EMA 200", color=color.orange)
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// Tier 2 pattern detection
+// Tier 2 pattern detection function.
+// This function uses persistent state and does not reset at the start of a new day.
 f_tier2Pattern() =>
     emaLen10  = 10
     emaLen20  = 20
@@ -58,69 +59,80 @@ f_tier2Pattern() =>
 //-----------------------------------
 // 1) DAILY
 //-----------------------------------
-// - dailyPattern: true if today's candle meets conditions
-// - dailyGate: permission for the next day, using [1]
+// Compute the daily pattern. The daily gate for the current day comes from the previous daily candle.
 dailyPattern = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 dailyGate    = dailyPattern[1]
 
-// Show label on the candle that meets conditions (no offset).
+// Show label on the daily candle that meets conditions.
 if timeframe.period == "D" and dailyPattern
     label.new(bar_index, high, "Daily Pattern", style=label.style_label_down, color=color.blue, textcolor=color.white)
 
 //-----------------------------------
 // 2) 4H
 //-----------------------------------
-// - pattern4hNow: true if this 4h candle meets conditions
-// - pattern4hGate: gate for the NEXT 4h candle
+// Compute the current 4H pattern and get the previous 4H result.
 pattern4hNow  = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern4hGate = pattern4hNow[1]
 
-// The 4h is also gated by the dailyGate. This 4h’s permission is open if dailyGate is true AND pattern4hGate is true.
+// The 4H permission for the current day is based on yesterday's daily permission and the previous 4H result.
 pattern_4h = dailyGate and pattern4hGate
 
-// Plot the 4h label on the candle that meets conditions.
+// Plot the 4H label on the candle that meets conditions.
 if timeframe.period == "240" and pattern4hNow
     label.new(bar_index, high, "4h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
 //-----------------------------------
 // 3) 1H
 //-----------------------------------
-// - pattern1hNow: current 1h candle meets conditions
-// - pattern1hGate: gate for the NEXT 1h candle
+// Compute the current 1H pattern and get the previous 1H result.
 pattern1hNow  = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern1hGate = pattern1hNow[1]
 
-// The 1h is gated by both the dailyGate and pattern1hGate
+// The 1H permission is based on yesterday's daily permission and the previous 1H result.
 pattern_1h = dailyGate and pattern1hGate
 
-// Plot 1h label
+// Plot the 1H label.
 if timeframe.period == "60" and pattern1hNow
     label.new(bar_index, high, "1h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
 
 //-----------------------------------
 // 4) Cascading to lower timeframes
 //-----------------------------------
-// 4a) For timeframes descending from 4h:
-pattern_15m_from4h = pattern_4h and request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_1m_from4h  = pattern_4h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// For lower timeframes that descend from 4H, use the previous 4H gate result.
+// 4a) 15-minute based on 4H permission:
+pattern15mNow_from4h = request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern15mGate_from4h = pattern15mNow_from4h[1]
+pattern_15m_from4h    = pattern_4h and pattern15mGate_from4h
 
-// 4b) For timeframes descending from 1h:
-pattern_1m_from1h  = pattern_1h and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_10s_from1h = pattern_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// 4b) 1-minute based on 4H permission:
+pattern1mNow_from4h  = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern1mGate_from4h = pattern1mNow_from4h[1]
+pattern_1m_from4h    = pattern_4h and pattern1mGate_from4h
+
+// For lower timeframes that descend from 1H, use the previous 1H gate result.
+// 1-minute based on 1H permission:
+pattern1mNow_from1h  = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern1mGate_from1h = pattern1mNow_from1h[1]
+pattern_1m_from1h    = pattern_1h and pattern1mGate_from1h
+
+// 10-second based on 1H permission:
+pattern10sNow_from1h  = request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern10sGate_from1h = pattern10sNow_from1h[1]
+pattern_10s_from1h    = pattern_1h and pattern10sGate_from1h
 
 //-----------------------------------
 // Labels on lower timeframes
 //-----------------------------------
-// 15m
+// 15m label based on 4H permission.
 if timeframe.period == "15" and pattern_15m_from4h
     label.new(bar_index, low, "15m (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 1m
+// 1m labels: one based on 4H and one based on 1H permission.
 if timeframe.period == "1" and pattern_1m_from4h
     label.new(bar_index, low, "1m (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 if timeframe.period == "1" and pattern_1m_from1h
     label.new(bar_index, low, "1m (1h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 10s
+// 10s label based on 1H permission.
 if timeframe.period == "10S" and pattern_10s_from1h
     label.new(bar_index, high, "10s (1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
