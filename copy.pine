@@ -19,7 +19,6 @@ crosses(_ema) =>
 
 // --------------------------------------------------------
 // 3. Tier 2 Pattern function for a single timeframe
-//    (same logic you already have, returning a boolean)
 // --------------------------------------------------------
 f_tier2Pattern() =>
     // EMA calculations
@@ -78,34 +77,31 @@ f_tier2Pattern() =>
     // Only true if bar is confirmed, permission is granted, and not restricted
     result = permission and barstate.isconfirmed and not restricted
 
-    // Reset the permission flag for next bar
+    // Reset the permission flag for the next bar
     permission := false
 
     result
 
 // --------------------------------------------------------
 // 4. Request the daily, 4h, 1h, 15m, 1m, 10s data
-//    BUT we will shift the higher timeframe's result
-//    by [1] so we only read a fully closed bar
+//    by shifting the higher timeframe's result [1]
 // --------------------------------------------------------
 
-// --- Daily (we shift by [1] so that on the current bar, we see the *previous* daily bar's result)
+// --- Daily
 dailyPatternRaw = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 dailyConfirmed  = dailyPatternRaw[1]  // The previous daily candle's T2 pattern result
 
-// --- 4h (we also shift by [1], so it uses the *previous* 4h bar)
+// --- 4h
 pattern_4h_raw = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern_4h_prev = pattern_4h_raw[1]  
-// The 4h gate is true only if dailyConfirmed was true *and* the previous 4h bar's pattern was true
 pattern_4h = dailyConfirmed and pattern_4h_prev
 
-// --- 1h (similarly, shift by [1] for the previous 1h bar)
+// --- 1h
 pattern_1h_raw = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern_1h_prev = pattern_1h_raw[1]
 pattern_1h = dailyConfirmed and pattern_1h_prev
 
-// --- 15m (depends on the *previous* 4h bar, so we check pattern_4h, but we do NOT shift the 15m result itself)
-// Because we want to see if the current 15m candle is valid AND if the gating 4h bar has fully closed bullish
+// --- 15m from 4h
 pattern_15m_raw = request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern_15m_from4h = pattern_4h and pattern_15m_raw
 
@@ -122,36 +118,37 @@ pattern_10s_raw_1h = request.security(syminfo.tickerid, "10S", f_tier2Pattern(),
 pattern_10s_from1h = pattern_1h and pattern_10s_raw_1h
 
 // --------------------------------------------------------
-// 5. Debugging labels
+// 5. Plot labels only when the condition turns true this bar
+//    (pattern_X and not pattern_X[1])
 // --------------------------------------------------------
-// We only show labels when the chart's current timeframe
-// matches the timeframe in question, so it doesn't clutter
-// all timeframes.
+
+// A tiny function to detect "just turned true" from false
+justTurnedTrue(cond) => cond and not cond[1]
 
 // --- DAILY label
-if timeframe.period == "D" and dailyPatternRaw
+if timeframe.period == "D" and justTurnedTrue(dailyPatternRaw)
     label.new(bar_index, high, "Daily T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
 // --- 4H label
-if timeframe.period == "240" and pattern_4h_raw
+if timeframe.period == "240" and justTurnedTrue(pattern_4h_raw)
     label.new(bar_index, high, "4H T2", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
 // --- 1H label
-if timeframe.period == "60" and pattern_1h_raw
+if timeframe.period == "60" and justTurnedTrue(pattern_1h_raw)
     label.new(bar_index, high, "1H T2", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-// --- 15m label (this indicates a 15m T2 that is *allowed* by 4h)
-if timeframe.period == "15" and pattern_15m_from4h
+// --- 15m label (this indicates a 15m T2 that is allowed by 4h)
+if timeframe.period == "15" and justTurnedTrue(pattern_15m_from4h)
     label.new(bar_index, low, "15m(4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
 // --- 1m label for the 4h branch
-if timeframe.period == "1" and pattern_1m_from4h
+if timeframe.period == "1" and justTurnedTrue(pattern_1m_from4h)
     label.new(bar_index, low, "1m(4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
 // --- 1m label for the 1h branch
-if timeframe.period == "1" and pattern_1m_from1h
+if timeframe.period == "1" and justTurnedTrue(pattern_1m_from1h)
     label.new(bar_index, low, "1m(1h)", style=label.style_label_up, color=color.red, textcolor=color.white)
 
 // --- 10s label for the 1h branch
-if timeframe.period == "10S" and pattern_10s_from1h
+if timeframe.period == "10S" and justTurnedTrue(pattern_10s_from1h)
     label.new(bar_index, high, "10s(1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
