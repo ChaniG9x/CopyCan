@@ -73,35 +73,35 @@ f_tier2Pattern() =>
 // ------------------- Cascading Logic -------------------
 // DAILY:
 // Label placement uses the current confirmed daily candle,
-// while the gate (permission for lower timeframes) is taken from the previous daily candle.
+// while the gate (permission for lower timeframes) now comes from the current daily candle.
 dailyLabel = f_tier2Pattern()
-dailyGate  = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+dailyGate  = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // 4h:
 // Label placement uses the current confirmed 4h candle,
-// while the gate for lower timeframes comes from the previous 4h candle.
+// while the gate for lower timeframes comes from the current 4h candle.
 pattern_4h_label = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_4h_gate  = request.security(syminfo.tickerid, "240", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
-// Overall 4h permission requires that both the daily gate and previous 4h gate are confirmed.
+pattern_4h_gate  = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// Overall 4h permission requires that both the daily gate and current 4h gate are confirmed.
 pattern_4h = dailyGate and pattern_4h_gate
 
 // 1h:
 // Label placement uses the current confirmed 1h candle,
-// while the gate for lower timeframes comes from the previous 1h candle.
+// while the gate for lower timeframes comes from the current 1h candle.
 pattern_1h_label = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern_1h_gate  = request.security(syminfo.tickerid, "60", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
-// Overall 1h permission requires that both the daily gate and previous 1h gate are confirmed.
+pattern_1h_gate  = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+// Overall 1h permission requires that both the daily gate and current 1h gate are confirmed.
 pattern_1h = dailyGate and pattern_1h_gate
 
 // ------------------- 4h Cascade -------------------
 // For lower timeframes (15m and 1m) coming from the 4h chain,
-// use the previous 4h gate (pattern_4h_gate) as permission.
+// use the current 4h gate as permission.
 pattern_15m_from4h = pattern_4h_gate and request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern_1m_from4h  = pattern_4h_gate and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // ------------------- 1h Cascade -------------------
 // For lower timeframes (1m and 10s) coming from the 1h chain,
-// use the previous 1h gate (pattern_1h_gate) as permission.
+// use the current 1h gate as permission.
 pattern_1m_from1h  = pattern_1h_gate and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 pattern_10s_from1h = pattern_1h_gate and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
