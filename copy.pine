@@ -2,7 +2,7 @@
 indicator("Tier 2 Pattern (CAPA) - MTF Cascading with Labels", overlay=true)
 
 //----------------------------------------------------
-//  HELPER FUNCTIONS
+// HELPER FUNCTIONS
 //----------------------------------------------------
 
 // Returns true if the current candle crosses a given EMA
@@ -18,8 +18,8 @@ f_getEMAs(tf) =>
     ]
 
 //----------------------------------------------------
-//  1) DAILY LOGIC
-//     Grants permission to 4h and 1h
+// 1) DAILY LOGIC
+//    Grants permission to 4h and 1h
 //----------------------------------------------------
 var bool dailyRestricted       = false
 var bool dailyBearishCandidate = false
@@ -27,6 +27,7 @@ var bool dailyJustReset        = false
 var bool dailyPermission       = false
 
 f_dailyLogic() =>
+{
     [dEma10, dEma20, dEma200] = f_getEMAs("D")
 
     // Check if EMAs line up
@@ -71,6 +72,7 @@ f_dailyLogic() =>
         dailyPermission := true
     else
         dailyPermission := false
+}
 
 // Run the daily logic in a security call
 request.security(syminfo.tickerid, "D", f_dailyLogic(), lookahead=barmerge.lookahead_on)
@@ -80,9 +82,9 @@ if dailyPermission and timeframe.period == "D"
     label.new(bar_index, high, style=label.style_label_down, text="Daily T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  2) 4-HOUR LOGIC
-//     Depends on dailyPermission
-//     Grants permission to 15min and 1min
+// 2) 4-HOUR LOGIC
+//    Depends on dailyPermission
+//    Grants permission to 15min and 1min
 //----------------------------------------------------
 var bool fourHRestricted       = false
 var bool fourHBearishCandidate = false
@@ -90,6 +92,7 @@ var bool fourHJustReset        = false
 var bool fourHPermission       = false
 
 f_fourHourLogic(_dailyPerm) =>
+{
     [ema10_4h, ema20_4h, ema200_4h] = f_getEMAs("240")
     emaTrendOk_4h = (ema10_4h > ema20_4h) and (ema20_4h > ema200_4h)
 
@@ -125,6 +128,7 @@ f_fourHourLogic(_dailyPerm) =>
         fourHPermission := true
     else
         fourHPermission := false
+}
 
 request.security(syminfo.tickerid, "240", f_fourHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
 
@@ -133,9 +137,9 @@ if fourHPermission and timeframe.period == "240"
     label.new(bar_index, high, style=label.style_label_down, text="4H T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  3) 1-HOUR LOGIC
-//     Also depends on dailyPermission
-//     Grants permission to 1min & 10sec
+// 3) 1-HOUR LOGIC
+//    Also depends on dailyPermission
+//    Grants permission to 1min & 10sec
 //----------------------------------------------------
 var bool oneHRestricted       = false
 var bool oneHBearishCandidate = false
@@ -143,6 +147,7 @@ var bool oneHJustReset        = false
 var bool oneHPermission       = false
 
 f_oneHourLogic(_dailyPerm) =>
+{
     [ema10_1h, ema20_1h, ema200_1h] = f_getEMAs("60")
     emaTrendOk_1h = (ema10_1h > ema20_1h) and (ema20_1h > ema200_1h)
 
@@ -177,6 +182,7 @@ f_oneHourLogic(_dailyPerm) =>
         oneHPermission := true
     else
         oneHPermission := false
+}
 
 request.security(syminfo.tickerid, "60", f_oneHourLogic(dailyPermission), lookahead=barmerge.lookahead_on)
 
@@ -185,7 +191,7 @@ if oneHPermission and timeframe.period == "60"
     label.new(bar_index, high, style=label.style_label_down, text="1H T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  4) 15-MIN LOGIC (depends on 4h permission)
+// 4) 15-MIN LOGIC (depends on 4h permission)
 //----------------------------------------------------
 var bool fifteenMRestricted       = false
 var bool fifteenMBearishCandidate = false
@@ -193,6 +199,7 @@ var bool fifteenMJustReset        = false
 var bool fifteenMPermission       = false
 
 f_fifteenMinLogic(_4hPerm) =>
+{
     [ema10_15, ema20_15, ema200_15] = f_getEMAs("15")
     emaTrendOk_15 = (ema10_15 > ema20_15) and (ema20_15 > ema200_15)
 
@@ -227,6 +234,7 @@ f_fifteenMinLogic(_4hPerm) =>
         fifteenMPermission := true
     else
         fifteenMPermission := false
+}
 
 request.security(syminfo.tickerid, "15", f_fifteenMinLogic(fourHPermission), lookahead=barmerge.lookahead_on)
 
@@ -235,8 +243,9 @@ if fifteenMPermission and timeframe.period == "15"
     label.new(bar_index, high, style=label.style_label_down, text="15m T2", color=color.new(color.green, 0), textcolor=color.white)
 
 //----------------------------------------------------
-//  5) 1-MIN LOGIC (two branches: from 4h and from 1h)
+// 5) 1-MIN LOGIC (two branches: from 4h and from 1h)
 //----------------------------------------------------
+
 // 5.a) 1-min from 4h
 var bool oneM_4hRestricted       = false
 var bool oneM_4hBearishCandidate = false
@@ -244,6 +253,7 @@ var bool oneM_4hJustReset        = false
 var bool oneM_4hPermission       = false
 
 f_oneMinFrom4hLogic(_4hPerm) =>
+{
     [ema10_1m4h, ema20_1m4h, ema200_1m4h] = f_getEMAs("1")
     emaTrendOk_1m4h = (ema10_1m4h > ema20_1m4h) and (ema20_1m4h > ema200_1m4h)
 
@@ -277,6 +287,7 @@ f_oneMinFrom4hLogic(_4hPerm) =>
         oneM_4hPermission := true
     else
         oneM_4hPermission := false
+}
 
 request.security(syminfo.tickerid, "1", f_oneMinFrom4hLogic(fourHPermission), lookahead=barmerge.lookahead_on)
 
@@ -291,6 +302,7 @@ var bool oneM_1hJustReset        = false
 var bool oneM_1hPermission       = false
 
 f_oneMinFrom1hLogic(_1hPerm) =>
+{
     [ema10_1m1h, ema20_1m1h, ema200_1m1h] = f_getEMAs("1")
     emaTrendOk_1m1h = (ema10_1m1h > ema20_1m1h) and (ema20_1m1h > ema200_1m1h)
 
@@ -324,6 +336,7 @@ f_oneMinFrom1hLogic(_1hPerm) =>
         oneM_1hPermission := true
     else
         oneM_1hPermission := false
+}
 
 request.security(syminfo.tickerid, "1", f_oneMinFrom1hLogic(oneHPermission), lookahead=barmerge.lookahead_on)
 
@@ -340,6 +353,7 @@ var bool tenSJustReset        = false
 var bool tenSPermission       = false
 
 f_tenSecLogic(_1hPerm) =>
+{
     [ema10_10s, ema20_10s, ema200_10s] = f_getEMAs("10S")
     emaTrendOk_10s = (ema10_10s > ema20_10s) and (ema20_10s > ema200_10s)
 
@@ -373,6 +387,7 @@ f_tenSecLogic(_1hPerm) =>
         tenSPermission := true
     else
         tenSPermission := false
+}
 
 request.security(syminfo.tickerid, "10S", f_tenSecLogic(oneHPermission), lookahead=barmerge.lookahead_on)
 
@@ -391,7 +406,6 @@ ema10  = ta.ema(close, emaLen10)
 ema20  = ta.ema(close, emaLen20)
 ema200 = ta.ema(close, emaLen200)
 
-// Plot them
 plot(ema10,  title="EMA 10",  color=color.blue)
 plot(ema20,  title="EMA 20",  color=color.red)
 plot(ema200, title="EMA 200", color=color.orange)
