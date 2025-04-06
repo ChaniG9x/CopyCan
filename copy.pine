@@ -52,10 +52,13 @@ f_tier2Pattern() =>
 
 // ------------------- Cascading Permission Logic -------------------
 
+// Declare persistent variables
 var bool dailyConfirmed = false
 var bool fourhConfirmed = false
 var bool onehConfirmed = false
 var bool min1Confirmed = false
+var bool min15Confirmed = false
+var bool sec10Confirmed = false
 
 // Get previous daily confirmation
 dailyConfirmed := request.security(syminfo.tickerid, "D", f_tier2Pattern() ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
@@ -73,20 +76,26 @@ sec10Confirmed := request.security(syminfo.tickerid, "10S", min1Confirmed[1] ? 1
 
 // ------------------- Debugging Labels -------------------
 
+// Daily label appears only if daily confirmation is true
 if timeframe.period == "D" and f_tier2Pattern() and dailyConfirmed
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
+// 4h label appears only if 4h confirmation is true
 if timeframe.period == "240" and f_tier2Pattern() and fourhConfirmed
     label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
+// 1h label appears only if 1h confirmation is true
 if timeframe.period == "60" and f_tier2Pattern() and onehConfirmed
     label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
+// 15m label appears only if 15m confirmation is true
 if timeframe.period == "15" and f_tier2Pattern() and min15Confirmed
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
+// 1m label appears only if 1m confirmation is true
 if timeframe.period == "1" and f_tier2Pattern() and min1Confirmed
     label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
+// 10s label appears only if 10s confirmation is true
 if timeframe.period == "10S" and f_tier2Pattern() and sec10Confirmed
     label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
