@@ -9,130 +9,126 @@ plot(ema10_main, title="EMA 10", color=color.blue)
 plot(ema20_main, title="EMA 20", color=color.red)
 plot(ema200_main, title="EMA 200", color=color.orange)
 
-// Helper function
+// Helper function defined at the top level
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// Tier 2 pattern detection function.
-// This function uses persistent state and does not reset at the start of a new day.
+// Updated stateful Tier 2 pattern detection function (reflecting your reference candlestick conditions)
 f_tier2Pattern() =>
+    // EMA settings and calculations
     emaLen10  = 10
     emaLen20  = 20
     emaLen200 = 200
     ema10  = ta.ema(close, emaLen10)
     ema20  = ta.ema(close, emaLen20)
     ema200 = ta.ema(close, emaLen200)
+    // Check EMA hierarchy: EMA10 > EMA20 > EMA200
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
     
-    var bool restricted       = false
-    var bool bearishCandidate = false
-    var bool justReset        = false
+    // Persistent state variables (each timeframe instance maintains its own state)
+    var bool restricted       = false   // Set when the candle triggers a restriction
+    var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
+    var bool justReset        = false   // True on the bar that resets restriction
+    // Reset justReset at the start of each bar
     justReset := false
 
+    // If currently restricted, check if this candle resets the restriction.
     if restricted
+        // Reset if a bullish candle closes above EMA10.
         if (close > open) and (close > ema10)
             restricted       := false
             justReset        := true
             bearishCandidate := false
 
+    // Pattern detection is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
     var bool permission = false
     if not restricted and not justReset and emaTrendOk
+        // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10.
         condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
+        
+        // Condition B: Two-candle sequence.
+        // First, detect a bearish candidate candle.
         condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
+        // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
-
+        
+        // If either condition is met, permission is granted.
         if condA or condBConfirm
             permission       := true
             bearishCandidate := false
 
+    // After pattern detection, check if the current candle triggers restriction.
     if not restricted and not justReset
         if (open < ema20) or (close < ema20)
             restricted       := true
             bearishCandidate := false
 
+    // Return true only if permission is granted, the bar is confirmed, and we're not restricted.
     result = permission and barstate.isconfirmed and (not restricted)
     permission := false
     result
 
-//-----------------------------------
-// 1) DAILY
-//-----------------------------------
-// Compute the daily pattern. The daily gate for the current day comes from the previous daily candle.
-dailyPattern = request.security(syminfo.tickerid, "D", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-dailyGate    = dailyPattern[1]
+// ------------------- Cascading Logic -------------------
+// DAILY:
+// Label placement uses the current confirmed daily candle,
+// while the gate (permission for lower timeframes) is taken from the previous daily candle.
+dailyLabel = f_tier2Pattern()
+dailyGate  = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
 
-// Show label on the daily candle that meets conditions.
-if timeframe.period == "D" and dailyPattern
-    label.new(bar_index, high, "Daily Pattern", style=label.style_label_down, color=color.blue, textcolor=color.white)
+// 4h:
+// Label placement uses the current confirmed 4h candle,
+// while the gate for lower timeframes comes from the previous 4h candle.
+pattern_4h_label = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_4h_gate  = request.security(syminfo.tickerid, "240", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+// Overall 4h permission requires that both the daily gate and previous 4h gate are confirmed.
+pattern_4h = dailyGate and pattern_4h_gate
 
-//-----------------------------------
-// 2) 4H
-//-----------------------------------
-// Compute the current 4H pattern and get the previous 4H result.
-pattern4hNow  = request.security(syminfo.tickerid, "240", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern4hGate = pattern4hNow[1]
+// 1h:
+// Label placement uses the current confirmed 1h candle,
+// while the gate for lower timeframes comes from the previous 1h candle.
+pattern_1h_label = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1h_gate  = request.security(syminfo.tickerid, "60", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+// Overall 1h permission requires that both the daily gate and previous 1h gate are confirmed.
+pattern_1h = dailyGate and pattern_1h_gate
 
-// The 4H permission for the current day is based on yesterday's daily permission and the previous 4H result.
-pattern_4h = dailyGate and pattern4hGate
+// ------------------- 4h Cascade -------------------
+// For lower timeframes (15m and 1m) coming from the 4h chain,
+// use the previous 4h gate (pattern_4h_gate) as permission.
+pattern_15m_from4h = pattern_4h_gate and request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_1m_from4h  = pattern_4h_gate and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-// Plot the 4H label on the candle that meets conditions.
-if timeframe.period == "240" and pattern4hNow
-    label.new(bar_index, high, "4h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
+// ------------------- 1h Cascade -------------------
+// For lower timeframes (1m and 10s) coming from the 1h chain,
+// use the previous 1h gate (pattern_1h_gate) as permission.
+pattern_1m_from1h  = pattern_1h_gate and request.security(syminfo.tickerid, "1",  f_tier2Pattern(), lookahead=barmerge.lookahead_off)
+pattern_10s_from1h = pattern_1h_gate and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
-//-----------------------------------
-// 3) 1H
-//-----------------------------------
-// Compute the current 1H pattern and get the previous 1H result.
-pattern1hNow  = request.security(syminfo.tickerid, "60", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern1hGate = pattern1hNow[1]
+// ------------------- Debugging Labels -------------------
+// DAILY: Draw the daily label on the candle that meets the criteria.
+if timeframe.period == "D" and dailyLabel
+    label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// The 1H permission is based on yesterday's daily permission and the previous 1H result.
-pattern_1h = dailyGate and pattern1hGate
+// 4h: Draw the 4h label on the candle that meets the criteria.
+if timeframe.period == "240" and pattern_4h_label
+    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
-// Plot the 1H label.
-if timeframe.period == "60" and pattern1hNow
-    label.new(bar_index, high, "1h Pattern", style=label.style_label_down, color=color.green, textcolor=color.white)
+// 1h: Draw the 1h label on the candle that meets the criteria.
+if timeframe.period == "60" and pattern_1h_label
+    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-//-----------------------------------
-// 4) Cascading to lower timeframes
-//-----------------------------------
-// For lower timeframes that descend from 4H, use the previous 4H gate result.
-// 4a) 15-minute based on 4H permission:
-pattern15mNow_from4h = request.security(syminfo.tickerid, "15", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern15mGate_from4h = pattern15mNow_from4h[1]
-pattern_15m_from4h    = pattern_4h and pattern15mGate_from4h
-
-// 4b) 1-minute based on 4H permission:
-pattern1mNow_from4h  = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern1mGate_from4h = pattern1mNow_from4h[1]
-pattern_1m_from4h    = pattern_4h and pattern1mGate_from4h
-
-// For lower timeframes that descend from 1H, use the previous 1H gate result.
-// 1-minute based on 1H permission:
-pattern1mNow_from1h  = request.security(syminfo.tickerid, "1", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern1mGate_from1h = pattern1mNow_from1h[1]
-pattern_1m_from1h    = pattern_1h and pattern1mGate_from1h
-
-// 10-second based on 1H permission:
-pattern10sNow_from1h  = request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
-pattern10sGate_from1h = pattern10sNow_from1h[1]
-pattern_10s_from1h    = pattern_1h and pattern10sGate_from1h
-
-//-----------------------------------
-// Labels on lower timeframes
-//-----------------------------------
-// 15m label based on 4H permission.
+// 15m: Draw the 15m label only on a 15-min chart.
 if timeframe.period == "15" and pattern_15m_from4h
     label.new(bar_index, low, "15m (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 1m labels: one based on 4H and one based on 1H permission.
+// 1m: Draw the 1m label on a 1-min chart.
+// The label shows which higher timeframe gate provided permission.
 if timeframe.period == "1" and pattern_1m_from4h
     label.new(bar_index, low, "1m (4h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
 if timeframe.period == "1" and pattern_1m_from1h
-    label.new(bar_index, low, "1m (1h)", style=label.style_label_up, color=color.orange, textcolor=color.white)
+    label.new(bar_index, low, "1m (1h)", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-// 10s label based on 1H permission.
+// 10s: Draw the 10s label only on a 10-sec chart.
 if timeframe.period == "10S" and pattern_10s_from1h
     label.new(bar_index, high, "10s (1h)", style=label.style_label_left, color=color.red, textcolor=color.white)
