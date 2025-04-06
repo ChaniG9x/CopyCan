@@ -7,6 +7,11 @@ ema20 = ta.ema(close, 20)
 ema50 = ta.ema(close, 50)
 ema200 = ta.ema(close, 200)
 
+// === PLOT EMAs ===
+plot(ema10, title="EMA 10", color=color.blue, linewidth=2)
+plot(ema20, title="EMA 20", color=color.red, linewidth=2)
+plot(ema200, title="EMA 200", color=color.orange, linewidth=2)
+
 // === EMA ALIGNMENT ===
 emaBullAlign = ema10 > ema20 and ema20 > ema50 and ema50 > ema200
 
