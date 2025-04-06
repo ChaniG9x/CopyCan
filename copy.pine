@@ -62,11 +62,19 @@ oneSecPermission := oneHourPermission and ta.change(time("1"))
 
 // Check if permission is granted for current lower timeframe and meets conditions
 // Example: Check if the candle is bullish or bearish and if it crosses EMA10
+// --- Condition A: Single Bullish Candle ---
+condA = (close > open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+
+// --- Condition B: Bearish then Bullish ---
+condBearCandidate = (close < open) and (crosses(ema10) or crosses(ema20)) and (close > ema10)
+condBConfirm = bearishCandidate and (close > open) and (close > ema10)
+
+// Place labels based on pattern conditions
 if (fifteenMinPermission or oneMinPermission)
-    if (close > open and crosses(ema10))
+    if (condA or condBConfirm)
         label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
 if (tenSecPermission or oneSecPermission)
-    if (close > open and crosses(ema10))
+    if (condA or condBConfirm)
         label.new(x=bar_index, y=high, text="T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
