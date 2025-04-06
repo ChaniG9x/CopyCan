@@ -1,6 +1,14 @@
 //@version=5
 indicator("Tier 2 Pattern with Cascading Gates (CAPA)", overlay=true, shorttitle="T2DP_Cascaded")
 
+// Plot EMAs on the chart
+ema10_main  = ta.ema(close, 10)
+ema20_main  = ta.ema(close, 20)
+ema200_main = ta.ema(close, 200)
+plot(ema10_main, title="EMA 10", color=color.blue)
+plot(ema20_main, title="EMA 20", color=color.red)
+plot(ema200_main, title="EMA 200", color=color.orange)
+
 // Helper function defined at the top level
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
@@ -83,7 +91,7 @@ pattern_1m_from1h = gate_1h and request.security(syminfo.tickerid, "1",  f_tier2
 pattern_10s       = gate_1h and request.security(syminfo.tickerid, "10S", f_tier2Pattern(), lookahead=barmerge.lookahead_off)
 
 // ---------------------- Debugging Labels ----------------------
-// The following labels are only drawn if the chart's current resolution matches the intended timeframe.
+// The following labels are drawn only if the chart's current resolution matches the intended timeframe.
 
 // Daily gate label appears only on a Daily chart.
 if timeframe.period == "D" and dailyGate
