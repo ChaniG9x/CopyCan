@@ -1,68 +1,74 @@
 //@version=5
-indicator("Multi-Timeframe Cascading Pattern Detector", overlay=true)
+indicator("MTF Cascading Pattern Detector", overlay=true)
 
-// Define EMAs
-ema10 = ta.ema(close, 10)
-ema20 = ta.ema(close, 20)
-ema50 = ta.ema(close, 50)
-ema200 = ta.ema(close, 200)
+// === INPUTS === //
+tfDaily = "D"
+tf4h = "240"
+tf1h = "60"
+tf15m = "15"
+tf1m = "1"
+tf10s = "10"
 
-// Pattern conditions
-var bool condA = na  // Bullish Candle Condition A
-var bool condBearish = na  // Bearish Candle Condition
-var bool condBullish = na  // Bullish Candle Condition
-var bool condBConfirm = na  // Bearish to Bullish sequence (Condition B)
+// === EMA CALCULATIONS === //
+getEMAs(src) =>
+    ema10 = ta.ema(src, 10)
+    ema20 = ta.ema(src, 20)
+    ema50 = ta.ema(src, 50)
+    ema200 = ta.ema(src, 200)
+    [ema10, ema20, ema50, ema200]
 
-// Trend conditions (EMA Alignment)
-var bool bullishTrend = na
-var bool bearishTrend = na
+[ema10, ema20, ema50, ema200] = getEMAs(close)
 
-// Request higher timeframes for pattern confirmation
-var float prevDailyConfirmed = na
-var float prev4hConfirmed = na
-var float prev1hConfirmed = na
+// === EMA ALIGNMENT === //
+isBullishTrend = ema10 > ema20 and ema20 > ema50 and ema50 > ema200
 
-// EMA20 reset condition for restriction
-var bool restricted = false
+// === PATTERN CONDITIONS === //
+patternA(ema10, ema20) =>
+    (close > open) and
+    ((low < ema10 and high > ema10) or (low < ema20 and high > ema20)) and
+    (close > ema10)
 
-// Calculate conditions
-condA := (close > open) and (low < ema10 and high > ema10) and (close > ema10)  // Bullish Candle Condition A
-condBearish := (close[1] < open[1]) and (low[1] < ema10 and high[1] > ema10)  // Bearish Candle Condition
-condBullish := (close > open) and (close > ema10)  // Bullish Candle Condition
-condBConfirm := condBearish and condBullish  // Bearish to Bullish sequence (Condition B)
+patternB(ema10, ema20) =>
+    condBearish = (close[1] < open[1]) and ((low[1] < ema10 and high[1] > ema10) or (low[1] < ema20 and high[1] > ema20))
+    condBullish = (close > open) and (close > ema10)
+    condBearish and condBullish
 
-// Trend conditions (EMA Alignment)
-bullishTrend := ema10 > ema20 and ema20 > ema50 and ema50 > ema200
-bearishTrend := ema10 < ema20 and ema20 < ema50 and ema50 < ema200
+// === HIGHER TIMEFRAME CONFIRMATION === //
+confirmedPattern(srcTF) =>
+    security(syminfo.tickerid, srcTF, patternA(ta.ema(close, 10), ta.ema(close, 20)) or patternB(ta.ema(close, 10), ta.ema(close, 20)), lookahead=barmerge.lookahead_off)
 
-// Request higher timeframe confirmations
-prevDailyConfirmed := request.security(syminfo.tickerid, "D", condA or condBConfirm ? 1 : 0, lookahead=barmerge.lookahead_off)
-prev4hConfirmed := request.security(syminfo.tickerid, "4H", condA or condBConfirm ? 1 : 0, lookahead=barmerge.lookahead_off)
-prev1hConfirmed := request.security(syminfo.tickerid, "1H", condA or condBConfirm ? 1 : 0, lookahead=barmerge.lookahead_off)
+// === PERMISSION FLOW === //
+dailyConfirmed = confirmedPattern(tfDaily)
+prevDailyConfirmed = request.security(syminfo.tickerid, tfDaily, dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off)
 
-// EMA20 reset condition for restriction
-if (open < ema20) or (close < ema20)
-    restricted := true
+h4Confirmed = confirmedPattern(tf4h)
+prev4hConfirmed = request.security(syminfo.tickerid, tf4h, h4Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off)
 
-// Pattern detection logic
-if not restricted
-    // Daily → 4h and 1h Permission
-    if prevDailyConfirmed == 1
-        if condA
-            label.new(bar_index, high, "Bullish Candle", color=color.green, style=label.style_label_up, size=size.small)
-        if condBConfirm
-            label.new(bar_index, high, "Bullish Sequence", color=color.blue, style=label.style_label_up, size=size.small)
+h1Confirmed = confirmedPattern(tf1h)
+prev1hConfirmed = request.security(syminfo.tickerid, tf1h, h1Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off)
 
-    // 4h → 15m and 1m Permission
-    if prev4hConfirmed == 1
-        if condA
-            label.new(bar_index, high, "Bullish Candle", color=color.green, style=label.style_label_up, size=size.small)
-        if condBConfirm
-            label.new(bar_index, high, "Bullish Sequence", color=color.blue, style=label.style_label_up, size=size.small)
+// === RESET RESTRICTION === //
+var bool isRestricted = false
+resetCondition = (close > ema10) and isBullishTrend
+if (open < ema20 or close < ema20)
+    isRestricted := true
+else if (resetCondition)
+    isRestricted := false
 
-    // 1h → 1m and 10s Permission
-    if prev1hConfirmed == 1
-        if condA
-            label.new(bar_index, high, "Bullish Candle", color=color.green, style=label.style_label_up, size=size.small)
-        if condBConfirm
-            label.new(bar_index, high, "Bullish Sequence", color=color.blue, style=label.style_label_up, size=size.small)
+// === ACTIVE TIMEFRAME DETECTION === //
+tf = timeframe.period
+
+// === CASCADING PERMISSION LOGIC === //
+allowScan =
+    (tf == tf4h or tf == tf1h) and prevDailyConfirmed or
+    (tf == tf15m or tf == tf1m) and prev4hConfirmed or
+    (tf == tf10s) and prev1hConfirmed
+
+// === FINAL PATTERN SCAN === //
+canScan = allowScan and not isRestricted
+detected = canScan and (patternA(ema10, ema20) or patternB(ema10, ema20))
+
+// === LABEL DRAWING === //
+if detected
+    label.new(bar_index, high, "Pattern", color=color.green, textcolor=color.white, style=label.style_label_up)
+
