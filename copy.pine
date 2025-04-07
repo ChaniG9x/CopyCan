@@ -13,7 +13,7 @@ plot(ema200_main, title="EMA 200", color=color.orange)
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// Updated stateful Tier 2 pattern detection function (reflecting your reference candlestick conditions)
+// Updated stateful Tier 2 pattern detection function
 f_tier2Pattern() =>
     // EMA settings and calculations
     emaLen10  = 10
@@ -25,112 +25,129 @@ f_tier2Pattern() =>
     // Check EMA hierarchy: EMA10 > EMA20 > EMA200
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
     
-    // Persistent state variables (each timeframe instance maintains its own state)
+    // Persistent state variables
     var bool restricted       = false   // Set when the candle triggers a restriction
     var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
     var bool justReset        = false   // True on the bar that resets restriction
+    var bool permission       = false   // Signal permission flag
+    
     // Reset justReset at the start of each bar
     justReset := false
 
-    // If currently restricted, check if this candle resets the restriction.
+    // If currently restricted, check if this candle resets the restriction
     if restricted
-        // Reset if a bullish candle closes above EMA10.
+        // Reset if a bullish candle closes above EMA10
         if (close > open) and (close > ema10)
             restricted       := false
             justReset        := true
             bearishCandidate := false
+            permission       := false
 
-    // Pattern detection is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
-    var bool permission = false
+    // Pattern detection is run only if not restricted, not on the reset bar, and if the EMA trend is valid
     if not restricted and not justReset and emaTrendOk
-        // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10.
+        // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10
         condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         
-        // Condition B: Two-candle sequence.
-        // First, detect a bearish candidate candle.
+        // Condition B: Two-candle sequence
+        // First, detect a bearish candidate candle
         condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
-        // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
+        
+        // Then, if the current candle confirms the candidate (bullish and closes above EMA10)
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
         
-        // If either condition is met, permission is granted.
+        // If either condition is met, permission is granted
         if condA or condBConfirm
             permission       := true
             bearishCandidate := false
 
-    // After pattern detection, check if the current candle triggers restriction.
+    // After pattern detection, check if the current candle triggers restriction
     if not restricted and not justReset
         if (open < ema20) or (close < ema20)
             restricted       := true
             bearishCandidate := false
+            // Don't reset permission here
 
-    // Return true only if permission is granted, the bar is confirmed, and we're not restricted.
+    // Return true only if permission is granted, the bar is confirmed, and we're not restricted
     result = permission and barstate.isconfirmed and (not restricted)
-    permission := false
+    
+    // Important: Only reset permission AFTER returning the result
+    if result
+        permission := false
+        
     result
 
-// --- Persistent Boolean Variables for Each Timeframe ---
-// These variables will be updated on each bar for their respective timeframe.
-var bool dailyPattern    = false
-var bool fourhPattern    = false
-var bool onehPattern     = false
+// Detect patterns on each timeframe and maintain state
+var bool dailyPattern = false
+var bool fourhPattern = false
+var bool onehPattern = false
 var bool fifteenmPattern = false
-var bool onemPattern     = false
-var bool tensPattern     = false
+var bool onemPattern = false
+var bool tensPattern = false
 
-// --- Pass higher timeframe confirmations to lower timeframes ---
-// These lines convert your booleans into a 1/0 value from their respective timeframes
-dailyConfirmed_pass  = request.security(syminfo.tickerid, "D",   dailyPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-fourhConfirmed_pass  = request.security(syminfo.tickerid, "240", fourhPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-onehConfirmed_pass   = request.security(syminfo.tickerid, "60",  onehPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+// Use security to check if pattern is detected on each timeframe
+// Important: We're using security with current_timeframe_only=true to prevent repainting
+daily_check = request.security(syminfo.tickerid, "D", f_tier2Pattern())
+fourh_check = request.security(syminfo.tickerid, "240", f_tier2Pattern())
+oneh_check = request.security(syminfo.tickerid, "60", f_tier2Pattern())
+fifteenm_check = request.security(syminfo.tickerid, "15", f_tier2Pattern())
+onem_check = request.security(syminfo.tickerid, "1", f_tier2Pattern())
+tens_check = request.security(syminfo.tickerid, "10S", f_tier2Pattern())
 
-// --- Update persistent booleans based on timeframe condition checks ---
+// Get current pattern states from higher timeframes
+// We need to pass these down to lower timeframes correctly
+daily_active = request.security(syminfo.tickerid, "D", dailyPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+fourh_active = request.security(syminfo.tickerid, "240", fourhPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+oneh_active = request.security(syminfo.tickerid, "60", onehPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// Daily timeframe
+// Update pattern states based on detection and timeframe
 if timeframe.period == "D"
-    dailyPattern := f_tier2Pattern()
+    dailyPattern := daily_check
     if dailyPattern
         label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
-    else
-        dailyPattern := false
 
-// 4-hour timeframe
 if timeframe.period == "240"
-    fourhPattern := f_tier2Pattern()
-    if fourhPattern and dailyConfirmed_pass
+    fourhPattern := fourh_check and daily_active
+    if fourhPattern
         label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
-    else
-        fourhPattern := false
 
-// 1-hour timeframe
 if timeframe.period == "60"
-    onehPattern := f_tier2Pattern()
-    if onehPattern and dailyConfirmed_pass
+    onehPattern := oneh_check and daily_active
+    if onehPattern
         label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
-    else
-        onehPattern := false
 
-// 15-minute timeframe
 if timeframe.period == "15"
-    fifteenmPattern := f_tier2Pattern()
-    if fifteenmPattern and fourhConfirmed_pass
+    fifteenmPattern := fifteenm_check and fourh_active
+    if fifteenmPattern
         label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
-    else
-        fifteenmPattern := false
 
-// 1-minute timeframe
 if timeframe.period == "1"
-    onemPattern := f_tier2Pattern()
-    if onemPattern and (fourhConfirmed_pass or onehConfirmed_pass)
+    onemPattern := onem_check and (fourh_active or oneh_active)
+    if onemPattern
         label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
-    else
-        onemPattern := false
 
-// 10-second timeframe
 if timeframe.period == "10S"
-    tensPattern := f_tier2Pattern()
-    if tensPattern and onehConfirmed_pass
+    tensPattern := tens_check and oneh_active
+    if tensPattern
         label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
-    else
-        tensPattern := false
+
+// Add debug info
+var label debugLabel = na
+if barstate.islast
+    label.delete(debugLabel)
+    debugInfo = "Current TF: " + timeframe.period + 
+               "\nDaily Pattern: " + str.tostring(dailyPattern) + 
+               "\n4h Pattern: " + str.tostring(fourhPattern) +
+               "\n1h Pattern: " + str.tostring(onehPattern) +
+               "\n15m Pattern: " + str.tostring(fifteenmPattern) +
+               "\n1m Pattern: " + str.tostring(onemPattern) +
+               "\n10s Pattern: " + str.tostring(tensPattern) +
+               "\n---\nDaily Active: " + str.tostring(daily_active) +
+               "\n4h Active: " + str.tostring(fourh_active) + 
+               "\n1h Active: " + str.tostring(oneh_active)
+    debugLabel := label.new(bar_index, low - (low * 0.02), debugInfo, 
+                           style=label.style_label_up, 
+                           color=color.gray, 
+                           textcolor=color.white,
+                           size=size.small)
