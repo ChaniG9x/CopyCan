@@ -80,19 +80,24 @@ one_hour_permission = request.security(syminfo.tickerid, "60", f_tier2Pattern()[
 // Time-based validation to ensure permissions only last for the current higher timeframe period
 // Function to check if we're still in the same timeframe period
 isWithinSameTimePeriod(tf) =>
-    var int lastBarTime = 0
+    var int lastTime = 0
     var bool newPeriodStarted = false
     
-    // Get current time-aligned higher timeframe timestamp
-    tfStartTime = switch tf
-        "D" => timestamp("D")
-        "240" => timestamp("240")
-        "60" => timestamp("60")
-        => 0  // Default case
+    // Get current time and calculate the start time of the current period
+    currentTime = time
+    
+    // Calculate current period's start time based on timeframe
+    int timeOffset = 0
+    if tf == "D"
+        timeOffset := currentTime - currentTime % (1000 * 60 * 60 * 24)
+    else if tf == "240"
+        timeOffset := currentTime - currentTime % (1000 * 60 * 240)
+    else if tf == "60"
+        timeOffset := currentTime - currentTime % (1000 * 60 * 60)
     
     // Check if we've entered a new period
-    if (lastBarTime != tfStartTime and tfStartTime > 0)
-        lastBarTime := tfStartTime
+    if lastTime != timeOffset and timeOffset > 0
+        lastTime := timeOffset
         newPeriodStarted := true
     else
         newPeriodStarted := false
@@ -105,20 +110,19 @@ var bool dailyPermissionGranted = false
 var bool fourHourPermissionGranted = false
 var bool oneHourPermissionGranted = false
 
-// Update permission states based on higher timeframe signals
-// Daily permissions for 4h and 1h
+// Daily permissions tracking
 if daily_permission
     dailyPermissionGranted := true
 else if not isWithinSameTimePeriod("D")
     dailyPermissionGranted := false
 
-// 4h permissions for 15m and 1m
+// 4h permissions tracking
 if four_hour_permission
     fourHourPermissionGranted := true
 else if not isWithinSameTimePeriod("240")
     fourHourPermissionGranted := false
 
-// 1h permissions for 1m and 10s
+// 1h permissions tracking
 if one_hour_permission
     oneHourPermissionGranted := true
 else if not isWithinSameTimePeriod("60")
