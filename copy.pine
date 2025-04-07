@@ -78,75 +78,120 @@ f_tier2Pattern() =>
         
     result
 
-// Detect patterns on each timeframe and maintain state
-var bool dailyPattern = false
-var bool fourhPattern = false
-var bool onehPattern = false
-var bool fifteenmPattern = false
-var bool onemPattern = false
-var bool tensPattern = false
+// --- Pattern detection on each timeframe ---
+// Check if pattern triggers on current bar for each timeframe
+is_daily_pattern = timeframe.isdaily and f_tier2Pattern()
+is_fourh_pattern = timeframe.isintraday and timeframe.multiplier == 240 and f_tier2Pattern()
+is_oneh_pattern = timeframe.isintraday and timeframe.multiplier == 60 and f_tier2Pattern()
+is_fifteenm_pattern = timeframe.isintraday and timeframe.multiplier == 15 and f_tier2Pattern()
+is_onem_pattern = timeframe.isintraday and timeframe.multiplier == 1 and f_tier2Pattern()
+is_tens_pattern = timeframe.isseconds and timeframe.multiplier == 10 and f_tier2Pattern()
 
-// Use security to check if pattern is detected on each timeframe
-// Important: We're using security with current_timeframe_only=true to prevent repainting
-daily_check = request.security(syminfo.tickerid, "D", f_tier2Pattern())
-fourh_check = request.security(syminfo.tickerid, "240", f_tier2Pattern())
-oneh_check = request.security(syminfo.tickerid, "60", f_tier2Pattern())
-fifteenm_check = request.security(syminfo.tickerid, "15", f_tier2Pattern())
-onem_check = request.security(syminfo.tickerid, "1", f_tier2Pattern())
-tens_check = request.security(syminfo.tickerid, "10S", f_tier2Pattern())
+// --- Pattern state persistence for each timeframe ---
+// These variables maintain state between bars
+var bool daily_pattern_active = false
+var bool fourh_pattern_active = false
+var bool oneh_pattern_active = false
+var bool fifteenm_pattern_active = false
+var bool onem_pattern_active = false
+var bool tens_pattern_active = false
 
-// Get current pattern states from higher timeframes
-// We need to pass these down to lower timeframes correctly
-daily_active = request.security(syminfo.tickerid, "D", dailyPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-fourh_active = request.security(syminfo.tickerid, "240", fourhPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-oneh_active = request.security(syminfo.tickerid, "60", onehPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+// --- Update pattern states based on current timeframe ---
+if timeframe.isdaily
+    // On daily timeframe, set pattern state directly
+    if is_daily_pattern
+        daily_pattern_active := true
+        label.new(bar_index, high, "D", style=label.style_label_down, color=color.green, textcolor=color.white)
+    else
+        // Reset pattern state if no pattern detected and bar is confirmed
+        if barstate.isconfirmed
+            daily_pattern_active := false
+else
+    // On non-daily timeframes, fetch daily pattern state
+    daily_pattern_active := request.security(syminfo.tickerid, "D", daily_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-// Update pattern states based on detection and timeframe
-if timeframe.period == "D"
-    dailyPattern := daily_check
-    if dailyPattern
-        label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
-
-if timeframe.period == "240"
-    fourhPattern := fourh_check and daily_active
-    if fourhPattern
+// 4-hour timeframe
+if timeframe.isintraday and timeframe.multiplier == 240
+    // Set pattern state if pattern detected and daily pattern is active
+    if is_fourh_pattern and daily_pattern_active
+        fourh_pattern_active := true
         label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
+    else
+        // Reset pattern state if no pattern detected or daily inactive
+        if barstate.isconfirmed
+            fourh_pattern_active := false
+else
+    // On non-4h timeframes, fetch 4h pattern state
+    fourh_pattern_active := request.security(syminfo.tickerid, "240", fourh_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-if timeframe.period == "60"
-    onehPattern := oneh_check and daily_active
-    if onehPattern
+// 1-hour timeframe
+if timeframe.isintraday and timeframe.multiplier == 60
+    // Set pattern state if pattern detected and daily pattern is active
+    if is_oneh_pattern and daily_pattern_active
+        oneh_pattern_active := true
         label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
+    else
+        // Reset pattern state if no pattern detected or daily inactive
+        if barstate.isconfirmed
+            oneh_pattern_active := false
+else
+    // On non-1h timeframes, fetch 1h pattern state
+    oneh_pattern_active := request.security(syminfo.tickerid, "60", oneh_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-if timeframe.period == "15"
-    fifteenmPattern := fifteenm_check and fourh_active
-    if fifteenmPattern
+// 15-minute timeframe
+if timeframe.isintraday and timeframe.multiplier == 15
+    // Set pattern state if pattern detected and 4h pattern is active
+    if is_fifteenm_pattern and fourh_pattern_active
+        fifteenm_pattern_active := true
         label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
+    else
+        // Reset pattern state if no pattern detected or 4h inactive
+        if barstate.isconfirmed
+            fifteenm_pattern_active := false
+else
+    // On non-15m timeframes, fetch 15m pattern state
+    fifteenm_pattern_active := request.security(syminfo.tickerid, "15", fifteenm_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-if timeframe.period == "1"
-    onemPattern := onem_check and (fourh_active or oneh_active)
-    if onemPattern
+// 1-minute timeframe
+if timeframe.isintraday and timeframe.multiplier == 1
+    // Set pattern state if pattern detected and either 4h or 1h pattern is active
+    if is_onem_pattern and (fourh_pattern_active or oneh_pattern_active)
+        onem_pattern_active := true
         label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
+    else
+        // Reset pattern state if no pattern detected or neither 4h nor 1h active
+        if barstate.isconfirmed
+            onem_pattern_active := false
+else
+    // On non-1m timeframes, fetch 1m pattern state
+    onem_pattern_active := request.security(syminfo.tickerid, "1", onem_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-if timeframe.period == "10S"
-    tensPattern := tens_check and oneh_active
-    if tensPattern
+// 10-second timeframe
+if timeframe.isseconds and timeframe.multiplier == 10
+    // Set pattern state if pattern detected and 1h pattern is active
+    if is_tens_pattern and oneh_pattern_active
+        tens_pattern_active := true
         label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
+    else
+        // Reset pattern state if no pattern detected or 1h inactive
+        if barstate.isconfirmed
+            tens_pattern_active := false
+else
+    // On non-10s timeframes, fetch 10s pattern state
+    tens_pattern_active := request.security(syminfo.tickerid, "10S", tens_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-// Add debug info
+// Debug info - show active patterns for all timeframes
 var label debugLabel = na
 if barstate.islast
     label.delete(debugLabel)
     debugInfo = "Current TF: " + timeframe.period + 
-               "\nDaily Pattern: " + str.tostring(dailyPattern) + 
-               "\n4h Pattern: " + str.tostring(fourhPattern) +
-               "\n1h Pattern: " + str.tostring(onehPattern) +
-               "\n15m Pattern: " + str.tostring(fifteenmPattern) +
-               "\n1m Pattern: " + str.tostring(onemPattern) +
-               "\n10s Pattern: " + str.tostring(tensPattern) +
-               "\n---\nDaily Active: " + str.tostring(daily_active) +
-               "\n4h Active: " + str.tostring(fourh_active) + 
-               "\n1h Active: " + str.tostring(oneh_active)
-    debugLabel := label.new(bar_index, low - (low * 0.02), debugInfo, 
+               "\nDaily Active: " + str.tostring(daily_pattern_active) + 
+               "\n4h Active: " + str.tostring(fourh_pattern_active) +
+               "\n1h Active: " + str.tostring(oneh_pattern_active) +
+               "\n15m Active: " + str.tostring(fifteenm_pattern_active) +
+               "\n1m Active: " + str.tostring(onem_pattern_active) +
+               "\n10s Active: " + str.tostring(tens_pattern_active)
+    debugLabel := label.new(bar_index, low - (low * 0.03), debugInfo, 
                            style=label.style_label_up, 
                            color=color.gray, 
                            textcolor=color.white,
