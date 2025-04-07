@@ -9,101 +9,143 @@ plot(ema10_main, title="EMA 10", color=color.blue)
 plot(ema20_main, title="EMA 20", color=color.red)
 plot(ema200_main, title="EMA 200", color=color.orange)
 
-// Helper function to check conditions
+// Helper function defined at the top level
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
-// Tier 2 pattern detection function
+// Updated stateful Tier 2 pattern detection function (reflecting your reference candlestick conditions)
 f_tier2Pattern() =>
-    ema10  = ta.ema(close, 10)
-    ema20  = ta.ema(close, 20)
-    ema200 = ta.ema(close, 200)
+    // EMA settings and calculations
+    emaLen10  = 10
+    emaLen20  = 20
+    emaLen200 = 200
+    ema10  = ta.ema(close, emaLen10)
+    ema20  = ta.ema(close, emaLen20)
+    ema200 = ta.ema(close, emaLen200)
+    // Check EMA hierarchy: EMA10 > EMA20 > EMA200
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-    var bool restricted = false
-    var bool bearishCandidate = false
-    var bool justReset = false
+    
+    // Persistent state variables (each timeframe instance maintains its own state)
+    var bool restricted       = false   // Set when the candle triggers a restriction
+    var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
+    var bool justReset        = false   // True on the bar that resets restriction
+    // Reset justReset at the start of each bar
     justReset := false
 
+    // If currently restricted, check if this candle resets the restriction.
     if restricted
+        // Reset if a bullish candle closes above EMA10.
         if (close > open) and (close > ema10)
-            restricted := false
-            justReset := true
+            restricted       := false
+            justReset        := true
             bearishCandidate := false
 
+    // Pattern detection is run only if not restricted, not on the reset bar, and if the EMA trend is valid.
     var bool permission = false
     if not restricted and not justReset and emaTrendOk
+        // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10.
         condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
+        
+        // Condition B: Two-candle sequence.
+        // First, detect a bearish candidate candle.
         condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
+        // Then, if the current candle confirms the candidate (bullish and closes above EMA10):
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
+        
+        // If either condition is met, permission is granted.
         if condA or condBConfirm
-            permission := true
+            permission       := true
             bearishCandidate := false
 
+    // After pattern detection, check if the current candle triggers restriction.
     if not restricted and not justReset
         if (open < ema20) or (close < ema20)
-            restricted := true
+            restricted       := true
             bearishCandidate := false
 
+    // Return true only if permission is granted, the bar is confirmed, and we're not restricted.
     result = permission and barstate.isconfirmed and (not restricted)
     permission := false
     result
 
-// ------------------- Cascading Permission Logic -------------------
+// =================== CASCADING PERMISSIONS SYSTEM ===================
 
-// Declare persistent variables for each confirmation flag
-var bool dailyConfirmed = false
-var bool fourhConfirmed = false
-var bool onehConfirmed = false
-var bool min1Confirmed = false
-var bool min15Confirmed = false
-var bool sec10Confirmed = false
+// Request data from higher timeframes
+daily_permission = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+four_hour_permission = request.security(syminfo.tickerid, "240", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+one_hour_permission = request.security(syminfo.tickerid, "60", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
 
-// Create a variable to store permission for the higher timeframes
-var bool dailyPermissionPrev = false
-var bool fourhPermissionPrev = false
-var bool onehPermissionPrev = false
+// Time-based validation to ensure permissions only last for the current higher timeframe period
+// Function to check if we're still in the same timeframe period
+isWithinSameTimePeriod(tf) =>
+    var int lastBarTime = 0
+    var bool newPeriodStarted = false
+    
+    // Get current time-aligned higher timeframe timestamp
+    tfStartTime = switch tf
+        "D" => timestamp("D")
+        "240" => timestamp("240")
+        "60" => timestamp("60")
+        => 0  // Default case
+    
+    // Check if we've entered a new period
+    if (lastBarTime != tfStartTime and tfStartTime > 0)
+        lastBarTime := tfStartTime
+        newPeriodStarted := true
+    else
+        newPeriodStarted := false
+    
+    // Return whether we're within the granted permission timeframe
+    not newPeriodStarted
 
-// Recalculate dailyConfirmed based on the previous day
-dailyConfirmed := request.security(syminfo.tickerid, "D", f_tier2Pattern() ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-dailyPermissionPrev := dailyConfirmed[1] // Previous day's confirmation flag for lower timeframes
+// Store permissions with time validation
+var bool dailyPermissionGranted = false
+var bool fourHourPermissionGranted = false
+var bool oneHourPermissionGranted = false
 
-// Recalculate 4hConfirmed based on the previous day's permission
-fourhConfirmed := request.security(syminfo.tickerid, "240", dailyPermissionPrev ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-fourhPermissionPrev := fourhConfirmed[1] // Previous 4h confirmation flag for lower timeframes
+// Update permission states based on higher timeframe signals
+// Daily permissions for 4h and 1h
+if daily_permission
+    dailyPermissionGranted := true
+else if not isWithinSameTimePeriod("D")
+    dailyPermissionGranted := false
 
-// Recalculate 1hConfirmed based on the previous 4h permission
-onehConfirmed := request.security(syminfo.tickerid, "60", fourhPermissionPrev ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-onehPermissionPrev := onehConfirmed[1] // Previous 1h confirmation flag for lower timeframes
+// 4h permissions for 15m and 1m
+if four_hour_permission
+    fourHourPermissionGranted := true
+else if not isWithinSameTimePeriod("240")
+    fourHourPermissionGranted := false
 
-// Recalculate 15m and 1m based on the previous 1h permission
-min15Confirmed := request.security(syminfo.tickerid, "15", onehPermissionPrev ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-min1Confirmed := request.security(syminfo.tickerid, "1", min15Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-sec10Confirmed := request.security(syminfo.tickerid, "10S", min1Confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+// 1h permissions for 1m and 10s
+if one_hour_permission
+    oneHourPermissionGranted := true
+else if not isWithinSameTimePeriod("60")
+    oneHourPermissionGranted := false
 
 // ------------------- Debugging Labels -------------------
-
-// Daily label appears only if previous day confirmed and permission exists
-if timeframe.period == "D" and f_tier2Pattern() and dailyPermissionPrev
+// DAILY: Draw the daily label on the current daily candle (based on f_tier2Pattern).
+// Daily doesn't need permission from higher timeframe
+if timeframe.period == "D" and f_tier2Pattern()
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-// 4h label appears only if previous day confirmed and permission exists
-if timeframe.period == "240" and f_tier2Pattern() and fourhConfirmed and dailyPermissionPrev
+// 4h label appears only on a 4h chart AND if it has permission from Daily
+if timeframe.period == "240" and f_tier2Pattern() and dailyPermissionGranted
     label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
-// 1h label appears only if previous 4h confirmed and permission exists
-if timeframe.period == "60" and f_tier2Pattern() and onehConfirmed and fourhPermissionPrev
+// 1h label appears only on a 1h chart AND if it has permission from Daily
+if timeframe.period == "60" and f_tier2Pattern() and dailyPermissionGranted
     label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-// 15m label appears only if previous 1h confirmed and permission exists
-if timeframe.period == "15" and f_tier2Pattern() and min15Confirmed and onehPermissionPrev
+// 15m label appears only on a 15-min chart AND if it has permission from 4h
+if timeframe.period == "15" and f_tier2Pattern() and fourHourPermissionGranted
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 1m label appears only if previous 1h confirmed and permission exists
-if timeframe.period == "1" and f_tier2Pattern() and min1Confirmed and onehPermissionPrev
+// 1m labels appear only on a 1-min chart AND if it has permission from either 4h OR 1h
+if timeframe.period == "1" and f_tier2Pattern() and (fourHourPermissionGranted or oneHourPermissionGranted)
     label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-// 10s label appears only if previous 1m confirmed and permission exists
-if timeframe.period == "10S" and f_tier2Pattern() and sec10Confirmed and min1Confirmed
+// 10s label appears only on a 10-sec chart AND if it has permission from 1h
+if timeframe.period == "10S" and f_tier2Pattern() and oneHourPermissionGranted
     label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
