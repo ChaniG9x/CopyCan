@@ -70,86 +70,67 @@ f_tier2Pattern() =>
     permission := false
     result
 
-// =================== CASCADING PERMISSIONS SYSTEM ===================
+// --- Persistent Boolean Variables for Each Timeframe ---
+// These variables will be updated on each bar for their respective timeframe.
+var bool dailyPattern    = false
+var bool fourhPattern    = false
+var bool onehPattern     = false
+var bool fifteenmPattern = false
+var bool onemPattern     = false
+var bool tensPattern     = false
 
-// Request data from higher timeframes
-daily_permission = request.security(syminfo.tickerid, "D", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
-four_hour_permission = request.security(syminfo.tickerid, "240", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
-one_hour_permission = request.security(syminfo.tickerid, "60", f_tier2Pattern()[1], lookahead=barmerge.lookahead_off)
+// --- Pass higher timeframe confirmations to lower timeframes ---
+// These lines convert your booleans into a 1/0 value from their respective timeframes
+dailyConfirmed_pass  = request.security(syminfo.tickerid, "D",   dailyPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+fourhConfirmed_pass  = request.security(syminfo.tickerid, "240", fourhPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+onehConfirmed_pass   = request.security(syminfo.tickerid, "60",  onehPattern ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// Time-based validation to ensure permissions only last for the current higher timeframe period
-// Function to check if we're still in the same timeframe period
-isWithinSameTimePeriod(tf) =>
-    var int lastTime = 0
-    var bool newPeriodStarted = false
-    
-    // Get current time and calculate the start time of the current period
-    currentTime = time
-    
-    // Calculate current period's start time based on timeframe
-    int timeOffset = 0
-    if tf == "D"
-        timeOffset := currentTime - currentTime % (1000 * 60 * 60 * 24)
-    else if tf == "240"
-        timeOffset := currentTime - currentTime % (1000 * 60 * 240)
-    else if tf == "60"
-        timeOffset := currentTime - currentTime % (1000 * 60 * 60)
-    
-    // Check if we've entered a new period
-    if lastTime != timeOffset and timeOffset > 0
-        lastTime := timeOffset
-        newPeriodStarted := true
+// --- Update persistent booleans based on timeframe condition checks ---
+
+// Daily timeframe
+if timeframe.period == "D"
+    dailyPattern := f_tier2Pattern()
+    if dailyPattern
+        label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
     else
-        newPeriodStarted := false
-    
-    // Return whether we're within the granted permission timeframe
-    not newPeriodStarted
+        dailyPattern := false
 
-// Store permissions with time validation
-var bool dailyPermissionGranted = false
-var bool fourHourPermissionGranted = false
-var bool oneHourPermissionGranted = false
+// 4-hour timeframe
+if timeframe.period == "240"
+    fourhPattern := f_tier2Pattern()
+    if fourhPattern and dailyConfirmed_pass
+        label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
+    else
+        fourhPattern := false
 
-// Daily permissions tracking
-if daily_permission
-    dailyPermissionGranted := true
-else if not isWithinSameTimePeriod("D")
-    dailyPermissionGranted := false
+// 1-hour timeframe
+if timeframe.period == "60"
+    onehPattern := f_tier2Pattern()
+    if onehPattern and dailyConfirmed_pass
+        label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
+    else
+        onehPattern := false
 
-// 4h permissions tracking
-if four_hour_permission
-    fourHourPermissionGranted := true
-else if not isWithinSameTimePeriod("240")
-    fourHourPermissionGranted := false
+// 15-minute timeframe
+if timeframe.period == "15"
+    fifteenmPattern := f_tier2Pattern()
+    if fifteenmPattern and fourhConfirmed_pass
+        label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
+    else
+        fifteenmPattern := false
 
-// 1h permissions tracking
-if one_hour_permission
-    oneHourPermissionGranted := true
-else if not isWithinSameTimePeriod("60")
-    oneHourPermissionGranted := false
+// 1-minute timeframe
+if timeframe.period == "1"
+    onemPattern := f_tier2Pattern()
+    if onemPattern and (fourhConfirmed_pass or onehConfirmed_pass)
+        label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
+    else
+        onemPattern := false
 
-// ------------------- Debugging Labels -------------------
-// DAILY: Draw the daily label on the current daily candle (based on f_tier2Pattern).
-// Daily doesn't need permission from higher timeframe
-if timeframe.period == "D" and f_tier2Pattern()
-    label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
-
-// 4h label appears only on a 4h chart AND if it has permission from Daily
-if timeframe.period == "240" and f_tier2Pattern() and dailyPermissionGranted
-    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
-
-// 1h label appears only on a 1h chart AND if it has permission from Daily
-if timeframe.period == "60" and f_tier2Pattern() and dailyPermissionGranted
-    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
-
-// 15m label appears only on a 15-min chart AND if it has permission from 4h
-if timeframe.period == "15" and f_tier2Pattern() and fourHourPermissionGranted
-    label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
-
-// 1m labels appear only on a 1-min chart AND if it has permission from either 4h OR 1h
-if timeframe.period == "1" and f_tier2Pattern() and (fourHourPermissionGranted or oneHourPermissionGranted)
-    label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
-
-// 10s label appears only on a 10-sec chart AND if it has permission from 1h
-if timeframe.period == "10S" and f_tier2Pattern() and oneHourPermissionGranted
-    label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
+// 10-second timeframe
+if timeframe.period == "10S"
+    tensPattern := f_tier2Pattern()
+    if tensPattern and onehConfirmed_pass
+        label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
+    else
+        tensPattern := false
