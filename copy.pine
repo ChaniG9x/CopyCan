@@ -9,175 +9,151 @@ plot(ema10_main, title="EMA 10", color=color.blue)
 plot(ema20_main, title="EMA 20", color=color.red)
 plot(ema200_main, title="EMA 200", color=color.orange)
 
-// Helper function defined at the top level
+// Helper function
 crosses(_ema) =>
     (low < _ema) and (high > _ema)
 
 // Updated stateful Tier 2 pattern detection function
 f_tier2Pattern() =>
-    // EMA settings and calculations
+    // EMA calculations
     emaLen10  = 10
     emaLen20  = 20
     emaLen200 = 200
     ema10  = ta.ema(close, emaLen10)
     ema20  = ta.ema(close, emaLen20)
     ema200 = ta.ema(close, emaLen200)
-    // Check EMA hierarchy: EMA10 > EMA20 > EMA200
+    // Check EMA hierarchy
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
     
     // Persistent state variables
-    var bool restricted       = false   // Set when the candle triggers a restriction
-    var bool bearishCandidate = false   // Set when a bearish candidate is detected (waiting for confirmation)
-    var bool justReset        = false   // True on the bar that resets restriction
-    var bool permission       = false   // Signal permission flag
+    var bool restricted       = false
+    var bool bearishCandidate = false
+    var bool justReset        = false
+    var bool permission       = false
     
     // Reset justReset at the start of each bar
     justReset := false
 
-    // If currently restricted, check if this candle resets the restriction
+    // If restricted, check for reset
     if restricted
-        // Reset if a bullish candle closes above EMA10
         if (close > open) and (close > ema10)
             restricted       := false
             justReset        := true
             bearishCandidate := false
             permission       := false
 
-    // Pattern detection is run only if not restricted, not on the reset bar, and if the EMA trend is valid
+    // Run pattern detection only if not restricted, not reset, and trend ok
     if not restricted and not justReset and emaTrendOk
-        // Condition A: Single bullish candle that crosses EMA10 or EMA20 and closes above EMA10
         condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
-        
-        // Condition B: Two-candle sequence
-        // First, detect a bearish candidate candle
         condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
         if condBearCandidate
             bearishCandidate := true
-        
-        // Then, if the current candle confirms the candidate (bullish and closes above EMA10)
         condBConfirm = bearishCandidate and (close > open) and (close > ema10)
-        
-        // If either condition is met, permission is granted
         if condA or condBConfirm
             permission       := true
             bearishCandidate := false
 
-    // After pattern detection, check if the current candle triggers restriction
+    // Check for restriction trigger
     if not restricted and not justReset
         if (open < ema20) or (close < ema20)
             restricted       := true
             bearishCandidate := false
-            // Don't reset permission here
 
-    // Return true only if permission is granted, the bar is confirmed, and we're not restricted
+    // Final result: only true if permission is granted, bar confirmed, and not restricted
     result = permission and barstate.isconfirmed and (not restricted)
-    
-    // Important: Only reset permission AFTER returning the result
     if result
         permission := false
-        
     result
 
-// Function to detect pattern on a specific timeframe
-detectPattern(tf) =>
-    request.security(syminfo.tickerid, tf, f_tier2Pattern())
+// --- Persistent variables for each timeframe state ---
+var bool daily_pattern_active    = false
+var bool fourh_pattern_active    = false
+var bool oneh_pattern_active     = false
+var bool fifteenm_pattern_active = false
+var bool onem_pattern_active     = false
+var bool tens_pattern_active     = false
 
-// Get signals for each timeframe
-daily_signal = detectPattern("D")
-fourh_signal = detectPattern("240")
-oneh_signal = detectPattern("60")
-fifteenm_signal = detectPattern("15")
-onem_signal = detectPattern("1")
-tens_signal = detectPattern("10S")
+// --- Higher timeframe state passing ---
+// Convert booleans to 1/0 and fetch on lower timeframe
+dailyConfirmed_pass  = request.security(syminfo.tickerid, "D",   daily_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+fourhConfirmed_pass  = request.security(syminfo.tickerid, "240", fourh_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+onehConfirmed_pass   = request.security(syminfo.tickerid, "60",  oneh_pattern_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-// Create separate variables to track active patterns
-var bool daily_active = false
-var bool fourh_active = false
-var bool oneh_active = false
-var bool fifteenm_active = false
-var bool onem_active = false
-var bool tens_active = false
+// --- Update pattern states per timeframe ---
 
-// Update daily pattern state
-if daily_signal
-    daily_active := true
-else if barstate.isconfirmed
-    daily_active := false
+// Daily timeframe
+if timeframe.isdaily
+    dailyResult = f_tier2Pattern()
+    if dailyResult
+        daily_pattern_active := true
+        label.new(bar_index, high, "D", style=label.style_label_down, color=color.green, textcolor=color.white)
+    else if barstate.isconfirmed
+        daily_pattern_active := false
+// Else: on lower timeframes, daily_pattern_active is fetched above
 
-// Get daily pattern state for lower timeframes
-daily_is_active = request.security(syminfo.tickerid, "D", daily_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+// 4-hour timeframe
+if timeframe.isintraday and timeframe.multiplier == 240
+    fourhResult = f_tier2Pattern()
+    if fourhResult and daily_pattern_active
+        fourh_pattern_active := true
+        label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
+    else if barstate.isconfirmed
+        fourh_pattern_active := false
+// Else: fetch state via request.security
 
-// Update 4-hour pattern state
-if fourh_signal and daily_is_active
-    fourh_active := true
-else if barstate.isconfirmed and (not fourh_signal or not daily_is_active)
-    fourh_active := false
+// 1-hour timeframe
+if timeframe.isintraday and timeframe.multiplier == 60
+    onehResult = f_tier2Pattern()
+    if onehResult and daily_pattern_active
+        oneh_pattern_active := true
+        label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
+    else if barstate.isconfirmed
+        oneh_pattern_active := false
+// Else: fetch state via request.security
 
-// Get 4-hour pattern state for lower timeframes
-fourh_is_active = request.security(syminfo.tickerid, "240", fourh_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+// 15-minute timeframe
+if timeframe.isintraday and timeframe.multiplier == 15
+    fifteenmResult = f_tier2Pattern()
+    if fifteenmResult and fourh_pattern_active
+        fifteenm_pattern_active := true
+        label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
+    else if barstate.isconfirmed
+        fifteenm_pattern_active := false
+// Else: fetch state via request.security
 
-// Update 1-hour pattern state
-if oneh_signal and daily_is_active
-    oneh_active := true
-else if barstate.isconfirmed and (not oneh_signal or not daily_is_active)
-    oneh_active := false
+// 1-minute timeframe
+if timeframe.isintraday and timeframe.multiplier == 1
+    onemResult = f_tier2Pattern()
+    if onemResult and (fourh_pattern_active or oneh_pattern_active)
+        onem_pattern_active := true
+        label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
+    else if barstate.isconfirmed
+        onem_pattern_active := false
+// Else: fetch state via request.security
 
-// Get 1-hour pattern state for lower timeframes
-oneh_is_active = request.security(syminfo.tickerid, "60", oneh_active ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+// 10-second timeframe
+if timeframe.isseconds and timeframe.multiplier == 10
+    tensResult = f_tier2Pattern()
+    if tensResult and oneh_pattern_active
+        tens_pattern_active := true
+        label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
+    else if barstate.isconfirmed
+        tens_pattern_active := false
+// Else: fetch state via request.security
 
-// Update 15-minute pattern state
-if fifteenm_signal and fourh_is_active
-    fifteenm_active := true
-else if barstate.isconfirmed and (not fifteenm_signal or not fourh_is_active)
-    fifteenm_active := false
-
-// Update 1-minute pattern state
-if onem_signal and (fourh_is_active or oneh_is_active)
-    onem_active := true
-else if barstate.isconfirmed and (not onem_signal or (not fourh_is_active and not oneh_is_active))
-    onem_active := false
-
-// Update 10-second pattern state
-if tens_signal and oneh_is_active
-    tens_active := true
-else if barstate.isconfirmed and (not tens_signal or not oneh_is_active)
-    tens_active := false
-
-// Draw labels based on current timeframe and pattern states
-if timeframe.isdaily and daily_signal
-    label.new(bar_index, high, "D", style=label.style_label_down, color=color.green, textcolor=color.white)
-
-if timeframe.isintraday and timeframe.multiplier == 240 and fourh_signal and daily_is_active
-    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
-
-if timeframe.isintraday and timeframe.multiplier == 60 and oneh_signal and daily_is_active
-    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
-
-if timeframe.isintraday and timeframe.multiplier == 15 and fifteenm_signal and fourh_is_active
-    label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
-
-if timeframe.isintraday and timeframe.multiplier == 1 and onem_signal and (fourh_is_active or oneh_is_active)
-    label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
-
-if timeframe.isseconds and timeframe.multiplier == 10 and tens_signal and oneh_is_active
-    label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
-
-// Debug info - show all active patterns and signals
+// --- Debug Information ---
 var label debugLabel = na
 if barstate.islast
     label.delete(debugLabel)
     debugInfo = "Current TF: " + timeframe.period + 
-               "\n---\nDaily Signal: " + str.tostring(daily_signal) +
-               "\n4h Signal: " + str.tostring(fourh_signal) +
-               "\n1h Signal: " + str.tostring(oneh_signal) +
-               "\n15m Signal: " + str.tostring(fifteenm_signal) +
-               "\n1m Signal: " + str.tostring(onem_signal) +
-               "\n10s Signal: " + str.tostring(tens_signal) +
-               "\n---\nDaily Active: " + str.tostring(daily_is_active) + 
-               "\n4h Active: " + str.tostring(fourh_is_active) +
-               "\n1h Active: " + str.tostring(oneh_is_active)
-    debugLabel := label.new(bar_index, low - (low * 0.05), debugInfo, 
-                           style=label.style_label_up, 
-                           color=color.gray, 
-                           textcolor=color.white,
-                           size=size.small)
+               "\nDaily Active: " + str.tostring(daily_pattern_active) + 
+               "\n4h Active: " + str.tostring(fourh_pattern_active) +
+               "\n1h Active: " + str.tostring(oneh_pattern_active) +
+               "\n15m Active: " + str.tostring(fifteenm_pattern_active) +
+               "\n1m Active: " + str.tostring(onem_pattern_active) +
+               "\n10s Active: " + str.tostring(tens_pattern_active)
+    debugLabel := label.new(bar_index, low - (low * 0.03), debugInfo, 
+                            style=label.style_label_up, 
+                            color=color.gray, 
+                            textcolor=color.white,
+                            size=size.small)
