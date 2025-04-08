@@ -157,4 +157,9 @@ else if (timeframe.in_seconds() and timeframe.multiplier == 10)
 atr_val   = ta.atr(14)
 y_offset  = low - atr_val * 1.5
 
-
+// Keep only one "status label" per bar
+var label statusLab = na
+if not na(statusLab)
+    label.delete(statusLab)
+statusLab := label.new(bar_index, y_offset, status_text, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, 
+    color=color.new(color.black, 80), textcolor=color.white, size=size.normal)
