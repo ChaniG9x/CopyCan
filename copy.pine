@@ -1,193 +1,90 @@
 //@version=5
-indicator("Full Early-Adopter Strategy with Cascading Logic", overlay=true)
+indicator("Cascading T2 Strategy (Daily→1H/4H→15m/1m→10s) with Updated Pattern", overlay=true)
 
-// --- Function to determine bullish or bearish status ---
-var string monthly_status = ""
-var string weekly_status = ""
+//----------------------------------------------------------------
+// Updated T2 detection function with new pattern logic
+//----------------------------------------------------------------
+f_detectT2(_open, _high, _low, _close) =>
+    // Calculate EMAs
+    ema10  = ta.ema(_close, 10)
+    ema20  = ta.ema(_close, 20)
+    ema200 = ta.ema(_close, 200)
+    // Common conditions
+    cond_current_cross_10        = _low <= ema10 and _high >= ema10
+    cond_current_close_green_abv = _close > _open and _close > ema10
+    cond_ema_order               = ema10 > ema20 and ema20 > ema200
 
-// Timeframe inputs
-monthly_timeframe = "M"
-weekly_timeframe = "W"
-daily_timeframe = "D"
-min1_timeframe = "1"
+    // Scenario A: Previous candle's open and close are both above the 20 EMA
+    cond_prev_above_20 = _open[1] > ema20[1] and _close[1] > ema20[1]
+    t2ConditionA = cond_prev_above_20 and cond_current_cross_10 and cond_current_close_green_abv and cond_ema_order
 
-// --- Monthly Timeframe Calculation ---
-var float monthly_prev_green_open = na
-var float monthly_prev_red_open = na
+    // Scenario B: Previous candle is green and closes above the EMA 10
+    cond_prev_green_above_10 = _close[1] > _open[1] and _close[1] > ema10[1]
+    t2ConditionB = cond_prev_green_above_10 and cond_current_cross_10 and cond_current_close_green_abv and cond_ema_order
 
-// Monthly bar condition checks
-monthly_close = request.security(syminfo.tickerid, monthly_timeframe, close)
-monthly_open = request.security(syminfo.tickerid, monthly_timeframe, open)
-monthly_prev_close = request.security(syminfo.tickerid, monthly_timeframe, close[1])
-monthly_prev_open = request.security(syminfo.tickerid, monthly_timeframe, open[1])
+    // Scenario C: Previous candle is red, its low touched the EMA 10, and it closed above the EMA 10.
+    // The current candle must be green.
+    prevRed             = _close[1] < _open[1]
+    prevTouchedEMA10    = _low[1] <= ema10[1]
+    prevCloseAboveEMA10 = _close[1] > ema10[1]
+    cond_prev_red_touch = prevRed and prevTouchedEMA10 and prevCloseAboveEMA10
+    cond_current_green  = _close > _open
+    t2ConditionC = cond_prev_red_touch and cond_current_green and cond_ema_order
 
-// Track previous green and red bar open prices for Monthly
-if (monthly_prev_close > monthly_prev_open)  // Last bar was green
-    monthly_prev_green_open := monthly_prev_open
-else if (monthly_prev_close < monthly_prev_open)  // Last bar was red
-    monthly_prev_red_open := monthly_prev_open
+    // Final condition is met if any scenario triggers
+    t2Condition = t2ConditionA or t2ConditionB or t2ConditionC
+    t2Condition
 
-// Determine Monthly Bullish/Bearish Status
-if (monthly_close > monthly_open and monthly_close > monthly_prev_red_open)
-    monthly_status := "Bullish"
-else if (monthly_close < monthly_open and monthly_close < monthly_prev_green_open)
-    monthly_status := "Bearish"
+//----------------------------------------------------------------
+// Cascading logic across timeframes
+//----------------------------------------------------------------
 
-// --- Weekly Timeframe Calculation ---
-var float weekly_prev_green_open = na
-var float weekly_prev_red_open = na
+// 1) Daily T2 detection
+dailyT2 = request.security(syminfo.tickerid, "D", f_detectT2(open, high, low, close) ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
 
-// Weekly bar condition checks
-weekly_close = request.security(syminfo.tickerid, weekly_timeframe, close)
-weekly_open = request.security(syminfo.tickerid, weekly_timeframe, open)
-weekly_prev_close = request.security(syminfo.tickerid, weekly_timeframe, close[1])
-weekly_prev_open = request.security(syminfo.tickerid, weekly_timeframe, open[1])
+timeframeIsDaily = timeframe.isdaily
+localDailyT2     = f_detectT2(open, high, low, close)
+if timeframeIsDaily and localDailyT2 and barstate.isconfirmed
+    label.new(bar_index, high, "T2 (Daily)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// Track previous green and red bar open prices for Weekly
-if (weekly_prev_close > weekly_prev_open)  // Last bar was green
-    weekly_prev_green_open := weekly_prev_open
-else if (weekly_prev_close < weekly_prev_open)  // Last bar was red
-    weekly_prev_red_open := weekly_prev_open
+// 2) 1H Branch - unlocked by Daily permission
+bool dailyT2_1h = request.security(syminfo.tickerid, "D", dailyT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+timeframeIs1H = (timeframe.isintraday and timeframe.multiplier == 60)
+local1hT2     = f_detectT2(open, high, low, close)
+final1hT2     = dailyT2_1h and local1hT2
+if timeframeIs1H and final1hT2 and barstate.isconfirmed
+    label.new(bar_index, high, "T2 (1H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// Determine Weekly Bullish/Bearish Status
-if (weekly_close > weekly_open and weekly_close > weekly_prev_red_open)
-    weekly_status := "Bullish"
-else if (weekly_close < weekly_open and weekly_close < weekly_prev_green_open)
-    weekly_status := "Bearish"
+// 3) 4H Branch - unlocked by Daily permission
+bool dailyT2_4h = request.security(syminfo.tickerid, "D", dailyT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+timeframeIs4H = (timeframe.isintraday and timeframe.multiplier == 240)
+local4hT2     = f_detectT2(open, high, low, close)
+final4hT2     = dailyT2_4h and local4hT2
+if timeframeIs4H and final4hT2 and barstate.isconfirmed
+    label.new(bar_index, high, "T2 (4H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// --- Display the status in a box on the chart ---
+// 4) 15-minute Branch - unlocked by 4H permission
+bool fourHourT2_15m = request.security(syminfo.tickerid, "240", final4hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+timeframeIs15m = (timeframe.isintraday and timeframe.multiplier == 15)
+local15mT2     = f_detectT2(open, high, low, close)
+final15mT2     = fourHourT2_15m and local15mT2
+if timeframeIs15m and final15mT2 and barstate.isconfirmed
+    label.new(bar_index, high, "T2 (15m)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// Create a table to display the status
-var table status_table = table.new(position.top_right, 2, 2, border_width=1)
+// 5) 1-minute Branch - unlocked by either 4H or 1H permission
+bool fourHourT2_1m = request.security(syminfo.tickerid, "240", final4hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+bool oneHourT2_1m  = request.security(syminfo.tickerid, "60", final1hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+bool parentFor1m  = fourHourT2_1m or oneHourT2_1m
+timeframeIs1m = (timeframe.isintraday and timeframe.multiplier == 1)
+local1mT2     = f_detectT2(open, high, low, close)
+final1mT2     = parentFor1m and local1mT2
+if timeframeIs1m and final1mT2 and barstate.isconfirmed
+    label.new(bar_index, high, "T2 (1m)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// Update table cells with appropriate labels and statuses
-table.cell(status_table, 0, 0, "Monthly", text_color=color.white, bgcolor=color.blue)
-table.cell(status_table, 1, 0, "Weekly", text_color=color.white, bgcolor=color.blue)
-table.cell(status_table, 0, 1, monthly_status == "Bullish" ? "Bullish" : (monthly_status == "Bearish" ? "Bearish" : ""), text_color=(monthly_status == "Bullish" ? color.green : color.red))
-table.cell(status_table, 1, 1, weekly_status == "Bullish" ? "Bullish" : (weekly_status == "Bearish" ? "Bearish" : ""), text_color=(weekly_status == "Bullish" ? color.green : color.red))
-
-// --- EMA Calculations for Current Timeframe ---
-ema10 = ta.ema(close, 10)
-ema20 = ta.ema(close, 20)
-ema50 = ta.ema(close, 50)
-ema100 = ta.ema(close, 100)
-ema200 = ta.ema(close, 200)
-
-// Plot EMAs
-plot(ema10, title="EMA 10", color=color.blue, linewidth=2)
-plot(ema20, title="EMA 20", color=color.red, linewidth=2)
-plot(ema50, title="EMA 50", color=color.gray, linewidth=2)
-plot(ema100, title="EMA 100", color=color.purple, linewidth=2)
-plot(ema200, title="EMA 200", color=color.orange, linewidth=2)
-
-// --- Daily Confirmation Logic ---
-
-// Daily bar condition checks
-daily_close = request.security(syminfo.tickerid, daily_timeframe, close)
-daily_open = request.security(syminfo.tickerid, daily_timeframe, open)
-daily_high = request.security(syminfo.tickerid, daily_timeframe, high)
-daily_low = request.security(syminfo.tickerid, daily_timeframe, low)
-daily_prev_close = request.security(syminfo.tickerid, daily_timeframe, close[1])
-daily_prev_open = request.security(syminfo.tickerid, daily_timeframe, open[1])
-
-// Determine if EMAs are aligned on the daily timeframe
-ema10_daily = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 10))
-ema20_daily = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 20))
-ema50_daily = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 50))
-ema100_daily = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 100))
-ema200_daily = request.security(syminfo.tickerid, daily_timeframe, ta.ema(close, 200))
-
-emas_aligned_daily = ema10_daily > ema20_daily and ema20_daily > ema50_daily and ema50_daily > ema100_daily and ema100_daily > ema200_daily
-
-// Daily candle conditions
-current_bullish = (daily_close > daily_open) and (daily_close > ema10_daily) and (daily_open > ema20_daily)
-previous_bearish = (daily_prev_close < daily_prev_open)
-previous_condition_met = previous_bearish and (daily_prev_open < daily_close)
-
-// Persistent variable to track daily confirmation
-var bool dailyConfirmed = false
-
-// Check daily confirmation conditions at the close of the daily bar
-if timeframe.isdaily and barstate.isconfirmed and (monthly_status == "Bullish") and (weekly_status == "Bullish") and emas_aligned_daily and current_bullish and (not previous_bearish or previous_condition_met)
-    dailyConfirmed := true
-    
-    // --- Place the DMOM Label ---
-    // Ensure label is only placed once per confirmed bar
-    if not na(daily_high)
-        label.new(bar_index, daily_high, "DMOM", color=color.green, textcolor=color.white, style=label.style_label_up)
-else
-    dailyConfirmed := false
-
-// --- Pass Daily Confirmation to 1-Minute Timeframe ---
-dailyConfirmed_1min = request.security(syminfo.tickerid, daily_timeframe, dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-
-// --- Debugging Label Logic on 1-Minute Timeframe ---
-var label debug_label = na
-
-// 1-Minute EMA calculations
-ema10_1min = ta.ema(close, 10)
-ema20_1min = ta.ema(close, 20)
-ema200_1min = ta.ema(close, 200)
-
-// 1-Minute bar condition checks
-min1_close = close
-min1_open = open
-min1_low = low
-min1_high = high
-
-prev_min1_close = close[1]
-prev_min1_open = open[1]
-
-// Check if EMAs are aligned on the 1-minute timeframe (10 > 20 > 200)
-emas_aligned_1min = ema10_1min > ema20_1min and ema20_1min > ema200_1min
-
-// Additional conditions based on cascading logic
-priceAboveEMA10 = min1_close > ema10_1min
-isBullishCandle = min1_close > min1_open
-priceCrossedEMA10 = (min1_low <= ema10_1min) and (min1_high >= ema10_1min)
-resetCondition = (min1_close < ema20_1min)
-
-// Persistent variables
-var bool waitForNextBullishCandle = false
-var bool waitingForPriceAboveEMA10 = false
-
-// Logic for generating bullish signals
-bullishSignal = false
-
-if timeframe.isintraday and timeframe.multiplier == 1 and dailyConfirmed_1min and emas_aligned_1min
-    if resetCondition
-        // Reset all conditions and set waiting for price to close above EMA10
-        bullishSignal := false
-        waitForNextBullishCandle := false
-        waitingForPriceAboveEMA10 := true
-    else
-        if waitingForPriceAboveEMA10
-            // Wait until price closes above EMA10
-            if min1_close > ema10_1min
-                waitingForPriceAboveEMA10 := false
-            else
-                // Do not proceed until price closes above EMA10
-                bullishSignal := false
-                waitForNextBullishCandle := false
-        else
-            // Proceed with normal signal generation
-            if priceAboveEMA10
-                if priceCrossedEMA10
-                    if isBullishCandle and barstate.isconfirmed // Check at close of candle
-                        bullishSignal := true
-                        waitForNextBullishCandle := false
-                    else
-                        waitForNextBullishCandle := true
-                else
-                    if waitForNextBullishCandle
-                        if isBullishCandle and priceAboveEMA10 and barstate.isconfirmed // Check at close of candle
-                            bullishSignal := true
-                            waitForNextBullishCandle := false
-                        else
-                            waitForNextBullishCandle := false
-            else
-                waitForNextBullishCandle := false
-
-    // Generate the 1-minute label if bullishSignal is true
-    if bullishSignal
-        debug_label := label.new(bar_index, high + (high - low) * 0.5, "1min MOM", color=color.green, textcolor=color.white, style=label.style_label_up)
+// 6) 10-second Branch - unlocked by 1H permission
+bool oneHourT2_10s = request.security(syminfo.tickerid, "60", final1hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+timeframeIs10s = (timeframe.in_seconds() and timeframe.multiplier == 10)
+local10sT2     = f_detectT2(open, high, low, close)
+final10sT2     = oneHourT2_10s and local10sT2
+if timeframeIs10s and final10sT2 and barstate.isconfirmed
+    label.new(bar_index, high, "T2 (10s)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
