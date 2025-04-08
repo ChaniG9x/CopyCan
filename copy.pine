@@ -129,17 +129,41 @@ if timeframeIs10s and final10sT2 and barstate.isconfirmed
 
 
 //----------------------------------------------------------------
-// Debugging Information Plots
+// Debugging Information Table
 //----------------------------------------------------------------
-// These debug plots show the current state of the persistent confirmation variables
-// and the derived flags for the lower timeframe branches.
-// They are plotted at the bottom of the chart to avoid overlapping your price labels.
+// This table is created to display the persistent variable states and derived lower timeframe flags.
+// It is positioned near the lower part of the chart so that it does not overlap with your price bars.
 
-plotchar(dailyConfirmed, title="Debug: Daily Confirmed", char="D", location=location.bottom, color=color.yellow, transp=0)
-plotchar(oneHourConfirmed, title="Debug: 1H Confirmed", char="H", location=location.bottom, color=color.orange, transp=0)
-plotchar(fourHourConfirmed, title="Debug: 4H Confirmed", char="4", location=location.bottom, color=color.aqua, transp=0)
+var table debugTable = table.new(position.bottom_right, 2, 6, border_width=1, frame_color=color.gray, frame_width=1)
 
-// Debug flags for lower timeframe permission derivation:
-plotchar(oneHourT2_1m, title="Debug: 1m Permission via 1H", char="1H", location=location.bottom, color=color.teal, transp=0)
-plotchar(fourHourT2_1m, title="Debug: 1m Permission via 4H", char="1m4H", location=location.bottom, color=color.fuchsia, transp=0)
-plotchar(oneHourT2_10s, title="Debug: 10s Permission via 1H", char="10s", location=location.bottom, color=color.green, transp=0)
+// Update the table every bar:
+if barstate.islast
+    // Header row
+    table.cell(debugTable, 0, 0, "Variable", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 1, 0, "Value", text_color=color.white, bgcolor=color.blue)
+    
+    // Daily Confirmation
+    table.cell(debugTable, 0, 1, "DailyConfirmed", text_color=color.white)
+    table.cell(debugTable, 1, 1, dailyConfirmed ? "True" : "False", text_color=dailyConfirmed ? color.green : color.red)
+    
+    // One-Hour Confirmation
+    table.cell(debugTable, 0, 2, "1HConfirmed", text_color=color.white)
+    table.cell(debugTable, 1, 2, oneHourConfirmed ? "True" : "False", text_color=oneHourConfirmed ? color.green : color.red)
+    
+    // Four-Hour Confirmation
+    table.cell(debugTable, 0, 3, "4HConfirmed", text_color=color.white)
+    table.cell(debugTable, 1, 3, fourHourConfirmed ? "True" : "False", text_color=fourHourConfirmed ? color.green : color.red)
+    
+    // 1m Permission via 1H
+    table.cell(debugTable, 0, 4, "1m Perm (1H)", text_color=color.white)
+    table.cell(debugTable, 1, 4, oneHourT2_1m ? "True" : "False", text_color=oneHourT2_1m ? color.green : color.red)
+    
+    // 1m Permission via 4H
+    table.cell(debugTable, 0, 5, "1m Perm (4H)", text_color=color.white)
+    table.cell(debugTable, 1, 5, fourHourT2_1m ? "True" : "False", text_color=fourHourT2_1m ? color.green : color.red)
+    
+    // You can also add a row for 10s permission via 1H if desired:
+    // (You could create an extra row if needed by adjusting the table dimensions)
+    // For example, if you want an additional row:
+    // table.cell(debugTable, 0, 6, "10s Perm (1H)", text_color=color.white)
+    // table.cell(debugTable, 1, 6, oneHourT2_10s ? "True" : "False", text_color=oneHourT2_10s ? color.green : color.red)
