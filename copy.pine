@@ -45,23 +45,32 @@ f_detectT2(_open, _high, _low, _close) =>
     t2Condition
 
 //----------------------------------------------------------------
-// Persistent higher timeframe confirmations
+// Persistent higher timeframe confirmations with reset logic
 //----------------------------------------------------------------
 
-// Daily confirmation – update only at the close of the daily bar.
+// Daily confirmation – update only at the close of the daily bar and reset otherwise.
 var bool dailyConfirmed = false
-if timeframe.isdaily and barstate.isconfirmed
-    dailyConfirmed := f_detectT2(open, high, low, close)
+if timeframe.isdaily
+    if barstate.isconfirmed
+        dailyConfirmed := f_detectT2(open, high, low, close)
+    else
+        dailyConfirmed := false
 
-// One-hour confirmation – update at the close of the 1H bar.
+// One-hour confirmation – update at the close of the 1H bar and reset otherwise.
 var bool oneHourConfirmed = false
-if timeframe.isintraday and timeframe.multiplier == 60 and barstate.isconfirmed
-    oneHourConfirmed := f_detectT2(open, high, low, close)
+if timeframe.isintraday and timeframe.multiplier == 60
+    if barstate.isconfirmed
+        oneHourConfirmed := f_detectT2(open, high, low, close)
+    else
+        oneHourConfirmed := false
 
-// 4-hour confirmation – update at the close of the 4H bar.
+// 4-hour confirmation – update at the close of the 4H bar and reset otherwise.
 var bool fourHourConfirmed = false
-if timeframe.isintraday and timeframe.multiplier == 240 and barstate.isconfirmed
-    fourHourConfirmed := f_detectT2(open, high, low, close)
+if timeframe.isintraday and timeframe.multiplier == 240
+    if barstate.isconfirmed
+        fourHourConfirmed := f_detectT2(open, high, low, close)
+    else
+        fourHourConfirmed := false
 
 //----------------------------------------------------------------
 // Cascading logic across timeframes using persistent variables
@@ -99,7 +108,7 @@ if timeframeIs15m and final15mT2 and barstate.isconfirmed
     label.new(bar_index, high, "T2 (15m)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 5) 1-minute Branch – unlocked by either 4H or 1H permission.
-// For 1-minute, we now differentiate which higher timeframe gave the permission.
+// For 1-minute, we differentiate which higher timeframe gave the permission.
 bool oneHourT2_1m = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 bool fourHourT2_1m = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 timeframeIs1m = (timeframe.isintraday and timeframe.multiplier == 1)
