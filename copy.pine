@@ -1,11 +1,20 @@
 //@version=5
 indicator("Cascading T2 Strategy (Daily→1H/4H→15m/1m→10s) with Updated Pattern", overlay=true)
 
+//--- Plot EMAs on the chart --- 
+ema10_current  = ta.ema(close, 10)
+ema20_current  = ta.ema(close, 20)
+ema200_current = ta.ema(close, 200)
+
+plot(ema10_current, color=color.blue,   linewidth=2, title="EMA 10")
+plot(ema20_current, color=color.red,    linewidth=2, title="EMA 20")
+plot(ema200_current, color=color.orange, linewidth=2, title="EMA 200")
+
 //----------------------------------------------------------------
 // Updated T2 detection function with new pattern logic
 //----------------------------------------------------------------
 f_detectT2(_open, _high, _low, _close) =>
-    // Calculate EMAs
+    // Calculate EMAs from the provided _close series
     ema10  = ta.ema(_close, 10)
     ema20  = ta.ema(_close, 20)
     ema200 = ta.ema(_close, 200)
@@ -18,11 +27,11 @@ f_detectT2(_open, _high, _low, _close) =>
     cond_prev_above_20 = _open[1] > ema20[1] and _close[1] > ema20[1]
     t2ConditionA = cond_prev_above_20 and cond_current_cross_10 and cond_current_close_green_abv and cond_ema_order
 
-    // Scenario B: Previous candle is green and closes above the EMA 10
+    // Scenario B: Previous candle is green and closes above EMA 10
     cond_prev_green_above_10 = _close[1] > _open[1] and _close[1] > ema10[1]
     t2ConditionB = cond_prev_green_above_10 and cond_current_cross_10 and cond_current_close_green_abv and cond_ema_order
 
-    // Scenario C: Previous candle is red, its low touched the EMA 10, and it closed above the EMA 10.
+    // Scenario C: Previous candle is red, its low touched the EMA 10, and it closed above EMA 10.
     // The current candle must be green.
     prevRed             = _close[1] < _open[1]
     prevTouchedEMA10    = _low[1] <= ema10[1]
