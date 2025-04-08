@@ -126,3 +126,20 @@ local10sT2 = f_detectT2(open, high, low, close)
 final10sT2 = oneHourT2_10s and local10sT2
 if timeframeIs10s and final10sT2 and barstate.isconfirmed
     label.new(bar_index, high, "T2 (10s)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+
+
+//----------------------------------------------------------------
+// Debugging Information Plots
+//----------------------------------------------------------------
+// These debug plots show the current state of the persistent confirmation variables
+// and the derived flags for the lower timeframe branches.
+// They are plotted at the bottom of the chart to avoid overlapping your price labels.
+
+plotchar(dailyConfirmed, title="Debug: Daily Confirmed", char="D", location=location.bottom, color=color.yellow, transp=0)
+plotchar(oneHourConfirmed, title="Debug: 1H Confirmed", char="H", location=location.bottom, color=color.orange, transp=0)
+plotchar(fourHourConfirmed, title="Debug: 4H Confirmed", char="4", location=location.bottom, color=color.aqua, transp=0)
+
+// Debug flags for lower timeframe permission derivation:
+plotchar(oneHourT2_1m, title="Debug: 1m Permission via 1H", char="1H", location=location.bottom, color=color.teal, transp=0)
+plotchar(fourHourT2_1m, title="Debug: 1m Permission via 4H", char="1m4H", location=location.bottom, color=color.fuchsia, transp=0)
+plotchar(oneHourT2_10s, title="Debug: 10s Permission via 1H", char="10s", location=location.bottom, color=color.green, transp=0)
