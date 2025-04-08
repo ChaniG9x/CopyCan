@@ -49,7 +49,7 @@ f_detectT2(_open, _high, _low, _close) =>
 //----------------------------------------------------------------
 
 // 1) Daily T2 detection
-dailyT2 = request.security(syminfo.tickerid, "D", f_detectT2(open, high, low, close) ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+dailyT2 = request.security(syminfo.tickerid, "D", f_detectT2(open, high, low, close) ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
 timeframeIsDaily = timeframe.isdaily
 localDailyT2     = f_detectT2(open, high, low, close)
@@ -57,7 +57,7 @@ if timeframeIsDaily and localDailyT2 and barstate.isconfirmed
     label.new(bar_index, high, "T2 (Daily)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 2) 1H Branch - unlocked by Daily permission
-bool dailyT2_1h = request.security(syminfo.tickerid, "D", dailyT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+bool dailyT2_1h = request.security(syminfo.tickerid, "D", dailyT2 ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 timeframeIs1H = (timeframe.isintraday and timeframe.multiplier == 60)
 local1hT2     = f_detectT2(open, high, low, close)
 final1hT2     = dailyT2_1h and local1hT2
@@ -65,7 +65,7 @@ if timeframeIs1H and final1hT2 and barstate.isconfirmed
     label.new(bar_index, high, "T2 (1H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 3) 4H Branch - unlocked by Daily permission
-bool dailyT2_4h = request.security(syminfo.tickerid, "D", dailyT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+bool dailyT2_4h = request.security(syminfo.tickerid, "D", dailyT2 ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 timeframeIs4H = (timeframe.isintraday and timeframe.multiplier == 240)
 local4hT2     = f_detectT2(open, high, low, close)
 final4hT2     = dailyT2_4h and local4hT2
@@ -73,7 +73,7 @@ if timeframeIs4H and final4hT2 and barstate.isconfirmed
     label.new(bar_index, high, "T2 (4H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 4) 15-minute Branch - unlocked by 4H permission
-bool fourHourT2_15m = request.security(syminfo.tickerid, "240", final4hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+bool fourHourT2_15m = request.security(syminfo.tickerid, "240", final4hT2 ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 timeframeIs15m = (timeframe.isintraday and timeframe.multiplier == 15)
 local15mT2     = f_detectT2(open, high, low, close)
 final15mT2     = fourHourT2_15m and local15mT2
@@ -81,8 +81,8 @@ if timeframeIs15m and final15mT2 and barstate.isconfirmed
     label.new(bar_index, high, "T2 (15m)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 5) 1-minute Branch - unlocked by either 4H or 1H permission
-bool fourHourT2_1m = request.security(syminfo.tickerid, "240", final4hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
-bool oneHourT2_1m  = request.security(syminfo.tickerid, "60", final1hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+bool fourHourT2_1m = request.security(syminfo.tickerid, "240", final4hT2 ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+bool oneHourT2_1m  = request.security(syminfo.tickerid, "60", final1hT2 ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 bool parentFor1m  = fourHourT2_1m or oneHourT2_1m
 timeframeIs1m = (timeframe.isintraday and timeframe.multiplier == 1)
 local1mT2     = f_detectT2(open, high, low, close)
@@ -91,7 +91,7 @@ if timeframeIs1m and final1mT2 and barstate.isconfirmed
     label.new(bar_index, high, "T2 (1m)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 6) 10-second Branch - unlocked by 1H permission
-bool oneHourT2_10s = request.security(syminfo.tickerid, "60", final1hT2 ? 1 : 0, lookahead=barmerge.lookahead_on) == 1
+bool oneHourT2_10s = request.security(syminfo.tickerid, "60", final1hT2 ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 timeframeIs10s = (timeframe.in_seconds() and timeframe.multiplier == 10)
 local10sT2     = f_detectT2(open, high, low, close)
 final10sT2     = oneHourT2_10s and local10sT2
