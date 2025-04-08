@@ -1,5 +1,5 @@
 //@version=5
-indicator("Cascading T2 Strategy + Debug Labels", overlay=true)
+indicator("Cascading T2 Strategy + Debug Annotations", overlay=true)
 
 // --------------------------------------------------------------------
 // Plot EMAs
@@ -77,7 +77,7 @@ if timeframe.isintraday and timeframe.multiplier == 240
 
 // 1) Daily T2 on the daily chart
 if timeframe.isdaily and dailyConfirmed
-    label.new(bar_index, high, "T2 (Daily)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    annotation.new(bar_index, high, "T2 (Daily)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // Publish daily for lower TF
 dailyT2 = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
@@ -88,7 +88,7 @@ timeframeIs1H   = (timeframe.isintraday and timeframe.multiplier == 60)
 local1hT2       = f_detectT2(open, high, low, close)
 final1hT2       = dailyT2_1h and oneHourConfirmed and local1hT2
 if timeframeIs1H and final1hT2 and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (1H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    annotation.new(bar_index, high, "T2 (1H)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 3) 4H
 bool dailyT2_4h = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
@@ -96,7 +96,7 @@ timeframeIs4H   = (timeframe.isintraday and timeframe.multiplier == 240)
 local4hT2       = f_detectT2(open, high, low, close)
 final4hT2       = dailyT2_4h and fourHourConfirmed and local4hT2
 if timeframeIs4H and final4hT2 and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (4H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    annotation.new(bar_index, high, "T2 (4H)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 4) 15m
 bool fourHourT2_15m = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
@@ -104,7 +104,7 @@ timeframeIs15m      = (timeframe.isintraday and timeframe.multiplier == 15)
 local15mT2          = f_detectT2(open, high, low, close)
 final15mT2          = fourHourT2_15m and local15mT2
 if timeframeIs15m and final15mT2 and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (15m)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    annotation.new(bar_index, high, "T2 (15m)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // 5) 1m
 bool oneHourT2_1m   = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
@@ -113,9 +113,9 @@ timeframeIs1m       = (timeframe.isintraday and timeframe.multiplier == 1)
 local1mT2           = f_detectT2(open, high, low, close)
 if timeframeIs1m and local1mT2 and barstate.isconfirmed
     if oneHourT2_1m
-        label.new(bar_index, high, "T2 (1m_1h)", style=label.style_label_down, color=color.new(color.teal, 0), textcolor=color.white)
+        annotation.new(bar_index, high, "T2 (1m_1h)", style=annotation.style_label_down, color=color.new(color.teal, 0), textcolor=color.white)
     if fourHourT2_1m
-        label.new(bar_index, high, "T2 (1m_4h)", style=label.style_label_down, color=color.new(color.fuchsia, 0), textcolor=color.white)
+        annotation.new(bar_index, high, "T2 (1m_4h)", style=annotation.style_label_down, color=color.new(color.fuchsia, 0), textcolor=color.white)
 
 // 6) 10s
 bool oneHourT2_10s = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
@@ -123,31 +123,24 @@ timeframeIs10s     = (timeframe.in_seconds() and timeframe.multiplier == 10)
 local10sT2         = f_detectT2(open, high, low, close)
 final10sT2         = oneHourT2_10s and local10sT2
 if timeframeIs10s and final10sT2 and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (10s)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    annotation.new(bar_index, high, "T2 (10s)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
 // --------------------------------------------------------------------
-// Precompute strings for Debug Label (to avoid dynamic request issues)
+// Precompute strings for Debug Annotation (no dynamic request issues)
 // --------------------------------------------------------------------
 string dailyStatusStr    = request.security(syminfo.tickerid, "D", dailyConfirmed    ? "True" : "False",    lookahead=barmerge.lookahead_off)
 string oneHourStatusStr  = request.security(syminfo.tickerid, "60", oneHourConfirmed ? "True" : "False",    lookahead=barmerge.lookahead_off)
-string fourHourStatusStr = request.security(syminfo.tickerid, "240", fourHourConfirmed ? "True" : "False", lookahead=barmerge.lookahead_off)
-
-// --------------------------------------------------------------------
-// Debug label on every bar
-// --------------------------------------------------------------------
-// We create a label for each bar, placed well below the bar using ATR
+string fourHourStatusStr = request.security(syminfo.tickerid, "240", fourHourConfirmed ? "True" : "False",  lookahead=barmerge.lookahead_off)
 
 atrVal   = ta.atr(14)
-yOffset  = low - atrVal * 3.0  // or adjust the multiplier if needed
+yOffset  = low - atrVal * 3.0
 
-// Compose a multiline string that displays daily, 1H, and 4H states:
 string debugText = "Daily: " + dailyStatusStr + "\n" +
                    "1H: "    + oneHourStatusStr + "\n" +
                    "4H: "    + fourHourStatusStr
 
-// Create the debug label on each bar (one per bar)
-label.new(bar_index, yOffset, debugText,
-     style=label.style_label_lower, // ensures label is below the bar
+annotation.new(bar_index, yOffset, debugText,
+     style=annotation.style_label_lower,
      color=color.new(color.lime, 0),
      textcolor=color.black,
      size=size.small)
