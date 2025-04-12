@@ -91,9 +91,11 @@ if timeframe.period == "60" and dailyConfirmed_LTF and f_tier2Pattern()
 if timeframe.period == "15" and fourHourConfirmed_LTF and dailyConfirmed_LTF and f_tier2Pattern()
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if timeframe.period == "1" and ((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and dailyConfirmed_LTF)) and f_tier2Pattern()
-    label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
+if timeframe.period == "1" and (oneHourConfirmed_LTF and dailyConfirmed_LTF) and f_tier2Pattern()
+    label.new(bar_index, low, "1m_1h", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
 
-if timeframe.period == "10S" and  oneHourConfirmed_LTF and dailyConfirmed_LTF and f_tier2Pattern()
+if timeframe.period == "1" and (fourHourConfirmed_LTF and dailyConfirmed_LTF) and f_tier2Pattern()
+    label.new(bar_index, low, "1m_4h", style=label.style_label_up, color=color.new(color.purple, 0), textcolor=color.white)
+
+if timeframe.period == "10S" and oneHourConfirmed_LTF and dailyConfirmed_LTF and f_tier2Pattern()
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.magenta, textcolor=color.white)
-
