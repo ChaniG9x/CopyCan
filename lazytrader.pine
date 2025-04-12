@@ -1,5 +1,5 @@
 //@version=5
-indicator("T2 Cascading Confirmation Template", overlay=true)
+strategy("Lazy Trader", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
 // --- Plot EMAs ---
 ema10_main = ta.ema(close, 10)
@@ -61,50 +61,38 @@ f_tier3Pattern() =>
     result = emaTrendOk and t3Valid and barstate.isconfirmed
     result
 
-// --- Floating Confirmation Flags (set on bar close only) ---
+// --- Floating Confirmation Flags ---
 patternResult = f_tier2Pattern()
 t3patternResult = f_tier3Pattern()
 
 var bool t3confirmed = false
 if timeframe.isdaily
-    if barstate.isconfirmed
-        t3confirmed := t3patternResult
-    else
-        t3confirmed := t3confirmed[1]
+    t3confirmed := barstate.isconfirmed ? t3patternResult : t3confirmed[1]
 
 var bool dailyConfirmed = false
 if timeframe.isdaily
-    if barstate.isconfirmed
-        dailyConfirmed := patternResult
-    else
-        dailyConfirmed := dailyConfirmed[1]
+    dailyConfirmed := barstate.isconfirmed ? patternResult : dailyConfirmed[1]
 
 var bool fourHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 240
-    if barstate.isconfirmed
-        fourHourConfirmed := patternResult
-    else
-        fourHourConfirmed := fourHourConfirmed[1]
+    fourHourConfirmed := barstate.isconfirmed ? patternResult : fourHourConfirmed[1]
 
 var bool oneHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 60
-    if barstate.isconfirmed
-        oneHourConfirmed := patternResult
-    else
-        oneHourConfirmed := oneHourConfirmed[1]
+    oneHourConfirmed := barstate.isconfirmed ? patternResult : oneHourConfirmed[1]
 
-// --- Request higher timeframe flags with lookahead safe access ---
+// --- Request higher timeframe flags ---
 dailyConfirmed_LTF = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 t3confirmed_LTF = request.security(syminfo.tickerid, "D", t3confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// --- Labels for confirmed detections at each timeframe ---
+// --- Original Debugging Labels ---
 if timeframe.period == "D" and patternResult
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
 if timeframe.period == "D" and t3patternResult
-    label.new(bar_index, high, "T3", style=label.style_label_down, color=color.orange, textcolor=color.white)
+    label.new(bar_index, low, "T3", style=label.style_label_upper_left, color=color.orange, textcolor=color.white)
 
 if timeframe.period == "240" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
     label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
@@ -119,7 +107,23 @@ if timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) o
     label.new(bar_index, low, "1m_1h", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
 
 if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-    label.new(bar_index, low, "1m_4h", style=label.style_label_up, color=color.new(color.purple, 0), textcolor=color.white)
+    label.new(bar_index, low, "1m_4h", style=label.style_label_upper_right, color=color.new(color.purple, 0), textcolor=color.white)
 
 if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.olive, textcolor=color.white)
+
+// --- Entry Conditions for Strategy ---
+entry15m = timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+entry1m_1h = timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+entry1m_4h = timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+entry10s = timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+
+// --- Trailing Stop Loss based on EMA200 ---
+trail_offset = close - ema200_main
+trail_offset := trail_offset < 0 ? na : trail_offset
+
+// --- Submit Strategy Orders ---
+if entry15m or entry1m_1h or entry1m_4h or entry10s
+    strategy.entry("Long", strategy.long)
+    if not na(trail_offset)
+        strategy.exit("Exit", from_entry="Long", trail_offset=trail_offset)
