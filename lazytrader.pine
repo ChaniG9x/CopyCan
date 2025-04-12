@@ -51,6 +51,19 @@ fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", patternResult 
 oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", patternResult ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
 // --- Debugging Labels (unchanged) ---
+
+if timeframe.period == "D" and patternResult
+    label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
+
+if timeframe.period == "D" and t3patternResult
+    label.new(bar_index, low, "T3", style=label.style_label_upper_left, color=color.orange, textcolor=color.white)
+
+if timeframe.period == "240" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
+    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
+
+if timeframe.period == "60" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
+    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
+
 if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
