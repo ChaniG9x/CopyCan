@@ -124,21 +124,19 @@ if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) 
 if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.olive, textcolor=color.white)
 
-// --- STRATEGY ENTRY CONDITIONS --- //
-stopBuffer = 0.001  // 0.1% buffer below EMA200 for SL
-
+// --- STRATEGY ENTRY CONDITIONS (Stop = exact EMA200) --- //
 if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     strategy.entry("Buy_15m", strategy.long)
-    strategy.exit("SL_15m", from_entry="Buy_15m", stop=ema200_main * (1 - stopBuffer))
+    strategy.exit("SL_15m", from_entry="Buy_15m", stop=ema200_main)
 
 if timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     strategy.entry("Buy_1m_1h", strategy.long)
-    strategy.exit("SL_1m_1h", from_entry="Buy_1m_1h", stop=ema200_main * (1 - stopBuffer))
+    strategy.exit("SL_1m_1h", from_entry="Buy_1m_1h", stop=ema200_main)
 
 if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     strategy.entry("Buy_1m_4h", strategy.long)
-    strategy.exit("SL_1m_4h", from_entry="Buy_1m_4h", stop=ema200_main * (1 - stopBuffer))
+    strategy.exit("SL_1m_4h", from_entry="Buy_1m_4h", stop=ema200_main)
 
 if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     strategy.entry("Buy_10s", strategy.long)
-    strategy.exit("SL_10s", from_entry="Buy_10s", stop=ema200_main * (1 - stopBuffer))
+    strategy.exit("SL_10s", from_entry="Buy_10s", stop=ema200_main)
