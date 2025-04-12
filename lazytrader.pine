@@ -51,7 +51,7 @@ f_tier2Pattern() =>
     permission := false
     result
 
-// --- T3 Pattern Detection Logic ---
+// --- Tier 3 Pattern Detection Logic ---
 f_tier3Pattern() =>
     ema10 = ta.ema(close, 10)
     ema20 = ta.ema(close, 20)
@@ -68,7 +68,7 @@ t3patternResult = f_tier3Pattern()
 var bool t3confirmed = false
 if timeframe.isdaily
     if barstate.isconfirmed
-       t3confirmed := t3patternResult
+        t3confirmed := t3patternResult
     else
         t3confirmed := t3confirmed[1]
 
@@ -112,14 +112,14 @@ if timeframe.period == "240" and (dailyConfirmed_LTF or t3confirmed_LTF) and pat
 if timeframe.period == "60" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
     label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-if timeframe.period == "15" and ((fourHourConfirmed_LTF and dailyConfirmed_LTF) or ((fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult
+if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if timeframe.period == "1" and ((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult
+if timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "1m_1h", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
 
-if timeframe.period == "1" and ((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF) and patternResult
+if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "1m_4h", style=label.style_label_up, color=color.new(color.purple, 0), textcolor=color.white)
 
-if timeframe.period == "10S" and ((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF) and patternResult
+if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.olive, textcolor=color.white)
