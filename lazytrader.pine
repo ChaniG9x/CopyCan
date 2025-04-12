@@ -124,7 +124,7 @@ fixed_stop = ema200_main
 // --- Submit Strategy Orders ---
 if entry15m or entry1m_1h or entry1m_4h or entry10s
     strategy.entry("Long", strategy.long)
-    strategy.exit("Stop Loss", from_entry="Long", stop=fixed_stop)
+    strategy.exit("Stop Loss", from_entry="Long", stop=fixed_stop, when=low <= fixed_stop)
 
 // --- Plot Stop Loss Line While in Trade ---
 plot(strategy.position_size > 0 ? fixed_stop : na, title="Stop Loss", color=color.fuchsia, linewidth=2, style=plot.style_line)
