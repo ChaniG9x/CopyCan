@@ -100,4 +100,10 @@ if timeframe.period == "1" and (fourHourConfirmed_LTF and dailyConfirmed_LTF) an
     label.new(bar_index, low, "1m_4h", style=label.style_label_up, color=color.new(color.purple, 0), textcolor=color.white)
 
 if timeframe.period == "10S" and oneHourConfirmed_LTF and dailyConfirmed_LTF and patternResult
-    label.new(bar_index, low, "10S", style=label.style_label_up, color=color.magenta, textcolor=color.white)
+    label.new(bar_index, low, "10S", style=label.style_label_up, color=color.olive, textcolor=color.white)
+
+// --- T3 Detection on Daily --- 
+if timeframe.isdaily and (ema10_main > ema20_main and ema20_main > ema200_main)
+    permissionT3 = (close > open) and (open > ema10_main) and (close > ema10_main)
+    if permissionT3 and barstate.isconfirmed and not patternResult
+        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
