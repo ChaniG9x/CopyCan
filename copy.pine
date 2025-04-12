@@ -51,8 +51,26 @@ f_tier2Pattern() =>
     permission := false
     result
 
+// --- T3 Pattern Detection Logic ---
+f_tier3Pattern() =>
+    ema10 = ta.ema(close, 10)
+    ema20 = ta.ema(close, 20)
+    ema200 = ta.ema(close, 200)
+    emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
+    t3Valid = (close > open) and (open > ema10) and (close > ema10)
+    result = emaTrendOk and t3Valid and barstate.isconfirmed
+    result
+
 // --- Floating Confirmation Flags (set on bar close only) ---
 patternResult = f_tier2Pattern()
+t3patternResult = f_tier3Pattern()
+
+var bool t3confirmed = false
+if timeframe.isdaily
+    if barstate.isconfirmed
+       t3confirmed := t3patternResult
+    else
+        t3confirmed := t3confirmed[1]
 
 var bool dailyConfirmed = false
 if timeframe.isdaily
@@ -77,6 +95,7 @@ if timeframe.isintraday and timeframe.multiplier == 60
 
 // --- Request higher timeframe flags with lookahead safe access ---
 dailyConfirmed_LTF = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+t3confirmed_LTF = request.security(syminfo.tickerid, "D", t3confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
@@ -84,26 +103,23 @@ oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed
 if timeframe.period == "D" and patternResult
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-if timeframe.period == "240" and dailyConfirmed_LTF and patternResult
+if timeframe.period == "D" and t3patternResult
+    label.new(bar_index, high, "T3", style=label.style_label_down, color=color.orange, textcolor=color.white)
+
+if timeframe.period == "240" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
     label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
-if timeframe.period == "60" and dailyConfirmed_LTF and patternResult
+if timeframe.period == "60" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
     label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-if timeframe.period == "15" and fourHourConfirmed_LTF and dailyConfirmed_LTF and patternResult
+if timeframe.period == "15" and ((fourHourConfirmed_LTF and dailyConfirmed_LTF) or ((fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if timeframe.period == "1" and (oneHourConfirmed_LTF and dailyConfirmed_LTF) and patternResult
+if timeframe.period == "1" and ((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult
     label.new(bar_index, low, "1m_1h", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
 
-if timeframe.period == "1" and (fourHourConfirmed_LTF and dailyConfirmed_LTF) and patternResult
+if timeframe.period == "1" and ((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF) and patternResult
     label.new(bar_index, low, "1m_4h", style=label.style_label_up, color=color.new(color.purple, 0), textcolor=color.white)
 
-if timeframe.period == "10S" and oneHourConfirmed_LTF and dailyConfirmed_LTF and patternResult
+if timeframe.period == "10S" and ((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF) and patternResult
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.olive, textcolor=color.white)
-
-// --- T3 Detection on Daily --- 
-if timeframe.isdaily and (ema10_main > ema20_main and ema20_main > ema200_main)
-    permissionT3 = (close > open) and (open > ema10_main) and (close > ema10_main)
-    if permissionT3 and barstate.isconfirmed and not patternResult
-        label.new(x=bar_index, y=high, text="T3", style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.white)
