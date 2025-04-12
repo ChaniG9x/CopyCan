@@ -118,13 +118,10 @@ entry1m_1h = timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfir
 entry1m_4h = timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
 entry10s = timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
 
-// --- Trailing Stop Loss based on EMA200 ---
-trail_points = close - ema200_main
-trail_points := trail_points < 0 ? na : trail_points
+// --- Fixed Stop Loss Below EMA200 ---
+fixed_stop = ema200_main
 
+// --- Submit Strategy Orders ---
 if entry15m or entry1m_1h or entry1m_4h or entry10s
     strategy.entry("Long", strategy.long)
-
-    // Only submit trailing stop if valid
-    if not na(trail_points)
-        strategy.exit("Exit", from_entry="Long", trail_points=trail_points)
+    strategy.exit("Stop Loss", from_entry="Long", stop=fixed_stop)
