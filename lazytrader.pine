@@ -125,7 +125,6 @@ trail_points := trail_points < 0 ? na : trail_points
 if entry15m or entry1m_1h or entry1m_4h or entry10s
     strategy.entry("Long", strategy.long)
 
-    // Only trigger trailing stop if points are valid
+    // Only submit trailing stop if valid
     if not na(trail_points)
         strategy.exit("Exit", from_entry="Long", trail_points=trail_points)
-
