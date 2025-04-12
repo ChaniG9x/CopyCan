@@ -1,78 +1,98 @@
 //@version=5
 indicator("T2 Cascading Confirmation Template", overlay=true)
 
-// --- Core pattern detection function ---
-f_detectT2(_open, _high, _low, _close) =>
-    ema10 = ta.ema(_close, 10)
-    ema20 = ta.ema(_close, 20)
-    ema200 = ta.ema(_close, 200)
+// --- Plot EMAs ---
+ema10_main = ta.ema(close, 10)
+ema20_main = ta.ema(close, 20)
+ema200_main = ta.ema(close, 200)
+plot(ema10_main, title="EMA 10", color=color.blue)
+plot(ema20_main, title="EMA 20", color=color.red)
+plot(ema200_main, title="EMA 200", color=color.orange)
 
-    cond_cross_ema10 = _low <= ema10 and _high >= ema10
-    cond_green = _close > _open and _close > ema10
-    cond_ema_order = ema10 > ema20 and ema20 > ema200
+// --- Helper function to check cross through EMA ---
+crosses(_ema) =>
+    (low < _ema) and (high > _ema)
 
-    cond_prev_above_20 = _open[1] > ema20[1] and _close[1] > ema20[1]
-    cond_prev_green_above_10 = _close[1] > _open[1] and _close[1] > ema10[1]
-    cond_prev_red_touch = _close[1] < _open[1] and _low[1] <= ema10[1] and _close[1] > ema10[1]
+// --- Tier 2 Pattern Detection Logic ---
+f_tier2Pattern() =>
+    ema10 = ta.ema(close, 10)
+    ema20 = ta.ema(close, 20)
+    ema200 = ta.ema(close, 200)
+    emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
 
-    cond_current_green = _close > _open
+    var bool restricted = false
+    var bool bearishCandidate = false
+    var bool justReset = false
+    justReset := false
 
-    condA = cond_prev_above_20 and cond_cross_ema10 and cond_green and cond_ema_order
-    condB = cond_prev_green_above_10 and cond_cross_ema10 and cond_green and cond_ema_order
-    condC = cond_prev_red_touch and cond_current_green and cond_ema_order
+    if restricted
+        if (close > open) and (close > ema10)
+            restricted := false
+            justReset := true
+            bearishCandidate := false
 
-    condA or condB or condC
+    var bool permission = false
+    if not restricted and not justReset and emaTrendOk
+        condA = (close > open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
+        condBearCandidate = (close < open) and ((crosses(ema10)) or (crosses(ema20))) and (close > ema10)
+        if condBearCandidate
+            bearishCandidate := true
+        condBConfirm = bearishCandidate and (close > open) and (close > ema10)
+        if condA or condBConfirm
+            permission := true
+            bearishCandidate := false
 
-// --- Higher timeframe confirmations (explicit true/false, float logic) ---
+    if not restricted and not justReset
+        if (open < ema20) or (close < ema20)
+            restricted := true
+            bearishCandidate := false
+
+    result = permission and barstate.isconfirmed and (not restricted)
+    permission := false
+    result
+
+// --- Floating Confirmation Flags (set on bar close only) ---
 var bool dailyConfirmed = false
 if timeframe.isdaily
     if barstate.isconfirmed
-        dailyConfirmed := f_detectT2(open, high, low, close)
+        dailyConfirmed := f_tier2Pattern()
     else
         dailyConfirmed := dailyConfirmed[1]
 
 var bool fourHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 240
     if barstate.isconfirmed
-        fourHourConfirmed := f_detectT2(open, high, low, close)
+        fourHourConfirmed := f_tier2Pattern()
     else
         fourHourConfirmed := fourHourConfirmed[1]
 
 var bool oneHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 60
     if barstate.isconfirmed
-        oneHourConfirmed := f_detectT2(open, high, low, close)
+        oneHourConfirmed := f_tier2Pattern()
     else
         oneHourConfirmed := oneHourConfirmed[1]
 
-// --- Lower timeframe lookups ---
-dailyConfirmed_LTF     = request.security(syminfo.tickerid, "D", dailyConfirmed[1], lookahead=barmerge.lookahead_on)
-fourHourConfirmed_LTF  = request.security(syminfo.tickerid, "240", fourHourConfirmed[1], lookahead=barmerge.lookahead_on)
-oneHourConfirmed_LTF   = request.security(syminfo.tickerid, "60", oneHourConfirmed[1], lookahead=barmerge.lookahead_on)
+// --- Request higher timeframe flags with lookahead safe access ---
+dailyConfirmed_LTF = request.security(syminfo.tickerid, "D", dailyConfirmed[1], lookahead=barmerge.lookahead_on)
+fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", fourHourConfirmed[1], lookahead=barmerge.lookahead_on)
+oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed[1], lookahead=barmerge.lookahead_on)
 
-// --- LTF logic examples ---
-// 4H and 1H unlocked only if Daily was confirmed
-timeframeIs4H = timeframe.multiplier == 240
-if timeframeIs4H and dailyConfirmed_LTF and f_detectT2(open, high, low, close) and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (4H)", style=label.style_label_down, color=color.green)
+// --- Labels for confirmed detections at each timeframe ---
+if timeframe.period == "D" and f_tier2Pattern()
+    label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-timeframeIs1H = timeframe.multiplier == 60
-if timeframeIs1H and dailyConfirmed_LTF and f_detectT2(open, high, low, close) and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (1H)", style=label.style_label_down, color=color.orange)
+if timeframe.period == "240" and dailyConfirmed_LTF and f_tier2Pattern()
+    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
-// 15m and 1m unlocked by 4H
-timeframeIs15m = timeframe.multiplier == 15
-if timeframeIs15m and fourHourConfirmed_LTF and f_detectT2(open, high, low, close) and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (15m)", style=label.style_label_down, color=color.blue)
+if timeframe.period == "60" and dailyConfirmed_LTF and f_tier2Pattern()
+    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-timeframeIs1m = timeframe.multiplier == 1
-if timeframeIs1m and fourHourConfirmed_LTF and f_detectT2(open, high, low, close) and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (1m via 4H)", style=label.style_label_down, color=color.blue)
+if timeframe.period == "15" and fourHourConfirmed_LTF and f_tier2Pattern()
+    label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-// 10s and 1m unlocked by 1H
-is10s = timeframe.in_seconds() and timeframe.multiplier == 10
-if is10s and oneHourConfirmed_LTF and f_detectT2(open, high, low, close) and barstate.isconfirmed
-    label.new(bar_index, high, "T2 (10s)", style=label.style_label_down, color=color.fuchsia)
+if timeframe.period == "1" and (fourHourConfirmed_LTF or oneHourConfirmed_LTF) and f_tier2Pattern()
+    label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-if timeframeIs1m and oneHourConfirmed_LTF and f_detectT2(open, high, low, close) and barstate.isconfirmed
-    label.new(bar_index, low, "T2 (1m via 1H)", style=label.style_label_up, color=color.yellow)
+if timeframe.period == "10S" and oneHourConfirmed_LTF and f_tier2Pattern()
+    label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
