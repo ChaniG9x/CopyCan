@@ -52,24 +52,26 @@ f_tier2Pattern() =>
     result
 
 // --- Floating Confirmation Flags (set on bar close only) ---
+patternResult = f_tier2Pattern()
+
 var bool dailyConfirmed = false
 if timeframe.isdaily
     if barstate.isconfirmed
-        dailyConfirmed := f_tier2Pattern()
+        dailyConfirmed := patternResult
     else
         dailyConfirmed := dailyConfirmed[1]
 
 var bool fourHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 240
     if barstate.isconfirmed
-        fourHourConfirmed := f_tier2Pattern()
+        fourHourConfirmed := patternResult
     else
         fourHourConfirmed := fourHourConfirmed[1]
 
 var bool oneHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 60
     if barstate.isconfirmed
-        oneHourConfirmed := f_tier2Pattern()
+        oneHourConfirmed := patternResult
     else
         oneHourConfirmed := oneHourConfirmed[1]
 
@@ -79,23 +81,23 @@ fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", fourHourConfir
 oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
 // --- Labels for confirmed detections at each timeframe ---
-if timeframe.period == "D" and f_tier2Pattern()
+if timeframe.period == "D" and patternResult
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
-if timeframe.period == "240" and dailyConfirmed_LTF and f_tier2Pattern()
+if timeframe.period == "240" and dailyConfirmed_LTF and patternResult
     label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
 
-if timeframe.period == "60" and dailyConfirmed_LTF and f_tier2Pattern()
+if timeframe.period == "60" and dailyConfirmed_LTF and patternResult
     label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
 
-if timeframe.period == "15" and fourHourConfirmed_LTF and dailyConfirmed_LTF and f_tier2Pattern()
+if timeframe.period == "15" and fourHourConfirmed_LTF and dailyConfirmed_LTF and patternResult
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
-if timeframe.period == "1" and (oneHourConfirmed_LTF and dailyConfirmed_LTF) and f_tier2Pattern()
+if timeframe.period == "1" and (oneHourConfirmed_LTF and dailyConfirmed_LTF) and patternResult
     label.new(bar_index, low, "1m_1h", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
 
-if timeframe.period == "1" and (fourHourConfirmed_LTF and dailyConfirmed_LTF) and f_tier2Pattern()
+if timeframe.period == "1" and (fourHourConfirmed_LTF and dailyConfirmed_LTF) and patternResult
     label.new(bar_index, low, "1m_4h", style=label.style_label_up, color=color.new(color.purple, 0), textcolor=color.white)
 
-if timeframe.period == "10S" and oneHourConfirmed_LTF and dailyConfirmed_LTF and f_tier2Pattern()
+if timeframe.period == "10S" and oneHourConfirmed_LTF and dailyConfirmed_LTF and patternResult
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.magenta, textcolor=color.white)
