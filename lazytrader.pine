@@ -1,35 +1,28 @@
 //@version=5
-strategy("Lazy Trader Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+strategy("Lazy Trader Strategy with Dynamic HTF Price Action Stop", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
-// --- Plot EMAs ---
-ema10_main = ta.ema(close, 10)
-ema20_main = ta.ema(close, 20)
-ema200_main = ta.ema(close, 200)
-plot(ema10_main, title="EMA 10", color=color.blue)
-plot(ema20_main, title="EMA 20", color=color.red)
-plot(ema200_main, title="EMA 200", color=color.orange)
+// --- EMAs ---
+ema10 = ta.ema(close, 10)
+ema20 = ta.ema(close, 20)
+ema200 = ta.ema(close, 200)
+plot(ema10, title="EMA 10", color=color.blue)
+plot(ema20, title="EMA 20", color=color.red)
+plot(ema200, title="EMA 200", color=color.orange)
 
-// --- Helper function to check cross through EMA ---
-crosses(_ema) =>
-    (low < _ema) and (high > _ema)
+// --- Tier 2 Pattern ---
+crosses(_ema) => (low < _ema) and (high > _ema)
 
-// --- Tier 2 Pattern Detection Logic ---
 f_tier2Pattern() =>
-    ema10 = ta.ema(close, 10)
-    ema20 = ta.ema(close, 20)
-    ema200 = ta.ema(close, 200)
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-
     var bool restricted = false
     var bool bearishCandidate = false
     var bool justReset = false
     justReset := false
 
-    if restricted
-        if (close > open) and (close > ema10)
-            restricted := false
-            justReset := true
-            bearishCandidate := false
+    if restricted and (close > open) and (close > ema10)
+        restricted := false
+        justReset := true
+        bearishCandidate := false
 
     var bool permission = false
     if not restricted and not justReset and emaTrendOk
@@ -42,101 +35,89 @@ f_tier2Pattern() =>
             permission := true
             bearishCandidate := false
 
-    if not restricted and not justReset
-        if (open < ema20) or (close < ema20)
-            restricted := true
-            bearishCandidate := false
+    if not restricted and not justReset and ((open < ema20) or (close < ema20))
+        restricted := true
+        bearishCandidate := false
 
     result = permission and barstate.isconfirmed and (not restricted)
     permission := false
     result
 
-// --- Tier 3 Pattern Detection Logic ---
-f_tier3Pattern() =>
-    ema10 = ta.ema(close, 10)
-    ema20 = ta.ema(close, 20)
-    ema200 = ta.ema(close, 200)
-    emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-    t3Valid = (close > open) and (open > ema10) and (close > ema10) and (low > ema10)
-    result = emaTrendOk and t3Valid and barstate.isconfirmed
-    result
-
-// --- Floating Confirmation Flags ---
+// --- Pattern Logic and Confirmations ---
 patternResult = f_tier2Pattern()
-t3patternResult = f_tier3Pattern()
+dailyConfirmed_LTF = request.security(syminfo.tickerid, "D", patternResult ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+t3confirmed_LTF = request.security(syminfo.tickerid, "D", false, lookahead=barmerge.lookahead_off) == 1  // Placeholder
+fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", patternResult ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", patternResult ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-var bool t3confirmed = false
-if timeframe.isdaily
-    if barstate.isconfirmed
-        t3confirmed := t3patternResult
-    else
-        t3confirmed := t3confirmed[1]
-
-var bool dailyConfirmed = false
-if timeframe.isdaily
-    if barstate.isconfirmed
-        dailyConfirmed := patternResult
-    else
-        dailyConfirmed := dailyConfirmed[1]
-
-var bool fourHourConfirmed = false
-if timeframe.isintraday and timeframe.multiplier == 240
-    if barstate.isconfirmed
-        fourHourConfirmed := patternResult
-    else
-        fourHourConfirmed := fourHourConfirmed[1]
-
-var bool oneHourConfirmed = false
-if timeframe.isintraday and timeframe.multiplier == 60
-    if barstate.isconfirmed
-        oneHourConfirmed := patternResult
-    else
-        oneHourConfirmed := oneHourConfirmed[1]
-
-// --- Request higher timeframe flags ---
-dailyConfirmed_LTF     = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-t3confirmed_LTF        = request.security(syminfo.tickerid, "D", t3confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-fourHourConfirmed_LTF  = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-oneHourConfirmed_LTF   = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-
-// --- Labels (debugging - unchanged) ---
-if timeframe.period == "D" and patternResult
-    label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
-
-if timeframe.period == "D" and t3patternResult
-    label.new(bar_index, low, "T3", style=label.style_label_upper_left, color=color.orange, textcolor=color.white)
-
-if timeframe.period == "240" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
-    label.new(bar_index, high, "4h", style=label.style_label_down, color=color.orange, textcolor=color.white)
-
-if timeframe.period == "60" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
-    label.new(bar_index, high, "1h", style=label.style_label_down, color=color.red, textcolor=color.white)
-
+// --- Debugging Labels (unchanged) ---
 if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "15m", style=label.style_label_up, color=color.orange, textcolor=color.white)
 
 if timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-    label.new(bar_index, low, "1m_1h", style=label.style_label_up, color=color.new(color.red, 0), textcolor=color.white)
+    label.new(bar_index, low, "1m_1h", style=label.style_label_up, color=color.red, textcolor=color.white)
 
 if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-    label.new(bar_index, low, "1m_4h", style=label.style_label_upper_right, color=color.new(color.purple, 0), textcolor=color.white)
+    label.new(bar_index, low, "1m_4h", style=label.style_label_upper_right, color=color.purple, textcolor=color.white)
 
 if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.olive, textcolor=color.white)
 
-// --- STRATEGY ENTRY CONDITIONS (Stop = exact EMA200) --- //
+// --- Price Action Management Tool Integration ---
+selectedTimeframe_PA = input.timeframe("15", title="Select Timeframe for Price Action", options=["1", "15", "10", "60", "240", "D"], tooltip="Choose the timeframe for price action calculations")
+price_action_adjustment_percent = input.float(0.0, "Price Action Line Adjustment (%)", minval=-100, maxval=100, step=0.1, tooltip="Adjust the Price Action Line")
+
+isGreen_PA(candleClose, candleOpen) => candleClose > candleOpen
+
+priceActionLine_HTF() =>
+    var float base_priceActionLine = na
+    if barstate.isconfirmed
+        if isGreen_PA(close, open)
+            if close > high[1]
+                base_priceActionLine := low
+            else if (close > open[1]) and (close[1] < open[1])
+                base_priceActionLine := low
+            else
+                base_priceActionLine := na
+        else
+            base_priceActionLine := na
+    base_priceActionLine
+
+priceActionLine_base = request.security(syminfo.tickerid, selectedTimeframe_PA, priceActionLine_HTF(), lookahead=barmerge.lookahead_off)
+priceActionLine = not na(priceActionLine_base) ? priceActionLine_base * (1 + price_action_adjustment_percent / 100) : na
+plot(priceActionLine, color=color.green, title="Price Action Line", linewidth=2)
+
+// --- Entry Logic + Stop at EMA200 initially ---
+var float trailing_stop = na
+var float fixed_stop_loss_level = na
+var float stop_level = na
+
+shouldEnter = false
+entryLabel = ""
+
 if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-    strategy.entry("Buy_15m", strategy.long)
-    strategy.exit("SL_15m", from_entry="Buy_15m", stop=ema200_main)
-
+    shouldEnter := true
+    entryLabel := "Buy_15m"
 if timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-    strategy.entry("Buy_1m_1h", strategy.long)
-    strategy.exit("SL_1m_1h", from_entry="Buy_1m_1h", stop=ema200_main)
-
-if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-    strategy.entry("Buy_1m_4h", strategy.long)
-    strategy.exit("SL_1m_4h", from_entry="Buy_1m_4h", stop=ema200_main)
-
+    shouldEnter := true
+    entryLabel := "Buy_1m"
 if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-    strategy.entry("Buy_10s", strategy.long)
-    strategy.exit("SL_10s", from_entry="Buy_10s", stop=ema200_main)
+    shouldEnter := true
+    entryLabel := "Buy_10s"
+
+if shouldEnter and strategy.position_size == 0
+    strategy.entry(entryLabel, strategy.long)
+    fixed_stop_loss_level := ema200
+    trailing_stop := na
+
+// --- Stop loss management ---
+if strategy.position_size > 0
+    inProfit = priceActionLine > strategy.position_avg_price
+    if inProfit and not na(priceActionLine)
+        trailing_stop := na(trailing_stop) ? priceActionLine : math.max(trailing_stop, priceActionLine)
+    else
+        trailing_stop := fixed_stop_loss_level
+    stop_level := trailing_stop
+    strategy.exit("Stop", stop=stop_level)
+
+plot(strategy.position_size > 0 ? stop_level : na, title="Stop Level", color=color.yellow)
