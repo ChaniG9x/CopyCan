@@ -57,7 +57,7 @@ f_tier3Pattern() =>
     ema20 = ta.ema(close, 20)
     ema200 = ta.ema(close, 200)
     emaTrendOk = (ema10 > ema20) and (ema20 > ema200)
-    t3Valid = (close > open) and (open > ema10) and (close > ema10)
+    t3Valid = (close > open) and (open > ema10) and (close > ema10) and (low > ema10)
     result = emaTrendOk and t3Valid and barstate.isconfirmed
     result
 
