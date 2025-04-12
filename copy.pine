@@ -74,9 +74,9 @@ if timeframe.isintraday and timeframe.multiplier == 60
         oneHourConfirmed := oneHourConfirmed[1]
 
 // --- Request higher timeframe flags with lookahead safe access ---
-dailyConfirmed_LTF = request.security(syminfo.tickerid, "D", dailyConfirmed[1], lookahead=barmerge.lookahead_off) == 1
-fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", fourHourConfirmed[1], lookahead=barmerge.lookahead_off) == 1
-oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed[1], lookahead=barmerge.lookahead_off) == 1
+dailyConfirmed_LTF = request.security(syminfo.tickerid, "D", dailyConfirmed, lookahead=barmerge.lookahead_off) == 1
+fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", fourHourConfirmed, lookahead=barmerge.lookahead_off) == 1
+oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed, lookahead=barmerge.lookahead_off) == 1
 
 // --- Labels for confirmed detections at each timeframe ---
 if timeframe.period == "D" and f_tier2Pattern()
