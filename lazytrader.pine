@@ -1,5 +1,5 @@
 //@version=5
-strategy("Lazy Trader", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+strategy("Lazy Trader Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
 // --- Plot EMAs ---
 ema10_main = ta.ema(close, 10)
@@ -67,27 +67,39 @@ t3patternResult = f_tier3Pattern()
 
 var bool t3confirmed = false
 if timeframe.isdaily
-    t3confirmed := barstate.isconfirmed ? t3patternResult : t3confirmed[1]
+    if barstate.isconfirmed
+        t3confirmed := t3patternResult
+    else
+        t3confirmed := t3confirmed[1]
 
 var bool dailyConfirmed = false
 if timeframe.isdaily
-    dailyConfirmed := barstate.isconfirmed ? patternResult : dailyConfirmed[1]
+    if barstate.isconfirmed
+        dailyConfirmed := patternResult
+    else
+        dailyConfirmed := dailyConfirmed[1]
 
 var bool fourHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 240
-    fourHourConfirmed := barstate.isconfirmed ? patternResult : fourHourConfirmed[1]
+    if barstate.isconfirmed
+        fourHourConfirmed := patternResult
+    else
+        fourHourConfirmed := fourHourConfirmed[1]
 
 var bool oneHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 60
-    oneHourConfirmed := barstate.isconfirmed ? patternResult : oneHourConfirmed[1]
+    if barstate.isconfirmed
+        oneHourConfirmed := patternResult
+    else
+        oneHourConfirmed := oneHourConfirmed[1]
 
 // --- Request higher timeframe flags ---
-dailyConfirmed_LTF = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-t3confirmed_LTF = request.security(syminfo.tickerid, "D", t3confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-fourHourConfirmed_LTF = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-oneHourConfirmed_LTF = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+dailyConfirmed_LTF     = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+t3confirmed_LTF        = request.security(syminfo.tickerid, "D", t3confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+fourHourConfirmed_LTF  = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+oneHourConfirmed_LTF   = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// --- Original Debugging Labels ---
+// --- Labels (debugging - unchanged) ---
 if timeframe.period == "D" and patternResult
     label.new(bar_index, high, "T2", style=label.style_label_down, color=color.green, textcolor=color.white)
 
@@ -112,20 +124,21 @@ if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) 
 if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
     label.new(bar_index, low, "10S", style=label.style_label_up, color=color.olive, textcolor=color.white)
 
-// --- Entry Conditions for Strategy ---
-entry15m = timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-entry1m_1h = timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-entry1m_4h = timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
-entry10s = timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+// --- STRATEGY ENTRY CONDITIONS --- //
+stopBuffer = 0.001  // 0.1% buffer below EMA200 for SL
 
-// --- Fixed Stop Loss Below EMA200 ---
-fixed_stop = ema200_main
+if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    strategy.entry("Buy_15m", strategy.long)
+    strategy.exit("SL_15m", from_entry="Buy_15m", stop=ema200_main * (1 - stopBuffer))
 
-// --- Submit Strategy Orders ---
-if entry15m or entry1m_1h or entry1m_4h or entry10s
-    strategy.entry("Long", strategy.long)
-    strategy.exit("Stop Loss", from_entry="Long", stop=fixed_stop, when=low <= fixed_stop)
+if timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    strategy.entry("Buy_1m_1h", strategy.long)
+    strategy.exit("SL_1m_1h", from_entry="Buy_1m_1h", stop=ema200_main * (1 - stopBuffer))
 
-// --- Plot Stop Loss Line While in Trade ---
-plot(strategy.position_size > 0 ? fixed_stop : na, title="Stop Loss", color=color.fuchsia, linewidth=2, style=plot.style_line)
+if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    strategy.entry("Buy_1m_4h", strategy.long)
+    strategy.exit("SL_1m_4h", from_entry="Buy_1m_4h", stop=ema200_main * (1 - stopBuffer))
 
+if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    strategy.entry("Buy_10s", strategy.long)
+    strategy.exit("SL_10s", from_entry="Buy_10s", stop=ema200_main * (1 - stopBuffer))
