@@ -1,10 +1,9 @@
 //@version=6
-indicator('Cascading T2 Strategy (Daily→1H/4H→15m/1m→10s) with Updated Pattern', overlay = true)
+strategy('Cascading T2 Strategy (Daily→1H/4H→15m/1m→10s) with Updated Pattern [STRATEGY]', overlay = true)
 
 log.set_level(log.level_info)
 log.set_max_entries(1000)
 
-//--- Plot EMAs on the chart --- 
 ema10_current = ta.ema(close, 10)
 ema20_current = ta.ema(close, 20)
 ema200_current = ta.ema(close, 200)
@@ -13,9 +12,6 @@ plot(ema10_current, color = color.blue, linewidth = 2, title = 'EMA 10')
 plot(ema20_current, color = color.red, linewidth = 2, title = 'EMA 20')
 plot(ema200_current, color = color.orange, linewidth = 2, title = 'EMA 200')
 
-//----------------------------------------------------------------
-// Updated T2 detection function with new pattern logic
-//----------------------------------------------------------------
 f_detectT2(_open, _high, _low, _close) =>
     ema10 = ta.ema(_close, 10)
     ema20 = ta.ema(_close, 20)
@@ -41,10 +37,6 @@ f_detectT2(_open, _high, _low, _close) =>
     t2Condition = t2ConditionA or t2ConditionB or t2ConditionC
     t2Condition
 
-//----------------------------------------------------------------
-// Persistent higher timeframe confirmations
-//----------------------------------------------------------------
-
 var bool dailyConfirmed = false
 if timeframe.isdaily and barstate.isconfirmed
     dailyConfirmed := f_detectT2(open, high, low, close)
@@ -57,14 +49,6 @@ var bool fourHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 240 and barstate.isconfirmed
     fourHourConfirmed := f_detectT2(open, high, low, close)
 
-//----------------------------------------------------------------
-// Cascading logic with logging
-//----------------------------------------------------------------
-
-if timeframe.isdaily and dailyConfirmed
-    label.new(bar_index, high, 'T2 (Daily)', style = label.style_label_down, color = color.new(color.green, 0), textcolor = color.white)
-
-// Daily to others
 dailyT2 = request.security(syminfo.tickerid, 'D', dailyConfirmed ? 1 : 0, lookahead = barmerge.lookahead_off) == 1
 
 // 1H Branch
@@ -74,8 +58,6 @@ local1hT2 = f_detectT2(open, high, low, close)
 final1hT2 = dailyT2_1h and oneHourConfirmed and local1hT2
 if timeframeIs1H and barstate.isconfirmed
     log.info('[1H] dailyT2_1h=' + str.tostring(dailyT2_1h) + ', oneHourConfirmed=' + str.tostring(oneHourConfirmed) + ', local1hT2=' + str.tostring(local1hT2) + ', final1hT2=' + str.tostring(final1hT2))
-    if final1hT2
-        label.new(bar_index, high, 'T2 (1H)', style = label.style_label_down, color = color.new(color.green, 0), textcolor = color.white)
 
 // 4H Branch
 bool dailyT2_4h = request.security(syminfo.tickerid, 'D', dailyConfirmed ? 1 : 0, lookahead = barmerge.lookahead_off) == 1
@@ -84,8 +66,6 @@ local4hT2 = f_detectT2(open, high, low, close)
 final4hT2 = dailyT2_4h and fourHourConfirmed and local4hT2
 if timeframeIs4H and barstate.isconfirmed
     log.info('[4H] dailyT2_4h=' + str.tostring(dailyT2_4h) + ', fourHourConfirmed=' + str.tostring(fourHourConfirmed) + ', local4hT2=' + str.tostring(local4hT2) + ', final4hT2=' + str.tostring(final4hT2))
-    if final4hT2
-        label.new(bar_index, high, 'T2 (4H)', style = label.style_label_down, color = color.new(color.green, 0), textcolor = color.white)
 
 // 15m Branch
 bool fourHourT2_15m = request.security(syminfo.tickerid, '240', fourHourConfirmed ? 1 : 0, lookahead = barmerge.lookahead_off) == 1
@@ -95,7 +75,8 @@ final15mT2 = fourHourT2_15m and local15mT2
 if timeframeIs15m and barstate.isconfirmed
     log.info('[15m] fourHourT2_15m=' + str.tostring(fourHourT2_15m) + ', local15mT2=' + str.tostring(local15mT2) + ', final15mT2=' + str.tostring(final15mT2))
     if final15mT2
-        label.new(bar_index, high, 'T2 (15m)', style = label.style_label_down, color = color.new(color.green, 0), textcolor = color.white)
+        strategy.entry('T2_15m_Entry', strategy.long)
+        strategy.exit('Exit_15m', from_entry='T2_15m_Entry', trail_price=ema200_current, trail_offset=syminfo.mintick * 10)
 
 // 1m Branch
 bool oneHourT2_1m = request.security(syminfo.tickerid, '60', oneHourConfirmed ? 1 : 0, lookahead = barmerge.lookahead_off) == 1
@@ -107,7 +88,8 @@ final1mT2 = parentFor1m and local1mT2
 if timeframeIs1m and barstate.isconfirmed
     log.info('[1m] oneHourT2_1m=' + str.tostring(oneHourT2_1m) + ', fourHourT2_1m=' + str.tostring(fourHourT2_1m) + ', parentFor1m=' + str.tostring(parentFor1m) + ', local1mT2=' + str.tostring(local1mT2) + ', final1mT2=' + str.tostring(final1mT2))
     if final1mT2
-        label.new(bar_index, high, 'T2 (1m)', style = label.style_label_down, color = color.new(color.green, 0), textcolor = color.white)
+        strategy.entry('T2_1m_Entry', strategy.long)
+        strategy.exit('Exit_1m', from_entry='T2_1m_Entry', trail_price=ema200_current, trail_offset=syminfo.mintick * 10)
 
 // 10s Branch
 bool oneHourT2_10s = request.security(syminfo.tickerid, '60', oneHourConfirmed ? 1 : 0, lookahead = barmerge.lookahead_off) == 1
@@ -117,4 +99,5 @@ final10sT2 = oneHourT2_10s and local10sT2
 if timeframeIs10s and barstate.isconfirmed
     log.info('[10s] oneHourT2_10s=' + str.tostring(oneHourT2_10s) + ', local10sT2=' + str.tostring(local10sT2) + ', final10sT2=' + str.tostring(final10sT2))
     if final10sT2
-        label.new(bar_index, high, 'T2 (10s)', style = label.style_label_down, color = color.new(color.green, 0), textcolor = color.white)
+        strategy.entry('T2_10s_Entry', strategy.long)
+        strategy.exit('Exit_10s', from_entry='T2_10s_Entry', trail_price=ema200_current, trail_offset=syminfo.mintick * 10)
