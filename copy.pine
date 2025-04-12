@@ -101,7 +101,7 @@ if timeframeIs1m and local1mT2 and barstate.isconfirmed
         label.new(bar_index, high, "T2 (1m_4h)", style=label.style_label_down, color=color.new(color.fuchsia, 0), textcolor=color.white)
 
 bool oneHourT2_10s = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-timeframeIs10s = (timeframe.in_seconds() and timeframe.multiplier == 10)
+timeframeIs10s = timeframe.in_seconds() == 10
 local10sT2 = f_detectT2(open, high, low, close)
 final10sT2 = oneHourT2_10s and local10sT2
 if timeframeIs10s and final10sT2 and barstate.isconfirmed
