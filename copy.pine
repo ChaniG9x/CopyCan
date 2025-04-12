@@ -94,5 +94,5 @@ if timeframe.period == "15" and fourHourConfirmed_LTF and dailyConfirmed_LTF and
 if timeframe.period == "1" and fourHourConfirmed_LTF and oneHourConfirmed_LTF and dailyConfirmed_LTF and f_tier2Pattern()
     label.new(bar_index, low, "1m", style=label.style_label_up, color=color.red, textcolor=color.white)
 
-if timeframe.period == "10S" and oneHourConfirmed_LTF and dailyConfirmed_LTF and f_tier2Pattern()
+if timeframe.period == "10S" and (oneHourConfirmed_LTF or dailyConfirmed_LTF) and f_tier2Pattern()
     label.new(bar_index, high, "10s", style=label.style_label_left, color=color.red, textcolor=color.white)
