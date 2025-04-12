@@ -1,20 +1,18 @@
-//@version=5
-indicator("Cascading T2 Strategy + Debug Annotations", overlay=true)
+//@version=6
+indicator("Cascading T2 Strategy (Daily → 1H/4H → 15m/1m → 10s) with Updated Pattern", overlay=true)
 
-// --------------------------------------------------------------------
-// Plot EMAs
-// --------------------------------------------------------------------
+//--- Plot EMAs on the chart --- 
 ema10_current  = ta.ema(close, 10)
 ema20_current  = ta.ema(close, 20)
 ema200_current = ta.ema(close, 200)
 
-plot(ema10_current, color=color.blue,   linewidth=2, title="EMA 10")
-plot(ema20_current, color=color.red,    linewidth=2, title="EMA 20")
+plot(ema10_current, color=color.blue, linewidth=2, title="EMA 10")
+plot(ema20_current, color=color.red, linewidth=2, title="EMA 20")
 plot(ema200_current, color=color.orange, linewidth=2, title="EMA 200")
 
-// --------------------------------------------------------------------
-// T2 detection function
-// --------------------------------------------------------------------
+//----------------------------------------------------------------
+// Updated T2 detection function with new pattern logic
+//----------------------------------------------------------------
 f_detectT2(_open, _high, _low, _close) =>
     ema10  = ta.ema(_close, 10)
     ema20  = ta.ema(_close, 20)
@@ -23,15 +21,12 @@ f_detectT2(_open, _high, _low, _close) =>
     cond_current_close_green_abv = _close > _open and _close > ema10
     cond_ema_order               = ema10 > ema20 and ema20 > ema200
 
-    // Scenario A
     cond_prev_above_20 = _open[1] > ema20[1] and _close[1] > ema20[1]
     t2ConditionA = cond_prev_above_20 and cond_current_cross_10 and cond_current_close_green_abv and cond_ema_order
 
-    // Scenario B
     cond_prev_green_above_10 = _close[1] > _open[1] and _close[1] > ema10[1]
     t2ConditionB = cond_prev_green_above_10 and cond_current_cross_10 and cond_current_close_green_abv and cond_ema_order
 
-    // Scenario C
     prevRed             = _close[1] < _open[1]
     prevTouchedEMA10    = _low[1] <= ema10[1]
     prevCloseAboveEMA10 = _close[1] > ema10[1]
@@ -39,108 +34,103 @@ f_detectT2(_open, _high, _low, _close) =>
     cond_current_green  = _close > _open
     t2ConditionC = cond_prev_red_touch and cond_current_green and cond_ema_order
 
-    // Final condition
     t2Condition = t2ConditionA or t2ConditionB or t2ConditionC
     t2Condition
 
-// --------------------------------------------------------------------
-// Persistent higher timeframe confirmations + reset logic
-// --------------------------------------------------------------------
-var bool dailyConfirmed     = false
-var bool oneHourConfirmed   = false
-var bool fourHourConfirmed  = false
-
-// Daily
+//----------------------------------------------------------------
+// Persistent higher timeframe confirmations with reset logic
+//----------------------------------------------------------------
+var bool dailyConfirmed = false
 if timeframe.isdaily
     if barstate.isconfirmed
         dailyConfirmed := f_detectT2(open, high, low, close)
     else
         dailyConfirmed := false
 
-// 1H
+var bool oneHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 60
     if barstate.isconfirmed
         oneHourConfirmed := f_detectT2(open, high, low, close)
     else
         oneHourConfirmed := false
 
-// 4H
+var bool fourHourConfirmed = false
 if timeframe.isintraday and timeframe.multiplier == 240
     if barstate.isconfirmed
         fourHourConfirmed := f_detectT2(open, high, low, close)
     else
         fourHourConfirmed := false
 
-// --------------------------------------------------------------------
-// Main cascading logic (same as before)
-// --------------------------------------------------------------------
-
-// 1) Daily T2 on the daily chart
+//----------------------------------------------------------------
+// Cascading logic across timeframes using persistent variables
+//----------------------------------------------------------------
 if timeframe.isdaily and dailyConfirmed
-    annotation.new(bar_index, high, "T2 (Daily)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    label.new(bar_index, high, "T2 (Daily)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// Publish daily for lower TF
 dailyT2 = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
 
-// 2) 1H
 bool dailyT2_1h = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-timeframeIs1H   = (timeframe.isintraday and timeframe.multiplier == 60)
-local1hT2       = f_detectT2(open, high, low, close)
-final1hT2       = dailyT2_1h and oneHourConfirmed and local1hT2
+timeframeIs1H = (timeframe.isintraday and timeframe.multiplier == 60)
+local1hT2     = f_detectT2(open, high, low, close)
+final1hT2     = dailyT2_1h and oneHourConfirmed and local1hT2
 if timeframeIs1H and final1hT2 and barstate.isconfirmed
-    annotation.new(bar_index, high, "T2 (1H)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    label.new(bar_index, high, "T2 (1H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// 3) 4H
 bool dailyT2_4h = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-timeframeIs4H   = (timeframe.isintraday and timeframe.multiplier == 240)
-local4hT2       = f_detectT2(open, high, low, close)
-final4hT2       = dailyT2_4h and fourHourConfirmed and local4hT2
+timeframeIs4H = (timeframe.isintraday and timeframe.multiplier == 240)
+local4hT2     = f_detectT2(open, high, low, close)
+final4hT2     = dailyT2_4h and fourHourConfirmed and local4hT2
 if timeframeIs4H and final4hT2 and barstate.isconfirmed
-    annotation.new(bar_index, high, "T2 (4H)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    label.new(bar_index, high, "T2 (4H)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// 4) 15m
 bool fourHourT2_15m = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-timeframeIs15m      = (timeframe.isintraday and timeframe.multiplier == 15)
-local15mT2          = f_detectT2(open, high, low, close)
-final15mT2          = fourHourT2_15m and local15mT2
+timeframeIs15m = (timeframe.isintraday and timeframe.multiplier == 15)
+local15mT2     = f_detectT2(open, high, low, close)
+final15mT2     = fourHourT2_15m and local15mT2
 if timeframeIs15m and final15mT2 and barstate.isconfirmed
-    annotation.new(bar_index, high, "T2 (15m)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    label.new(bar_index, high, "T2 (15m)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// 5) 1m
-bool oneHourT2_1m   = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-bool fourHourT2_1m  = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-timeframeIs1m       = (timeframe.isintraday and timeframe.multiplier == 1)
-local1mT2           = f_detectT2(open, high, low, close)
+bool oneHourT2_1m = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+bool fourHourT2_1m = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+timeframeIs1m = (timeframe.isintraday and timeframe.multiplier == 1)
+local1mT2 = f_detectT2(open, high, low, close)
 if timeframeIs1m and local1mT2 and barstate.isconfirmed
     if oneHourT2_1m
-        annotation.new(bar_index, high, "T2 (1m_1h)", style=annotation.style_label_down, color=color.new(color.teal, 0), textcolor=color.white)
+        label.new(bar_index, high, "T2 (1m_1h)", style=label.style_label_down, color=color.new(color.teal, 0), textcolor=color.white)
     if fourHourT2_1m
-        annotation.new(bar_index, high, "T2 (1m_4h)", style=annotation.style_label_down, color=color.new(color.fuchsia, 0), textcolor=color.white)
+        label.new(bar_index, high, "T2 (1m_4h)", style=label.style_label_down, color=color.new(color.fuchsia, 0), textcolor=color.white)
 
-// 6) 10s
 bool oneHourT2_10s = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
-timeframeIs10s     = (timeframe.in_seconds() and timeframe.multiplier == 10)
-local10sT2         = f_detectT2(open, high, low, close)
-final10sT2         = oneHourT2_10s and local10sT2
+timeframeIs10s = (timeframe.in_seconds() and timeframe.multiplier == 10)
+local10sT2 = f_detectT2(open, high, low, close)
+final10sT2 = oneHourT2_10s and local10sT2
 if timeframeIs10s and final10sT2 and barstate.isconfirmed
-    annotation.new(bar_index, high, "T2 (10s)", style=annotation.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
+    label.new(bar_index, high, "T2 (10s)", style=label.style_label_down, color=color.new(color.green, 0), textcolor=color.white)
 
-// --------------------------------------------------------------------
-// Precompute strings for Debug Annotation (no dynamic request issues)
-// --------------------------------------------------------------------
-string dailyStatusStr    = request.security(syminfo.tickerid, "D", dailyConfirmed    ? "True" : "False",    lookahead=barmerge.lookahead_off)
-string oneHourStatusStr  = request.security(syminfo.tickerid, "60", oneHourConfirmed ? "True" : "False",    lookahead=barmerge.lookahead_off)
-string fourHourStatusStr = request.security(syminfo.tickerid, "240", fourHourConfirmed ? "True" : "False",  lookahead=barmerge.lookahead_off)
+//----------------------------------------------------------------
+// Debugging Information Table
+//----------------------------------------------------------------
+var table debugTable = table.new(position.bottom_right, 2, 6, border_width=1, frame_color=color.gray, frame_width=1)
 
-atrVal   = ta.atr(14)
-yOffset  = low - atrVal * 3.0
+if barstate.islast
+    table.cell(debugTable, 0, 0, "Variable", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 1, 0, "Value", text_color=color.white, bgcolor=color.blue)
 
-string debugText = "Daily: " + dailyStatusStr + "\n" +
-                   "1H: "    + oneHourStatusStr + "\n" +
-                   "4H: "    + fourHourStatusStr
+    table.cell(debugTable, 0, 1, "DailyConfirmed", text_color=color.white)
+    table.cell(debugTable, 1, 1, dailyConfirmed ? "True" : "False", text_color=dailyConfirmed ? color.green : color.red)
 
-annotation.new(bar_index, yOffset, debugText,
-     style=annotation.style_label_lower,
-     color=color.new(color.lime, 0),
-     textcolor=color.black,
-     size=size.small)
+    table.cell(debugTable, 0, 2, "1HConfirmed", text_color=color.white)
+    table.cell(debugTable, 1, 2, oneHourConfirmed ? "True" : "False", text_color=oneHourConfirmed ? color.green : color.red)
+
+    table.cell(debugTable, 0, 3, "4HConfirmed", text_color=color.white)
+    table.cell(debugTable, 1, 3, fourHourConfirmed ? "True" : "False", text_color=fourHourConfirmed ? color.green : color.red)
+
+    table.cell(debugTable, 0, 4, "1m Perm (1H)", text_color=color.white)
+    table.cell(debugTable, 1, 4, oneHourT2_1m ? "True" : "False", text_color=oneHourT2_1m ? color.green : color.red)
+
+    table.cell(debugTable, 0, 5, "1m Perm (4H)", text_color=color.white)
+    table.cell(debugTable, 1, 5, fourHourT2_1m ? "True" : "False", text_color=fourHourT2_1m ? color.green : color.red)
+
+    // Uncomment to include 10s permission if needed:
+    // table.cell(debugTable, 0, 6, "10s Perm (1H)", text_color=color.white)
+    // table.cell(debugTable, 1, 6, oneHourT2_10s ? "True" : "False", text_color=oneHourT2_10s ? color.green : color.red)
