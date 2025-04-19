@@ -1,0 +1,233 @@
+//@version=5
+strategy("Lazy Trader Strategy (Bearish) with Dynamic HTF Price Action Stop + Alerts", 
+     overlay=true, 
+     default_qty_type=strategy.percent_of_equity, 
+     default_qty_value=100)
+//---------------------------------------------------------------------
+// 1) ALERT / TRADE-RELATED INPUTS
+//---------------------------------------------------------------------
+accountNumber   = input.string("123456789", title="Account Number")
+tickerSymbol    = input.string("EURNZD",    title="Ticker Symbol")
+pipSize         = input.float(0.0001,       title="Pip Size")
+riskPercentage  = input.float(1.0,          title="Risk Percentage")
+contractSize    = input.float(1.0,          title="Contract Size")
+stop_loss_buffer_percent = input.float(3.0, "Stop Loss Buffer (%)", minval=0.0, step=0.01, tooltip="3% above the EMA for stops.")
+//---------------------------------------------------------------------
+// 2) PATTERN LOGIC & EMAs
+//---------------------------------------------------------------------
+enableT3 = input.bool(true, title="Enable T3 Pattern", tooltip="Check to enable T3 Pattern. Uncheck to disable it.")
+// EMAs for structure and logic
+ema10   = ta.ema(close, 10)
+ema20   = ta.ema(close, 20)
+ema50   = ta.ema(close, 50)
+ema100  = ta.ema(close, 100)
+ema200  = ta.ema(close, 200)
+// Plotting EMAs
+plot(ema10,  title="EMA 10",  color=color.blue)
+plot(ema20,  title="EMA 20",  color=color.red)
+plot(ema50,  title="EMA 50",  color=color.gray)
+plot(ema100, title="EMA 100", color=color.purple)
+plot(ema200, title="EMA 200", color=color.orange)
+// Utility to check if a bar crossed an EMA
+crosses(_ema) => (high > _ema) and (low < _ema)
+
+// Tier 2 Pattern logic (short version)
+f_tier2Pattern_short() =>
+    emaTrendOk = (ema10 < ema20) and (ema20 < ema200)
+    var bool restricted = false
+    var bool bullishCandidate = false
+    var bool justReset = false
+    justReset := false
+    // Reset when price rallies above ema10 on a continuing red bar
+    if restricted and (close < open) and (close < ema10)
+        restricted := false
+        justReset := true
+        bullishCandidate := false
+    var bool permission = false
+    if not restricted and not justReset and emaTrendOk
+        condA = (close < open) and (crosses(ema10) or crosses(ema20)) and (close < ema10)
+        condBullCandidate = (close > open) and (crosses(ema10) or crosses(ema20)) and (close < ema10)
+        if condBullCandidate
+            bullishCandidate := true
+        condBConfirm = bullishCandidate and (close < open) and (close < ema10)
+        if condA or condBConfirm
+            permission := true
+            bullishCandidate := false
+    if not restricted and not justReset and ((open > ema20) or (close > ema20))
+        restricted := true
+        bullishCandidate := false
+    result = permission and barstate.isconfirmed and (not restricted)
+    permission := false
+    result
+
+// Tier 3 Pattern logic (short version)
+f_tier3Pattern_short() =>
+    emaTrendOk = (ema10 < ema20) and (ema20 < ema200)
+    t3Valid = (close < open) and (open < ema10) and (close < ema10) and (high < ema10)
+    emaTrendOk and t3Valid and barstate.isconfirmed
+
+patternResult    = f_tier2Pattern_short()
+t3patternResult  = enableT3 ? f_tier3Pattern_short() : false
+
+//---------------------------------------------------------------------
+// 3) HIGHER TIMEFRAME CONFIRMATIONS
+//---------------------------------------------------------------------
+var bool dailyConfirmed = false
+if timeframe.isdaily
+    dailyConfirmed := barstate.isconfirmed ? patternResult : dailyConfirmed[1]
+var bool t3confirmed = false
+if timeframe.isdaily
+    t3confirmed := barstate.isconfirmed ? (enableT3 ? t3patternResult : false) : t3confirmed[1]
+var bool fourHourConfirmed = false
+if timeframe.isintraday and timeframe.multiplier == 240
+    fourHourConfirmed := barstate.isconfirmed ? patternResult : fourHourConfirmed[1]
+var bool oneHourConfirmed = false
+if timeframe.isintraday and timeframe.multiplier == 60
+    oneHourConfirmed := barstate.isconfirmed ? patternResult : oneHourConfirmed[1]
+
+dailyConfirmed_LTF     = request.security(syminfo.tickerid, "D", dailyConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+ t3confirmed_LTF        = request.security(syminfo.tickerid, "D", t3confirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+fourHourConfirmed_LTF  = request.security(syminfo.tickerid, "240", fourHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+ oneHourConfirmed_LTF   = request.security(syminfo.tickerid, "60", oneHourConfirmed ? 1 : 0, lookahead=barmerge.lookahead_off) == 1
+
+//---------------------------------------------------------------------
+// 4) LABELS FOR VISUAL CONFIRMATION
+//---------------------------------------------------------------------
+if timeframe.period == "D" and patternResult
+    label.new(bar_index, low, "T2_short", style=label.style_label_up, color=color.red, textcolor=color.white)
+if enableT3 and timeframe.period == "D" and t3patternResult
+    label.new(bar_index, high,  "T3_short", style=label.style_label_lower_left, color=color.orange, textcolor=color.white)
+if timeframe.period == "240" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
+    label.new(bar_index, low, "4h_short", style=label.style_label_up, color=color.orange, textcolor=color.white)
+if timeframe.period == "60" and (dailyConfirmed_LTF or t3confirmed_LTF) and patternResult
+    label.new(bar_index, low, "1h_short", style=label.style_label_up, color=color.red, textcolor=color.white)
+if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    label.new(bar_index, high, "15m_short", style=label.style_label_down, color=color.orange, textcolor=color.white)
+if timeframe.period == "1" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    label.new(bar_index, high, "1m_1h_short", style=label.style_label_down, color=color.red, textcolor=color.white)
+if timeframe.period == "1" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    label.new(bar_index, high, "1m_4h_short", style=label.style_label_lower_right, color=color.purple, textcolor=color.white)
+if timeframe.period == "10S" and (((oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)) and patternResult)
+    label.new(bar_index, high, "10S_short", style=label.style_label_down, color=color.olive, textcolor=color.white)
+
+//---------------------------------------------------------------------
+// 5) PRICE ACTION LINE (Used for trailing stop - short version)
+//---------------------------------------------------------------------
+selectedTimeframe_PA = input.timeframe("15", title="Select Timeframe for Price Action", options=["1", "15", "10", "60", "240", "D"])
+price_action_adjustment_percent = input.float(0.0, "Price Action Line Adjustment (%)", minval=-100, maxval=100, step=0.1)
+
+isRed_PA(cClose, cOpen) => cClose < cOpen
+priceActionLine_HTF_short() =>
+    var float base_priceActionLine = na
+    if barstate.isconfirmed
+        if isRed_PA(close, open)
+            if close < low[1]
+                base_priceActionLine := high
+            else if (close < open[1]) and (close[1] > open[1])
+                base_priceActionLine := high
+            else
+                base_priceActionLine := na
+        else
+            base_priceActionLine := na
+    base_priceActionLine
+
+priceActionLine_base = request.security(syminfo.tickerid, selectedTimeframe_PA, priceActionLine_HTF_short(), lookahead=barmerge.lookahead_off)
+priceActionLine = not na(priceActionLine_base) ? priceActionLine_base * (1 - price_action_adjustment_percent / 100) : na
+plot(priceActionLine, color=color.red, title="Price Action Line", linewidth=2)
+
+//---------------------------------------------------------------------
+// 6) ENTRY CONDITIONS + STOP LOSS LOGIC
+//---------------------------------------------------------------------
+var bool h4SellFired    = false
+var bool h1SellFired    = false
+var bool h4SellFired_15m = false
+var bool h1SellFired_10s = false
+
+// Reset flags at start of each HTF candle
+h4NewBar = ta.change(time("240"))
+if h4NewBar
+    h4SellFired       := false
+    h4SellFired_15m   := false
+h1NewBar = ta.change(time("60"))
+if h1NewBar
+    h1SellFired       := false
+    h1SellFired_10s   := false
+
+var float trailing_stop         = na
+var float fixed_stop_loss_level = na
+var float stop_level            = na
+shouldEnter = false
+entryLabel  = ""
+
+// 15m Entry (Only one trade per H4 candle)
+if timeframe.period == "15" and (((fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)) and patternResult) and (not h4SellFired_15m)
+    shouldEnter := true
+    entryLabel  := "Sell_15m"
+    h4SellFired_15m := true
+
+// 1m Entry (H4 and H1 logic)
+oneHourCondition   = (oneHourConfirmed_LTF and dailyConfirmed_LTF) or (oneHourConfirmed_LTF and t3confirmed_LTF)
+fourHourCondition  = (fourHourConfirmed_LTF and dailyConfirmed_LTF) or (fourHourConfirmed_LTF and t3confirmed_LTF)
+if timeframe.period == "1" and strategy.position_size == 0
+    if (fourHourCondition and patternResult) and (not h4SellFired)
+        shouldEnter := true
+        entryLabel  := "Sell_1m_H4"
+        h4SellFired := true
+    else if (oneHourCondition and patternResult) and (not h1SellFired)
+        shouldEnter := true
+        entryLabel  := "Sell_1m_H1"
+        h1SellFired := true
+
+// 10S Entry (Only one trade per H1 candle)
+if timeframe.period == "10S" and (oneHourCondition and patternResult) and (not h1SellFired_10s)
+    shouldEnter := true
+    entryLabel  := "Sell_10s"
+    h1SellFired_10s := true
+
+// Place entry order + calculate initial stop loss
+if shouldEnter and strategy.position_size == 0
+    // 15m logic
+    if timeframe.period == "15"
+        crossed_20ema_15m = crosses(ema20)
+        stop_ema_15m      = crossed_20ema_15m ? ema50 : ema20
+        fixed_stop_loss_level := stop_ema_15m * (1.0 + stop_loss_buffer_percent / 100)
+    // 1m logic
+    else if timeframe.period == "1"
+        if (ema10 < ema20) and (ema20 < ema50) and (ema50 < ema100) and (ema100 < ema200)
+            fixed_stop_loss_level := ema100 * (1 + stop_loss_buffer_percent / 100)
+        else if (ema10 < ema20) and (ema20 < ema200)
+            fixed_stop_loss_level := ema200 * (1 + stop_loss_buffer_percent / 100)
+        else
+            fixed_stop_loss_level := ema200 * (1 + stop_loss_buffer_percent / 100)
+    else
+        fixed_stop_loss_level := ema200 * (1 + stop_loss_buffer_percent / 100)
+
+    distanceToStopLoss = math.abs(fixed_stop_loss_level - close)
+    distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : pipSize
+    riskAmount   = 100000 * (riskPercentage / 100)
+    positionSize = riskAmount / distanceToStopLoss
+    volume       = positionSize / contractSize
+    entryAlertMessage = accountNumber + ",sell," + tickerSymbol + ",risk=" + str.tostring(volume)
+    strategy.entry(entryLabel, strategy.short, qty=positionSize, alert_message=entryAlertMessage)
+    alert(entryAlertMessage, alert.freq_once_per_bar_close)
+    trailing_stop := na
+
+//---------------------------------------------------------------------
+// 7) TRAILING STOP MANAGEMENT (short version)
+//---------------------------------------------------------------------
+if strategy.position_size < 0
+    inProfit = not na(priceActionLine) and (priceActionLine < strategy.position_avg_price)
+    if inProfit
+        trailing_stop := na(trailing_stop) ? priceActionLine : math.min(trailing_stop, priceActionLine)
+    stop_level := nz(trailing_stop, fixed_stop_loss_level)
+    strategy.exit("Stop", stop=stop_level, alert_message=accountNumber + ",close_short," + tickerSymbol)
+
+//---------------------------------------------------------------------
+// 8) ALERT WHEN STOP LOSS TRIGGERS
+//---------------------------------------------------------------------
+var bool wasInPosition = false
+stop_triggered = wasInPosition and (strategy.position_size == 0) and (close >= stop_level)
+if stop_triggered
+    alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
+wasInPosition := strategy.position_size < 0
+plot(strategy.position_size < 0 ? stop_level : na, title="Stop Level", color=color.yellow)
