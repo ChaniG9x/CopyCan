@@ -15,47 +15,53 @@ session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
 
 inSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
 
-// === HTF DATA ===
-w_open1  = request.security(syminfo.tickerid, "W", open[1])
-w_close1 = request.security(syminfo.tickerid, "W", close[1])
-w_open2  = request.security(syminfo.tickerid, "W", open[2])
-w_close2 = request.security(syminfo.tickerid, "W", close[2])
+// === WEEKLY RATING FUNCTION ===
+f_getWeeklyRating() =>
+    // Weekly data (this function already runs on a weekly series)
+    w_open1  = open[1]
+    w_close1 = close[1]
+    w_open2  = open[2]
+    w_close2 = close[2]
 
-m_open1  = request.security(syminfo.tickerid, "M", open[1])
-m_close1 = request.security(syminfo.tickerid, "M", close[1])
-m_open2  = request.security(syminfo.tickerid, "M", open[2])
-m_close2 = request.security(syminfo.tickerid, "M", close[2])
+    // Monthly data pulled from inside the weekly function
+    m_open1  = request.security(syminfo.tickerid, "M", open[1])
+    m_close1 = request.security(syminfo.tickerid, "M", close[1])
+    m_open2  = request.security(syminfo.tickerid, "M", open[2])
+    m_close2 = request.security(syminfo.tickerid, "M", close[2])
 
-w_ema10  = request.security(syminfo.tickerid, "W", ta.ema(close, 10))
-w_ema20  = request.security(syminfo.tickerid, "W", ta.ema(close, 20))
-w_ema50  = request.security(syminfo.tickerid, "W", ta.ema(close, 50))
-w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100))
-w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200))
-m_ema20  = request.security(syminfo.tickerid, "M", ta.ema(close, 20))
+    // Weekly EMAs
+    w_ema10  = ta.ema(close, 10)
+    w_ema20  = ta.ema(close, 20)
+    w_ema50  = ta.ema(close, 50)
+    w_ema100 = ta.ema(close, 100)
+    w_ema200 = ta.ema(close, 200)
 
-// === STRUCTURE LOGIC ===
-isPrevWeeklyRed   = w_close2 < w_open2
-isPrevWeeklyGreen = w_close2 > w_open2
-isPrevMonthlyRed   = m_close2 < m_open2
-isPrevMonthlyGreen = m_close2 > m_open2
+    // Monthly 20 EMA
+    m_ema20  = request.security(syminfo.tickerid, "M", ta.ema(close, 20))
 
-weeklyStructurePass  = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
-monthlyStructurePass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
-structureOK = weeklyStructurePass and monthlyStructurePass
+    // Structure checks
+    isPrevWeeklyRed   = w_close2 < w_open2
+    isPrevWeeklyGreen = w_close2 > w_open2
+    isPrevMonthlyRed  = m_close2 < m_open2
+    isPrevMonthlyGreen = m_close2 > m_open2
 
-emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
-priceAboveAllEMAs = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
-m_above20 = m_close1 > m_ema20
-w_above20 = w_close1 > w_ema20
+    weeklyStructurePass  = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
+    monthlyStructurePass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
+    structureOK = weeklyStructurePass and monthlyStructurePass
 
-// === STABLE RATING LOGIC ===
-var string weeklyRating = ""
-isNewWeek = ta.change(time("W"))
+    // EMA alignment checks
+    emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
+    priceAboveAllEMAs = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
+    m_above20 = m_close1 > m_ema20
+    w_above20 = w_close1 > w_ema20
 
-if isNewWeek
+    // Rating
     isA = structureOK and emaStacked and priceAboveAllEMAs
     isB = structureOK and not isA and m_above20 and w_above20
-    weeklyRating := isA ? "A" : isB ? "B" : "No Trade"
+    isA ? "A" : isB ? "B" : "No Trade"
+
+// === CALL WEEKLY RATING ON EVERY BAR, LOOKAHEAD ENABLED ===
+weeklyRating = request.security(syminfo.tickerid, "W", f_getWeeklyRating(), lookahead = barmerge.lookahead_on)
 
 // === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
@@ -77,7 +83,7 @@ if showDebugLabels
     table.cell(debugTable, 0, 1, weeklyRating, text_color=color.white, bgcolor=color.navy)
 
 // === LOGIC NOTES ===
-// A-Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above ALL EMAs
-// B-Rated: Weekly & Monthly structure confirmed + price above 20 EMA on both timeframes
+// A‑Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above ALL EMAs
+// B‑Rated: Weekly & Monthly structure confirmed + price above 20 EMA on both timeframes
 // No Trade: Structure fails or price not above stacked EMAs
-// Rating is evaluated once per week and stored persistently using var
+// Rating delivered by weekly series so it stays fixed on any chart timeframe
