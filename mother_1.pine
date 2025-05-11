@@ -43,7 +43,7 @@ w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100))
 w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200))
 
 emaStacked    = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
-priceAboveAllEMAs = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
+priceAbove200 = w_close1 > w_ema200
 
 // === WEEKLY & MONTHLY CLOSE ABOVE 20 EMA (for B rating)
 m_ema20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20))
@@ -52,7 +52,7 @@ w_above20 = w_close1 > w_ema20
 
 // === RATING CLASSIFICATION ===
 structureOK = weeklyStructurePass and monthlyStructurePass
-isAsetup = structureOK and emaStacked and priceAboveAllEMAs
+isAsetup = structureOK and emaStacked and priceAbove200
 isBsetup = structureOK and not isAsetup and m_above20 and w_above20
 
 weeklyRating = isAsetup ? "A" : isBsetup ? "B" : "No Trade"
@@ -79,4 +79,4 @@ if showDebugLabels
 // === LOGIC NOTES ===
 // A-Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above 200 EMA
 // B-Rated: Weekly & Monthly structure confirmed + price above 20 EMA on both timeframes
-// No Trade: Structure fails or price not above stacked EMAs
+// No Trade: Structure fails or price under EMAs
