@@ -1,5 +1,5 @@
 //@version=5
-strategy("The Mother (Phase 2) – Stable Rating + Debug Labels", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+strategy("The Mother (Phase 2) – Bulletproof Weekly Rating", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
 // === GLOBAL INPUTS ===
 contractSize    = input.int(1, "Contract Size")
@@ -13,15 +13,8 @@ session2_start = input.time(timestamp("0000-01-01T13:00:00"), "Session 2 Start")
 session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
 inSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
 
-// === PRELOAD MONTHLY DATA (LOCKED IN CONTEXT) ===
-m_open1  = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_on)
-m_close1 = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on)
-m_open2  = request.security(syminfo.tickerid, "M", open[2],  lookahead=barmerge.lookahead_on)
-m_close2 = request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on)
-m_ema20  = request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
-
-// === WEEKLY RATING FUNCTION ===
-f_getWeeklyRating(m_open1, m_close1, m_open2, m_close2, m_ema20) =>
+// === BULLETPROOF WEEKLY RATING FUNCTION ===
+f_getWeeklyRating(mo1, mc1, mo2, mc2, me20) =>
     w_open1  = open[1]
     w_close1 = close[1]
     w_open2  = open[2]
@@ -35,29 +28,33 @@ f_getWeeklyRating(m_open1, m_close1, m_open2, m_close2, m_ema20) =>
 
     isPrevWeeklyRed   = w_close2 < w_open2
     isPrevWeeklyGreen = w_close2 > w_open2
-    isPrevMonthlyRed  = m_close2 < m_open2
-    isPrevMonthlyGreen = m_close2 > m_open2
+    isPrevMonthlyRed  = mc2 < mo2
+    isPrevMonthlyGreen = mc2 > mo2
 
     weeklyStructurePass  = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
-    monthlyStructurePass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
+    monthlyStructurePass = (isPrevMonthlyRed and mc1 > mo2) or (isPrevMonthlyGreen and mc1 >= mo2)
     structureOK = weeklyStructurePass and monthlyStructurePass
 
     emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
-    priceAboveAllEMAs = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
+    priceAboveAll = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
 
-    m_above20 = m_close1 > m_ema20
+    m_above20 = mc1 > me20
     w_above20 = w_close1 > w_ema20
 
-    isA = structureOK and emaStacked and priceAboveAllEMAs
+    isA = structureOK and emaStacked and priceAboveAll
     isB = structureOK and not isA and m_above20 and w_above20
     isA ? "A" : isB ? "B" : "No Trade"
 
-// === WEEKLY REQUEST, LOCKED CONTEXT ===
-weeklyRatingRaw = request.security(syminfo.tickerid, "W", f_getWeeklyRating(m_open1, m_close1, m_open2, m_close2, m_ema20), lookahead=barmerge.lookahead_on)
-
-// === STABLE VALUE FOR WEEKLY RATING ===
-var string weeklyRatingLocked = na
-weeklyRatingLocked := ta.change(time("W")) ? weeklyRatingRaw : weeklyRatingLocked
+// === ONE SINGLE CALL THAT LOCKS EVERYTHING DOWN ===
+weeklyRatingLocked = request.security(syminfo.tickerid, "W",
+    f_getWeeklyRating(
+        request.security(syminfo.tickerid, "M", open[1], lookahead=barmerge.lookahead_on),
+        request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on),
+        request.security(syminfo.tickerid, "M", open[2], lookahead=barmerge.lookahead_on),
+        request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on),
+        request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+    ),
+    lookahead=barmerge.lookahead_on)
 
 // === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
@@ -78,11 +75,8 @@ if showDebugLabels
     table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
     table.cell(debugTable, 0, 1, weeklyRatingLocked, text_color=color.white, bgcolor=color.navy)
 
-// === DIAGNOSTIC LABELS (EVERY 100 BARS) ===
-if bar_index % 100 == 0 and not na(weeklyRatingLocked)
-    label.new(bar_index, high, text="Rating: " + weeklyRatingLocked, style=label.style_label_down, size=size.small, textcolor=color.white, color=color.black)
-
-// === LOGIC NOTES ===
-// A‑Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above ALL EMAs
-// B‑Rated: Weekly & Monthly structure confirmed + price above 20 EMA on both timeframes
-// No Trade: Structure fails or price not above stacked EMAs
+// === LIVE DIAGNOSTIC LABEL AT LAST BAR ===
+var label liveLabel = na
+if barstate.islast and not na(weeklyRatingLocked)
+    label.delete(liveLabel)
+    liveLabel := label.new(bar_index, high, text="Rating: " + weeklyRatingLocked, style=label.style_label_down, size=size.normal, textcolor=color.white, color=color.black)
