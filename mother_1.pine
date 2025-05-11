@@ -1,4 +1,4 @@
-// === The Mother Strategy – Phase 2: Global Vars + Weekly+Monthly Setup with A/B/C Logic (Stable Output) ===
+// === The Mother Strategy – Phase 2: Global Vars + Weekly+Monthly Setup Locked with request.security() ===
 //@version=5
 strategy("The Mother (Phase 2)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
@@ -15,49 +15,46 @@ session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
 
 inSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
 
-// === WEEKLY PRICE-ACTION CHECK ===
-w_open1  = request.security(syminfo.tickerid, "W", open[1], lookahead=barmerge.lookahead_on)
-w_close1 = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_on)
-w_open2  = request.security(syminfo.tickerid, "W", open[2], lookahead=barmerge.lookahead_on)
-w_close2 = request.security(syminfo.tickerid, "W", close[2], lookahead=barmerge.lookahead_on)
+// === REQUESTED SETUP RATING FROM WEEKLY CONTEXT ===
+[weeklyRatingFinal] = request.security(syminfo.tickerid, "W",
+    [() =>
+        // === Weekly Structure ===
+        w_open1  = open[1]
+        w_close1 = close[1]
+        w_open2  = open[2]
+        w_close2 = close[2]
+        isPrevRed   = w_close2 < w_open2
+        isPrevGreen = w_close2 > w_open2
+        w_struct = (isPrevRed and w_close1 > w_open2) or (isPrevGreen and w_close1 >= w_open2)
 
-isPrevWeeklyRed   = w_close2 < w_open2
-isPrevWeeklyGreen = w_close2 > w_open2
-weeklyStructurePass = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
+        // === Monthly Structure ===
+        m_open1  = request.security(syminfo.tickerid, "M", open[1])
+        m_close1 = request.security(syminfo.tickerid, "M", close[1])
+        m_open2  = request.security(syminfo.tickerid, "M", open[2])
+        m_close2 = request.security(syminfo.tickerid, "M", close[2])
+        isPrevMRed   = m_close2 < m_open2
+        isPrevMGreen = m_close2 > m_open2
+        m_struct = (isPrevMRed and m_close1 > m_open2) or (isPrevMGreen and m_close1 >= m_open2)
 
-// === MONTHLY PRICE-ACTION CHECK ===
-m_open1  = request.security(syminfo.tickerid, "M", open[1], lookahead=barmerge.lookahead_on)
-m_close1 = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on)
-m_open2  = request.security(syminfo.tickerid, "M", open[2], lookahead=barmerge.lookahead_on)
-m_close2 = request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on)
+        structureOK = w_struct and m_struct
 
-isPrevMonthlyRed   = m_close2 < m_open2
-isPrevMonthlyGreen = m_close2 > m_open2
-monthlyStructurePass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
+        // === Weekly EMAs ===
+        ema10  = ta.ema(close, 10)[1]
+        ema20  = ta.ema(close, 20)[1]
+        ema50  = ta.ema(close, 50)[1]
+        ema100 = ta.ema(close, 100)[1]
+        ema200 = ta.ema(close, 200)[1]
+        stacked = ema10 > ema20 and ema20 > ema50 and ema50 > ema100 and ema100 > ema200
+        priceAboveAll = close[1] > ema10 and close[1] > ema20 and close[1] > ema50 and close[1] > ema100 and close[1] > ema200
 
-// === WEEKLY EMA STACK CHECK ===
-w_ema10  = request.security(syminfo.tickerid, "W", ta.ema(close, 10)[1], lookahead=barmerge.lookahead_on)
-w_ema20  = request.security(syminfo.tickerid, "W", ta.ema(close, 20)[1], lookahead=barmerge.lookahead_on)
-w_ema50  = request.security(syminfo.tickerid, "W", ta.ema(close, 50)[1], lookahead=barmerge.lookahead_on)
-w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100)[1], lookahead=barmerge.lookahead_on)
-w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200)[1], lookahead=barmerge.lookahead_on)
+        // === B-Rating Check ===
+        m_ema20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20)[1])
+        b_valid = close[1] > ema20 and m_close1 > m_ema20
 
-emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
-priceAboveAllEMAs = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
-
-// === WEEKLY & MONTHLY CLOSE ABOVE 20 EMA (for B rating)
-m_ema20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20)[1], lookahead=barmerge.lookahead_on)
-m_above20 = m_close1 > m_ema20
-w_above20 = w_close1 > w_ema20
-
-// === RATING CLASSIFICATION ===
-structureOK = weeklyStructurePass and monthlyStructurePass
-isAsetup = structureOK and emaStacked and priceAboveAllEMAs
-isBsetup = structureOK and not isAsetup and m_above20 and w_above20
-
-rawRating = isAsetup ? "A" : isBsetup ? "B" : "No Trade"
-isEndOfWeek = ta.change(time("W"))
-lockedRating = na(lockedRating[1]) ? rawRating : (isEndOfWeek ? rawRating : lockedRating[1])
+        // === Final Rating ===
+        structureOK and stacked and priceAboveAll ? "A" : structureOK and b_valid ? "B" : "No Trade"
+    }()],
+    lookahead=barmerge.lookahead_on)
 
 // === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
@@ -76,10 +73,10 @@ plot(ema200, title="EMA 200", color=color.orange)
 var table debugTable = table.new(position.top_right, 1, 2, frame_color=color.gray, border_color=color.gray)
 if showDebugLabels
     table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 0, 1, lockedRating, text_color=color.white, bgcolor=color.navy)
+    table.cell(debugTable, 0, 1, weeklyRatingFinal, text_color=color.white, bgcolor=color.navy)
 
 // === LOGIC NOTES ===
 // A-Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above ALL EMAs
 // B-Rated: Weekly & Monthly structure confirmed + price above 20 EMA on both timeframes
 // No Trade: Structure fails or price not above stacked EMAs
-// Table value is locked to weekly change for consistency across chart timeframes
+// Logic fully isolated in request.security("W") block for stable output
