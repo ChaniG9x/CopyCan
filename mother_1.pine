@@ -1,18 +1,5 @@
 //@version=5
-strategy("The Mother (Phase 2)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
-
-// === GLOBAL INPUTS ===
-contractSize    = input.int(1, "Contract Size")
-tradeDirection  = input.string("Long", "Trade Direction", options=["Long"], tooltip="Only bullish logic supported")
-showDebugLabels = input.bool(true, "Show Debug Labels")
-
-// === TRADING SESSION CONTROL ===
-session1_start = input.time(timestamp("0000-01-01T08:00:00"), "Session 1 Start")
-session1_end   = input.time(timestamp("0000-01-01T11:00:00"), "Session 1 End")
-session2_start = input.time(timestamp("0000-01-01T13:00:00"), "Session 2 Start")
-session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
-
-inSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
+indicator("Monthly/Weekly Structure + EMAs Rating", overlay=true)
 
 // === TIMEFRAME SETTINGS ===
 monthly_tf = "M"
@@ -79,7 +66,7 @@ rating = structure_is_bullish and monthly_ema_ok and weekly_ema_ok ? "A" :
 
 // === DEBUG TABLE ===
 var table status_table = table.new(position.top_right, 2, 3, border_width=1)
-if bar_index % 5 == 0  // only update every 5 bars for performance
+if bar_index % 5 == 0  // refresh every 5 bars
     table.cell(status_table, 0, 0, "Monthly", text_color=color.white, bgcolor=color.blue)
     table.cell(status_table, 1, 0, "Weekly",  text_color=color.white, bgcolor=color.blue)
     table.cell(status_table, 0, 1, monthly_status ?? "", text_color=color.white)
