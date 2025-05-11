@@ -68,6 +68,19 @@ else if structure_is_bullish
 else
     rating := "No Trade"
 
+// === PLOT CURRENT-TF EMAs ON CHART ===
+ema10  = ta.ema(close, 10)
+ema20  = ta.ema(close, 20)
+ema50  = ta.ema(close, 50)
+ema100 = ta.ema(close, 100)
+ema200 = ta.ema(close, 200)
+
+plot(ema10,  title="EMA 10",  color=color.blue)
+plot(ema20,  title="EMA 20",  color=color.red)
+plot(ema50,  title="EMA 50",  color=color.gray)
+plot(ema100, title="EMA 100", color=color.purple)
+plot(ema200, title="EMA 200", color=color.orange)
+
 // === DEBUG TABLE ===
 var table status_table = table.new(position.top_right, 2, 3, border_width=1)
 
