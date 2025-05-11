@@ -17,13 +17,13 @@ inSession = (time >= session1_start and time <= session1_end) or (time >= sessio
 
 // === WEEKLY RATING FUNCTION ===
 f_getWeeklyRating() =>
-    // Weekly data (this function already runs on a weekly series)
+    // Weekly data
     w_open1  = open[1]
     w_close1 = close[1]
     w_open2  = open[2]
     w_close2 = close[2]
 
-    // Monthly data pulled from inside the weekly function
+    // Monthly data
     m_open1  = request.security(syminfo.tickerid, "M", open[1])
     m_close1 = request.security(syminfo.tickerid, "M", close[1])
     m_open2  = request.security(syminfo.tickerid, "M", open[2])
@@ -45,23 +45,28 @@ f_getWeeklyRating() =>
     isPrevMonthlyRed  = m_close2 < m_open2
     isPrevMonthlyGreen = m_close2 > m_open2
 
-    weeklyStructurePass  = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
+    weeklyStructurePass  = (isPrevWeeklyRed  and w_close1 > w_open2) or (isPrevWeeklyGreen  and w_close1 >= w_open2)
     monthlyStructurePass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
     structureOK = weeklyStructurePass and monthlyStructurePass
 
     // EMA alignment checks
-    emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
+    emaStacked       = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
     priceAboveAllEMAs = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
-    m_above20 = m_close1 > m_ema20
-    w_above20 = w_close1 > w_ema20
+    m_above20        = m_close1 > m_ema20
+    w_above20        = w_close1 > w_ema20
 
     // Rating
     isA = structureOK and emaStacked and priceAboveAllEMAs
     isB = structureOK and not isA and m_above20 and w_above20
     isA ? "A" : isB ? "B" : "No Trade"
 
-// === CALL WEEKLY RATING ON EVERY BAR, LOOKAHEAD ENABLED ===
-weeklyRating = request.security(syminfo.tickerid, "W", f_getWeeklyRating(), lookahead = barmerge.lookahead_on)
+// === CALL WEEKLY RATING ON EVERY BAR, GAP FILL ENABLED ===
+weeklyRating = request.security(
+    syminfo.tickerid,
+    "W",
+    f_getWeeklyRating(),
+    lookahead = barmerge.lookahead_on,
+    gaps      = barmerge.gaps_off)
 
 // === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
