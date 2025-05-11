@@ -4,6 +4,14 @@
 //@version=5
 strategy("The Mother (Phase 1)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
+// === DEBUG TABLE INITIALIZATION ===
+var table debugTable = table.new(position.top_right, 2, 1, frame_color=color.gray, border_color=color.gray)
+// Header
+if barstate.isfirst
+    table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 1, 0, "Daily Bias:", text_color=color.white, bgcolor=color.blue)
+
+
 // === GLOBAL INPUTS ===
 contractSize    = input.int(1, "Contract Size")
 tradeDirection  = input.string("Long", "Trade Direction", options=["Long"], tooltip="Only bullish logic supported in Phase 1")
