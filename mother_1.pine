@@ -43,9 +43,9 @@ emaStacked    = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 a
 priceAbove200 = w_close1 > w_ema200
 weeklyEMADesc = emaStacked ? "Aligned" : "Not aligned"
 
-// === MONTHLY EMA STACK CHECK (NEW) ===
+// === MONTHLY EMA STACK CHECK ===
 m_ema10  = request.security(syminfo.tickerid, "M", ta.ema(close, 10))
-m_ema20  := request.security(syminfo.tickerid, "M", ta.ema(close, 20))
+m_ema20  = request.security(syminfo.tickerid, "M", ta.ema(close, 20))
 m_ema50  = request.security(syminfo.tickerid, "M", ta.ema(close, 50))
 m_ema100 = request.security(syminfo.tickerid, "M", ta.ema(close, 100))
 m_ema200 = request.security(syminfo.tickerid, "M", ta.ema(close, 200))
@@ -62,6 +62,13 @@ isAsetup = structureOK and emaStacked and monthlyStacked and priceAbove200
 isBsetup = structureOK and not isAsetup and m_above20 and w_above20
 weeklyRating = isAsetup ? "A" : isBsetup ? "B" : "No Trade"
 
+// === PLOT EMAS ON CURRENT CHART TF ===
+plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue)
+plot(ta.ema(close, 20),  title="EMA 20",  color=color.red)
+plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray)
+plot(ta.ema(close, 100), title="EMA 100", color=color.purple)
+plot(ta.ema(close, 200), title="EMA 200", color=color.orange)
+
 // === DEBUG TABLE (WEEKLY TF ONLY) ===
 showTable = timeframe.period == "W"
 var table debugTable = table.new(position.top_right, 6, 2, frame_color=color.gray, border_color=color.gray)
@@ -76,4 +83,3 @@ if showDebugLabels and showTable
     table.cell(debugTable, 3, 1, weeklyEMADesc, text_color=color.white)
     table.cell(debugTable, 4, 0, "EMAs Monthly", text_color=color.white)
     table.cell(debugTable, 4, 1, monthlyEMADesc, text_color=color.white)
-
