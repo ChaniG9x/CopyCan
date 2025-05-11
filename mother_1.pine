@@ -1,0 +1,78 @@
+// === The Mother Strategy – Phase 1: Foundation Scaffold ===
+// Bullish-only | Setup Classification + Global Inputs + EMA Plotting + Debug Labels
+
+//@version=5
+strategy("The Mother (Phase 1)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// === GLOBAL INPUTS ===
+contractSize       = input.int(1, "Contract Size")
+tradeDirection     = input.string("Long", "Trade Direction", options=["Long"], tooltip="Only bullish logic supported in Phase 1")
+showDebugLabels    = input.bool(true, "Show Debug Labels")
+
+// === TRADING SESSION CONTROL ===
+session1_start = input.time(timestamp("0000-01-01T08:00:00"), "Session 1 Start")
+session1_end   = input.time(timestamp("0000-01-01T11:00:00"), "Session 1 End")
+session2_start = input.time(timestamp("0000-01-01T13:00:00"), "Session 2 Start")
+session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
+
+isInSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
+
+// === EMA STRUCTURE ===
+ema10 = ta.ema(close, 10)
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+ema100 = ta.ema(close, 100)
+ema200 = ta.ema(close, 200)
+
+plot(ema10, "EMA 10", color=color.blue)
+plot(ema20, "EMA 20", color=color.red)
+plot(ema50, "EMA 50", color=color.gray)
+plot(ema100, "EMA 100", color=color.purple)
+plot(ema200, "EMA 200", color=color.orange)
+
+// === WEEKLY SETUP CLASSIFICATION ===
+// Rule: Weekly bar must close above the open of the last red candle for A-rating
+weekly_close  = request.security(syminfo.tickerid, "W", close[1])
+weekly_open   = request.security(syminfo.tickerid, "W", open[1])
+weekly_red_open = request.security(syminfo.tickerid, "W", open[2])
+weekly_prev_bar_color = request.security(syminfo.tickerid, "W", close[2] < open[2] ? 1 : 0)
+
+weeklyRating = na
+if (weekly_prev_bar_color == 1 and weekly_close > weekly_red_open)
+    weeklyRating := "A"
+else
+    weeklyRating := "B"
+
+// === DAILY BIAS CLASSIFICATION ===
+// Rule: Daily bar must close above open of last red bar OR close of last green bar
+// Based on most recent closed daily bar
+priorDailyOpen  = request.security(syminfo.tickerid, "D", open[2])
+priorDailyClose = request.security(syminfo.tickerid, "D", close[2])
+latestDailyOpen = request.security(syminfo.tickerid, "D", open[1])
+latestDailyClose = request.security(syminfo.tickerid, "D", close[1])
+
+isPrevDailyRed   = priorDailyClose < priorDailyOpen
+isPrevDailyGreen = priorDailyClose > priorDailyOpen
+
+dailyBias = na
+if isPrevDailyRed and latestDailyClose > priorDailyOpen
+    dailyBias := "Momentum"
+else if isPrevDailyGreen and latestDailyClose > priorDailyClose
+    dailyBias := "Momentum"
+else
+    dailyBias := "Neutral/Wait"
+
+// === DEBUG LABELS ===
+if showDebugLabels and bar_index % 10 == 0
+    label.new(bar_index, high, text="Weekly: " + weeklyRating + "\nDaily: " + dailyBias, style=label.style_label_down, color=color.yellow, textcolor=color.black)
+
+// === COMMENTARY ON LOGIC ===
+// Weekly A-rating = last weekly bar closed above the open of the previous red candle
+// Weekly B-rating = anything less clear
+// Daily Momentum = most recent daily bar closed above either:
+//     - the open of the last red daily candle
+//     - the close of the last green daily candle
+// These are used for future setup-type validation and entry block routing
+// EMAs are plotted for structural reference but not yet used for filtering
+// All inputs required for trading window, debug toggles, and direction filtering are scaffolded
+// No entries are placed in this phase
