@@ -1,79 +1,75 @@
 //@version=5
-strategy("The Mother (Nuclear Fix – Fully Locked Setup Rating)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+strategy("The Mother (Locked Weekly Rating + Debug Table)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
-// === GLOBAL INPUTS ===
-contractSize    = input.int(1, "Contract Size")
-tradeDirection  = input.string("Long", "Trade Direction", options=["Long"])
-showDebugLabels = input.bool(true, "Show Debug Labels")
+// === RATING FUNCTION — RETURNS TUPLE FROM WEEKLY CONTEXT ===
+f_getFinalRating() =>
+    // Monthly data
+    mo1  = request.security(syminfo.tickerid, "M", open[1], lookahead=barmerge.lookahead_on)
+    mc1  = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on)
+    mo2  = request.security(syminfo.tickerid, "M", open[2], lookahead=barmerge.lookahead_on)
+    mc2  = request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on)
+    m_ema20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 
-// === LOCKED MONTHLY + WEEKLY DATA ===
-// Monthly confirmed bars
-mo1  = request.security(syminfo.tickerid, "M", open[1], lookahead=barmerge.lookahead_on)
-mc1  = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on)
-mo2  = request.security(syminfo.tickerid, "M", open[2], lookahead=barmerge.lookahead_on)
-mc2  = request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on)
-m_ema20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+    // Weekly data
+    w_open1 = open[1]
+    w_close1 = close[1]
+    w_open2 = open[2]
+    w_close2 = close[2]
 
-// Weekly confirmed bars
-wo1  = request.security(syminfo.tickerid, "W", open[1], lookahead=barmerge.lookahead_on)
-wc1  = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_on)
-wo2  = request.security(syminfo.tickerid, "W", open[2], lookahead=barmerge.lookahead_on)
-wc2  = request.security(syminfo.tickerid, "W", close[2], lookahead=barmerge.lookahead_on)
-w_ema10  = request.security(syminfo.tickerid, "W", ta.ema(close, 10),  lookahead=barmerge.lookahead_on)
-w_ema20  = request.security(syminfo.tickerid, "W", ta.ema(close, 20),  lookahead=barmerge.lookahead_on)
-w_ema50  = request.security(syminfo.tickerid, "W", ta.ema(close, 50),  lookahead=barmerge.lookahead_on)
-w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100), lookahead=barmerge.lookahead_on)
-w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200), lookahead=barmerge.lookahead_on)
+    w_ema10  = ta.ema(close, 10)
+    w_ema20  = ta.ema(close, 20)
+    w_ema50  = ta.ema(close, 50)
+    w_ema100 = ta.ema(close, 100)
+    w_ema200 = ta.ema(close, 200)
 
-// === STRUCTURE CHECK GUARD ===
-canEvalStructure = not na(wc1) and not na(wo2) and not na(mc1) and not na(mo2)
+    // Structure check
+    isPrevWeeklyRed   = w_close2 < w_open2
+    isPrevWeeklyGreen = w_close2 > w_open2
+    isPrevMonthlyRed  = mc2 < mo2
+    isPrevMonthlyGreen = mc2 > mo2
 
-// === RATING LOGIC ===
-isPrevWeeklyRed   = wc2 < wo2
-isPrevWeeklyGreen = wc2 > wo2
-isPrevMonthlyRed  = mc2 < mo2
-isPrevMonthlyGreen = mc2 > mo2
+    weeklyStructurePass  = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
+    monthlyStructurePass = (isPrevMonthlyRed and mc1 > mo2) or (isPrevMonthlyGreen and mc1 >= mo2)
+    structureOK = weeklyStructurePass and monthlyStructurePass
 
-weeklyStructurePass  = canEvalStructure and ((isPrevWeeklyRed and wc1 > wo2) or (isPrevWeeklyGreen and wc1 >= wo2))
-monthlyStructurePass = canEvalStructure and ((isPrevMonthlyRed and mc1 > mo2) or (isPrevMonthlyGreen and mc1 >= mo2))
-structureOK = weeklyStructurePass and monthlyStructurePass
+    // EMA + Price conditions
+    emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
+    priceAboveAll = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
+    m_above20 = mc1 > m_ema20
+    w_above20 = w_close1 > w_ema20
 
-emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
-priceAboveAll = wc1 > w_ema10 and wc1 > w_ema20 and wc1 > w_ema50 and wc1 > w_ema100 and wc1 > w_ema200
-m_above20 = mc1 > m_ema20
-w_above20 = wc1 > w_ema20
+    isA = structureOK and emaStacked and priceAboveAll
+    isB = structureOK and not isA and m_above20 and w_above20
+    rating = isA ? "A" : isB ? "B" : "No Trade"
 
-isA = structureOK and emaStacked and priceAboveAll
-isB = structureOK and not isA and m_above20 and w_above20
-weeklyRatingLocked = isA ? "A" : isB ? "B" : "No Trade"
+    // Return everything you want to debug
+    [rating, structureOK, emaStacked, priceAboveAll, w_above20, m_above20]
 
-// === DEBUG TABLE ===
+// === LOCKED RATING AND DEBUG VALUES FROM WEEKLY CONTEXT ===
+[rating, structureOK, emaStacked, priceAboveAll, wAbove20, mAbove20] = request.security(
+    syminfo.tickerid,
+    "W",
+    f_getFinalRating(),
+    lookahead=barmerge.lookahead_on
+)
+
+// === LIVE LABEL ===
+var label ratingLabel = na
+if barstate.islast and not na(rating)
+    label.delete(ratingLabel)
+    ratingLabel := label.new(bar_index, high, text="Rating: " + rating, style=label.style_label_down, size=size.large, textcolor=color.white, color=color.black)
+
+// === DEBUG TABLE (TOP RIGHT CORNER) ===
 var table debugTable = table.new(position.top_right, 7, 2, frame_color=color.gray, border_color=color.gray)
-if showDebugLabels
-    table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 0, 1, weeklyRatingLocked, text_color=color.white, bgcolor=color.navy)
-    table.cell(debugTable, 1, 0, "structureOK", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 1, 1, str.tostring(structureOK), text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 2, 0, "emaStacked", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 2, 1, str.tostring(emaStacked), text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 3, 0, "priceAboveAll", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 3, 1, str.tostring(priceAboveAll), text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 4, 0, "w > 20", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 4, 1, str.tostring(w_above20), text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 5, 0, "m > 20", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 5, 1, str.tostring(m_above20), text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 6, 0, "canEvalStruct", text_color=color.white, bgcolor=color.gray)
-    table.cell(debugTable, 6, 1, str.tostring(canEvalStructure), text_color=color.white, bgcolor=canEvalStructure ? color.green : color.red)
-
-// === LIVE DIAGNOSTIC LABEL ===
-var label liveLabel = na
-if barstate.islast and not na(weeklyRatingLocked)
-    label.delete(liveLabel)
-    liveLabel := label.new(bar_index, high, text="Rating: " + weeklyRatingLocked, style=label.style_label_down, size=size.normal, textcolor=color.white, color=color.black)
-
-// === EMAS ON CURRENT CHART TF (OPTIONAL DISPLAY) ===
-plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue)
-plot(ta.ema(close, 20),  title="EMA 20",  color=color.red)
-plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray)
-plot(ta.ema(close, 100), title="EMA 100", color=color.purple)
-plot(ta.ema(close, 200), title="EMA 200", color=color.orange)
+table.cell(debugTable, 0, 0, "Setup Type", text_color=color.white, bgcolor=color.blue)
+table.cell(debugTable, 0, 1, rating, text_color=color.white, bgcolor=color.navy)
+table.cell(debugTable, 1, 0, "structureOK", text_color=color.white)
+table.cell(debugTable, 1, 1, str.tostring(structureOK), text_color=color.white)
+table.cell(debugTable, 2, 0, "emaStacked", text_color=color.white)
+table.cell(debugTable, 2, 1, str.tostring(emaStacked), text_color=color.white)
+table.cell(debugTable, 3, 0, "priceAboveAll", text_color=color.white)
+table.cell(debugTable, 3, 1, str.tostring(priceAboveAll), text_color=color.white)
+table.cell(debugTable, 4, 0, "w > 20", text_color=color.white)
+table.cell(debugTable, 4, 1, str.tostring(wAbove20), text_color=color.white)
+table.cell(debugTable, 5, 0, "m > 20", text_color=color.white)
+table.cell(debugTable, 5, 1, str.tostring(mAbove20), text_color=color.white)
