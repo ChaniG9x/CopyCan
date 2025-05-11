@@ -13,7 +13,7 @@ session2_start = input.time(timestamp("0000-01-01T13:00:00"), "Session 2 Start")
 session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
 inSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
 
-// === BULLETPROOF WEEKLY RATING FUNCTION ===
+// === RATING FUNCTION (Runs in Weekly Context) ===
 f_getWeeklyRating(mo1, mc1, mo2, mc2, me20) =>
     w_open1  = open[1]
     w_close1 = close[1]
@@ -45,16 +45,15 @@ f_getWeeklyRating(mo1, mc1, mo2, mc2, me20) =>
     isB = structureOK and not isA and m_above20 and w_above20
     isA ? "A" : isB ? "B" : "No Trade"
 
-// === ONE SINGLE CALL THAT LOCKS EVERYTHING DOWN ===
-weeklyRatingLocked = request.security(syminfo.tickerid, "W",
-    f_getWeeklyRating(
-        request.security(syminfo.tickerid, "M", open[1], lookahead=barmerge.lookahead_on),
-        request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on),
-        request.security(syminfo.tickerid, "M", open[2], lookahead=barmerge.lookahead_on),
-        request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on),
-        request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
-    ),
-    lookahead=barmerge.lookahead_on)
+// === LOCKED MONTHLY VALUES ===
+mo1 = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_on)
+mc1 = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on)
+mo2 = request.security(syminfo.tickerid, "M", open[2],  lookahead=barmerge.lookahead_on)
+mc2 = request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on)
+me20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+
+// === LOCKED WEEKLY RATING BASED ON CONFIRMED DATA ===
+weeklyRatingLocked = request.security(syminfo.tickerid, "W", f_getWeeklyRating(mo1, mc1, mo2, mc2, me20), lookahead=barmerge.lookahead_on)
 
 // === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
