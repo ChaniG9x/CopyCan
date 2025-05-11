@@ -31,6 +31,19 @@ w_ema50  = request.security(syminfo.tickerid, "W", ta.ema(close, 50))
 w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100))
 w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200))
 
+// === WEEKLY EMA PLOTTING (Current Chart TF, for visual reference only) ===
+ema10  = ta.ema(close, 10)
+ema20  = ta.ema(close, 20)
+ema50  = ta.ema(close, 50)
+ema100 = ta.ema(close, 100)
+ema200 = ta.ema(close, 200)
+
+plot(ema10,  title="EMA 10",  color=color.blue)
+plot(ema20,  title="EMA 20",  color=color.red)
+plot(ema50,  title="EMA 50",  color=color.gray)
+plot(ema100, title="EMA 100", color=color.purple)
+plot(ema200, title="EMA 200", color=color.orange)
+
 emaStacked    = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
 priceAbove200 = w_close1 > w_ema200
 
