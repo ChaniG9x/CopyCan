@@ -1,4 +1,4 @@
-// === The Mother Strategy – Phase 2: Global Vars + Weekly+Monthly Setup with A/B/C Logic (Stable Across Timeframes) ===
+// === The Mother Strategy – Phase 2: Global Vars + Weekly+Monthly Setup with A/B/C Logic (Stable Output) ===
 //@version=5
 strategy("The Mother (Phase 2)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
@@ -15,7 +15,7 @@ session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
 
 inSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
 
-// === WEEKLY PRICE-ACTION CHECK (offset + lookahead to avoid chart timeframe bleed) ===
+// === WEEKLY PRICE-ACTION CHECK ===
 w_open1  = request.security(syminfo.tickerid, "W", open[1], lookahead=barmerge.lookahead_on)
 w_close1 = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_on)
 w_open2  = request.security(syminfo.tickerid, "W", open[2], lookahead=barmerge.lookahead_on)
@@ -55,7 +55,9 @@ structureOK = weeklyStructurePass and monthlyStructurePass
 isAsetup = structureOK and emaStacked and priceAboveAllEMAs
 isBsetup = structureOK and not isAsetup and m_above20 and w_above20
 
-weeklyRating = isAsetup ? "A" : isBsetup ? "B" : "No Trade"
+rawRating = isAsetup ? "A" : isBsetup ? "B" : "No Trade"
+isEndOfWeek = ta.change(time("W"))
+lockedRating = na(lockedRating[1]) ? rawRating : (isEndOfWeek ? rawRating : lockedRating[1])
 
 // === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
@@ -74,9 +76,10 @@ plot(ema200, title="EMA 200", color=color.orange)
 var table debugTable = table.new(position.top_right, 1, 2, frame_color=color.gray, border_color=color.gray)
 if showDebugLabels
     table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 0, 1, weeklyRating, text_color=color.white, bgcolor=color.navy)
+    table.cell(debugTable, 0, 1, lockedRating, text_color=color.white, bgcolor=color.navy)
 
 // === LOGIC NOTES ===
 // A-Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above ALL EMAs
 // B-Rated: Weekly & Monthly structure confirmed + price above 20 EMA on both timeframes
 // No Trade: Structure fails or price not above stacked EMAs
+// Table value is locked to weekly change for consistency across chart timeframes
