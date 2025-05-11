@@ -45,10 +45,20 @@ isB = structureOK and not isA and m_above20 and w_above20
 weeklyRatingLocked = isA ? "A" : isB ? "B" : "No Trade"
 
 // === DEBUG TABLE ===
-var table debugTable = table.new(position.top_right, 1, 2, frame_color=color.gray, border_color=color.gray)
+var table debugTable = table.new(position.top_right, 6, 2, frame_color=color.gray, border_color=color.gray)
 if showDebugLabels
     table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
     table.cell(debugTable, 0, 1, weeklyRatingLocked, text_color=color.white, bgcolor=color.navy)
+    table.cell(debugTable, 1, 0, "structureOK", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 1, 1, str.tostring(structureOK), text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 2, 0, "emaStacked", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 2, 1, str.tostring(emaStacked), text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 3, 0, "priceAboveAll", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 3, 1, str.tostring(priceAboveAll), text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 4, 0, "w > 20", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 4, 1, str.tostring(w_above20), text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 5, 0, "m > 20", text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 5, 1, str.tostring(m_above20), text_color=color.white, bgcolor=color.blue)
 
 // === LIVE DIAGNOSTIC LABEL ===
 var label liveLabel = na
