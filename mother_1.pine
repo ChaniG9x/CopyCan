@@ -1,5 +1,5 @@
 //@version=5
-strategy("The Mother (Phase 2) – Stable Rating", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+strategy("The Mother (Phase 2) – Stable Rating + Debug Labels", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
 // === GLOBAL INPUTS ===
 contractSize    = input.int(1, "Contract Size")
@@ -53,11 +53,11 @@ f_getWeeklyRating(m_open1, m_close1, m_open2, m_close2, m_ema20) =>
     isA ? "A" : isB ? "B" : "No Trade"
 
 // === WEEKLY REQUEST, LOCKED CONTEXT ===
-rawWeeklyRating = request.security(syminfo.tickerid, "W", f_getWeeklyRating(m_open1, m_close1, m_open2, m_close2, m_ema20), lookahead=barmerge.lookahead_on)
+weeklyRatingRaw = request.security(syminfo.tickerid, "W", f_getWeeklyRating(m_open1, m_close1, m_open2, m_close2, m_ema20), lookahead=barmerge.lookahead_on)
 
-// === STABLE RATING VALUE: UPDATE ONCE PER WEEK ONLY ===
-var string weeklyRating = na
-weeklyRating := ta.change(time("W")) ? rawWeeklyRating : weeklyRating
+// === STABLE VALUE FOR WEEKLY RATING ===
+var string weeklyRatingLocked = na
+weeklyRatingLocked := ta.change(time("W")) ? weeklyRatingRaw : weeklyRatingLocked
 
 // === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
@@ -76,7 +76,11 @@ plot(ema200, title="EMA 200", color=color.orange)
 var table debugTable = table.new(position.top_right, 1, 2, frame_color=color.gray, border_color=color.gray)
 if showDebugLabels
     table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 0, 1, weeklyRating, text_color=color.white, bgcolor=color.navy)
+    table.cell(debugTable, 0, 1, weeklyRatingLocked, text_color=color.white, bgcolor=color.navy)
+
+// === DIAGNOSTIC LABELS (EVERY 100 BARS) ===
+if bar_index % 100 == 0 and not na(weeklyRatingLocked)
+    label.new(bar_index, high, text="Rating: " + weeklyRatingLocked, style=label.style_label_down, size=size.small, textcolor=color.white, color=color.black)
 
 // === LOGIC NOTES ===
 // A‑Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above ALL EMAs
