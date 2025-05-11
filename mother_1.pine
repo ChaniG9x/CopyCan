@@ -1,85 +1,63 @@
 //@version=5
-strategy("The Mother (Phase 2 – Expanded Debug)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+indicator("Early Adopter Setup Rater [Bullish Only]", overlay=true)
 
-// === GLOBAL INPUTS ===
-contractSize    = input.int(1, "Contract Size")
-tradeDirection  = input.string("Long", "Trade Direction", options=["Long"], tooltip="Only bullish logic supported")
-showDebugLabels = input.bool(true, "Show Debug Labels")
+// === INPUTS ===
+showDebug = input.bool(false, "Show Debug Labels")
 
-// === TRADING SESSION CONTROL ===
-session1_start = input.time(timestamp("0000-01-01T08:00:00"), "Session 1 Start")
-session1_end   = input.time(timestamp("0000-01-01T11:00:00"), "Session 1 End")
-session2_start = input.time(timestamp("0000-01-01T13:00:00"), "Session 2 Start")
-session2_end   = input.time(timestamp("0000-01-01T17:00:00"), "Session 2 End")
-inSession = (time >= session1_start and time <= session1_end) or (time >= session2_start and time <= session2_end)
+// === FUNCTIONS ===
+// Price Action Phase Detection (Bullish Only)
+phaseBullish(close_, openPrevRed, isPrevGreen, openPrevGreen) =>
+    (not isPrevGreen and close_ > openPrevRed) or (isPrevGreen and close_ >= openPrevGreen)
 
-// === WEEKLY PRICE-ACTION CHECK ===
-w_open1  = request.security(syminfo.tickerid, "W", open[1])
-w_close1 = request.security(syminfo.tickerid, "W", close[1])
-w_open2  = request.security(syminfo.tickerid, "W", open[2])
-w_close2 = request.security(syminfo.tickerid, "W", close[2])
-isPrevWeeklyRed   = w_close2 < w_open2
-isPrevWeeklyGreen = w_close2 > w_open2
-weeklyStructurePass = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
-weeklyBias = isPrevWeeklyGreen ? "Bullish" : isPrevWeeklyRed ? "Bearish" : "Neutral"
+// EMA Alignment (Bullish)
+emaAlignedBullish(src) =>
+    e10 = ta.ema(src, 10)
+    e20 = ta.ema(src, 20)
+    e50 = ta.ema(src, 50)
+    e100 = ta.ema(src, 100)
+    e200 = ta.ema(src, 200)
+    stacked = (e10 > e20 and e20 > e50 and e50 > e100 and e100 > e200)
+    priceAbove = src > e10 and src > e20 and src > e50 and src > e100 and src > e200
+    stacked and priceAbove
 
-// === MONTHLY PRICE-ACTION CHECK ===
-m_open1  = request.security(syminfo.tickerid, "M", open[1])
-m_close1 = request.security(syminfo.tickerid, "M", close[1])
-m_open2  = request.security(syminfo.tickerid, "M", open[2])
-m_close2 = request.security(syminfo.tickerid, "M", close[2])
-isPrevMonthlyRed   = m_close2 < m_open2
-isPrevMonthlyGreen = m_close2 > m_open2
-monthlyStructurePass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
-monthlyBias = isPrevMonthlyGreen ? "Bullish" : isPrevMonthlyRed ? "Bearish" : "Neutral"
+// === CONTEXT CHECK ===
+isWeekly = timeframe.isweekly
 
-// === WEEKLY EMA STACK CHECK ===
-w_ema10  = request.security(syminfo.tickerid, "W", ta.ema(close, 10))
-w_ema20  = request.security(syminfo.tickerid, "W", ta.ema(close, 20))
-w_ema50  = request.security(syminfo.tickerid, "W", ta.ema(close, 50))
-w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100))
-w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200))
-emaStacked    = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
-priceAbove200 = w_close1 > w_ema200
-weeklyEMADesc = emaStacked ? "Aligned" : "Not aligned"
+// === HTF DATA ===
+monthlyClose = request.security(syminfo.tickerid, "M", close[1])
+monthlyOpenPrevRed = request.security(syminfo.tickerid, "M", open[2])
+monthlyWasGreen = request.security(syminfo.tickerid, "M", close[2] > open[2])
+monthlyOpenPrevGreen = request.security(syminfo.tickerid, "M", open[2])
+monthlyBullish = phaseBullish(monthlyClose, monthlyOpenPrevRed, monthlyWasGreen, monthlyOpenPrevGreen)
 
-// === MONTHLY EMA STACK CHECK ===
-m_ema10  = request.security(syminfo.tickerid, "M", ta.ema(close, 10))
-m_ema20  = request.security(syminfo.tickerid, "M", ta.ema(close, 20))
-m_ema50  = request.security(syminfo.tickerid, "M", ta.ema(close, 50))
-m_ema100 = request.security(syminfo.tickerid, "M", ta.ema(close, 100))
-m_ema200 = request.security(syminfo.tickerid, "M", ta.ema(close, 200))
-monthlyStacked = m_ema10 > m_ema20 and m_ema20 > m_ema50 and m_ema50 > m_ema100 and m_ema100 > m_ema200
-monthlyEMADesc = monthlyStacked ? "Aligned" : "Not aligned"
+weeklyClose = close[1]
+weeklyOpenPrevRed = open[2]
+weeklyWasGreen = close[2] > open[2]
+weeklyOpenPrevGreen = open[2]
+weeklyBullish = phaseBullish(weeklyClose, weeklyOpenPrevRed, weeklyWasGreen, weeklyOpenPrevGreen)
 
-// === CLOSE ABOVE 20 EMAS
-m_above20 = m_close1 > m_ema20
-w_above20 = w_close1 > w_ema20
+// EMA Alignment (HTFs)
+monthlyEMAAligned = request.security(syminfo.tickerid, "M", emaAlignedBullish(close))
+weeklyEMAAligned = emaAlignedBullish(close)
 
-// === RATING CLASSIFICATION ===
-structureOK = weeklyStructurePass and monthlyStructurePass
-isAsetup = structureOK and emaStacked and monthlyStacked and priceAbove200
-isBsetup = structureOK and not isAsetup and m_above20 and w_above20
-weeklyRating = isAsetup ? "A" : isBsetup ? "B" : "No Trade"
+// === SETUP RATING ===
+setupType = (monthlyBullish and weeklyBullish) ?
+     (monthlyEMAAligned and weeklyEMAAligned ? "A" : "B") : "-"
 
-// === PLOT EMAS ON CURRENT CHART TF ===
-plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue)
-plot(ta.ema(close, 20),  title="EMA 20",  color=color.red)
-plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray)
-plot(ta.ema(close, 100), title="EMA 100", color=color.purple)
-plot(ta.ema(close, 200), title="EMA 200", color=color.orange)
+// === TABLE OUTPUT (ONLY WEEKLY CHART) ===
+var table t = table.new(position.top_left, 2, 5, frame_width=1)
+if bar_index % 5 == 0 and isWeekly
+    table.cell(t, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.navy)
+    table.cell(t, 1, 0, setupType, text_color=color.white, bgcolor=(setupType == "A" ? color.green : setupType == "B" ? color.orange : color.gray))
 
-// === DEBUG TABLE (WEEKLY TF ONLY) ===
-showTable = timeframe.period == "W"
-var table debugTable = table.new(position.top_right, 6, 2, frame_color=color.gray, border_color=color.gray)
-if showDebugLabels and showTable
-    table.cell(debugTable, 0, 0, "Setup Type", text_color=color.white, bgcolor=color.blue)
-    table.cell(debugTable, 0, 1, weeklyRating, text_color=color.white, bgcolor=color.navy)
-    table.cell(debugTable, 1, 0, "Monthly", text_color=color.white)
-    table.cell(debugTable, 1, 1, monthlyBias, text_color=color.white)
-    table.cell(debugTable, 2, 0, "Weekly", text_color=color.white)
-    table.cell(debugTable, 2, 1, weeklyBias, text_color=color.white)
-    table.cell(debugTable, 3, 0, "EMAs Weekly", text_color=color.white)
-    table.cell(debugTable, 3, 1, weeklyEMADesc, text_color=color.white)
-    table.cell(debugTable, 4, 0, "EMAs Monthly", text_color=color.white)
-    table.cell(debugTable, 4, 1, monthlyEMADesc, text_color=color.white)
+    table.cell(t, 0, 1, "Monthly:", text_color=color.white)
+    table.cell(t, 1, 1, monthlyBullish ? "Bullish" : "Bearish", text_color=color.white)
+
+    table.cell(t, 0, 2, "Weekly:", text_color=color.white)
+    table.cell(t, 1, 2, weeklyBullish ? "Bullish" : "Bearish", text_color=color.white)
+
+    table.cell(t, 0, 3, "EMAs Aligned (W):", text_color=color.white)
+    table.cell(t, 1, 3, weeklyEMAAligned ? "Yes" : "No", text_color=color.white)
+
+    table.cell(t, 0, 4, "EMAs Aligned (M):", text_color=color.white)
+    table.cell(t, 1, 4, monthlyEMAAligned ? "Yes" : "No", text_color=color.white)
