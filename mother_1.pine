@@ -1,4 +1,4 @@
-// === The Mother Strategy – Phase 2: Global Vars + Weekly+Monthly Setup with EMA Check ===
+// === The Mother Strategy – Phase 2: Global Vars + Weekly+Monthly Setup with A/B/C Logic ===
 //@version=5
 strategy("The Mother (Phase 2)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 
@@ -23,7 +23,7 @@ w_close2 = request.security(syminfo.tickerid, "W", close[2])
 
 isPrevWeeklyRed   = w_close2 < w_open2
 isPrevWeeklyGreen = w_close2 > w_open2
-weeklyPass = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
+weeklyStructurePass = (isPrevWeeklyRed and w_close1 > w_open2) or (isPrevWeeklyGreen and w_close1 >= w_open2)
 
 // === MONTHLY PRICE-ACTION CHECK ===
 m_open1  = request.security(syminfo.tickerid, "M", open[1])
@@ -33,7 +33,7 @@ m_close2 = request.security(syminfo.tickerid, "M", close[2])
 
 isPrevMonthlyRed   = m_close2 < m_open2
 isPrevMonthlyGreen = m_close2 > m_open2
-monthlyPass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
+monthlyStructurePass = (isPrevMonthlyRed and m_close1 > m_open2) or (isPrevMonthlyGreen and m_close1 >= m_open2)
 
 // === WEEKLY EMA STACK CHECK ===
 w_ema10  = request.security(syminfo.tickerid, "W", ta.ema(close, 10))
@@ -43,9 +43,21 @@ w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100))
 w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200))
 
 emaStacked    = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
-priceAbove200 = w_close1 > w_ema200
+priceAboveAllEMAs = w_close1 > w_ema10 and w_close1 > w_ema20 and w_close1 > w_ema50 and w_close1 > w_ema100 and w_close1 > w_ema200
 
-// === EMA PLOTTING ON CURRENT CHART TF (Visual Reference) ===
+// === WEEKLY & MONTHLY CLOSE ABOVE 20 EMA (for B rating)
+m_ema20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20))
+m_above20 = m_close1 > m_ema20
+w_above20 = w_close1 > w_ema20
+
+// === RATING CLASSIFICATION ===
+structureOK = weeklyStructurePass and monthlyStructurePass
+isAsetup = structureOK and emaStacked and priceAboveAllEMAs
+isBsetup = structureOK and not isAsetup and m_above20 and w_above20
+
+weeklyRating = isAsetup ? "A" : isBsetup ? "B" : "No Trade"
+
+// === PLOT EMAS ON CURRENT CHART TF ===
 ema10  = ta.ema(close, 10)
 ema20  = ta.ema(close, 20)
 ema50  = ta.ema(close, 50)
@@ -58,10 +70,6 @@ plot(ema50,  title="EMA 50",  color=color.gray)
 plot(ema100, title="EMA 100", color=color.purple)
 plot(ema200, title="EMA 200", color=color.orange)
 
-// === FINAL WEEKLY SETUP RATING ===
-isAsetup = weeklyPass and monthlyPass and emaStacked and priceAbove200
-weeklyRating = isAsetup ? "A" : "B"
-
 // === DEBUG TABLE ===
 var table debugTable = table.new(position.top_right, 1, 2, frame_color=color.gray, border_color=color.gray)
 if showDebugLabels
@@ -69,9 +77,6 @@ if showDebugLabels
     table.cell(debugTable, 0, 1, weeklyRating, text_color=color.white, bgcolor=color.navy)
 
 // === LOGIC NOTES ===
-// A-Rated Setup must pass ALL of the following:
-// - Weekly bar closes above previous red open (or doesn't break green open)
-// - Monthly bar closes above previous red open (or doesn't break green open)
-// - EMAs stacked cleanly (10 > 20 > 50 > 100 > 200)
-// - Weekly close is above the 200 EMA
-// All other cases are B-Rated
+// A-Rated: Weekly & Monthly structure confirmed + EMA stack clean + price above 200 EMA
+// B-Rated: Weekly & Monthly structure confirmed + price above 20 EMA on both timeframes
+// No Trade: Structure fails or price not above stacked EMAs
