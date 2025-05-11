@@ -3,18 +3,18 @@ strategy("The Mother (Nuclear Fix – Fully Locked Setup Rating)", overlay=true,
 
 // === GLOBAL INPUTS ===
 contractSize    = input.int(1, "Contract Size")
-tradeDirection  = input.string("Long", "Trade Direction", options=["Long"], options=["Long"])
+tradeDirection  = input.string("Long", "Trade Direction", options=["Long"])
 showDebugLabels = input.bool(true, "Show Debug Labels")
 
-// === LOCKED MONTHLY + WEEKLY DATA (NO FUNCTIONS, NO NESTING) ===
-// --- Monthly confirmed bars
+// === LOCKED MONTHLY + WEEKLY DATA ===
+// Monthly confirmed bars
 mo1  = request.security(syminfo.tickerid, "M", open[1], lookahead=barmerge.lookahead_on)
 mc1  = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_on)
 mo2  = request.security(syminfo.tickerid, "M", open[2], lookahead=barmerge.lookahead_on)
 mc2  = request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_on)
 m_ema20 = request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 
-// --- Weekly confirmed bars
+// Weekly confirmed bars
 wo1  = request.security(syminfo.tickerid, "W", open[1], lookahead=barmerge.lookahead_on)
 wc1  = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_on)
 wo2  = request.security(syminfo.tickerid, "W", open[2], lookahead=barmerge.lookahead_on)
@@ -25,14 +25,17 @@ w_ema50  = request.security(syminfo.tickerid, "W", ta.ema(close, 50),  lookahead
 w_ema100 = request.security(syminfo.tickerid, "W", ta.ema(close, 100), lookahead=barmerge.lookahead_on)
 w_ema200 = request.security(syminfo.tickerid, "W", ta.ema(close, 200), lookahead=barmerge.lookahead_on)
 
-// === RATING LOGIC (NO FUNCTIONS, ALL TOP LEVEL) ===
+// === STRUCTURE CHECK GUARD ===
+canEvalStructure = not na(wc1) and not na(wo2) and not na(mc1) and not na(mo2)
+
+// === RATING LOGIC ===
 isPrevWeeklyRed   = wc2 < wo2
 isPrevWeeklyGreen = wc2 > wo2
 isPrevMonthlyRed  = mc2 < mo2
 isPrevMonthlyGreen = mc2 > mo2
 
-weeklyStructurePass  = (isPrevWeeklyRed and wc1 > wo2) or (isPrevWeeklyGreen and wc1 >= wo2)
-monthlyStructurePass = (isPrevMonthlyRed and mc1 > mo2) or (isPrevMonthlyGreen and mc1 >= mo2)
+weeklyStructurePass  = canEvalStructure and ((isPrevWeeklyRed and wc1 > wo2) or (isPrevWeeklyGreen and wc1 >= wo2))
+monthlyStructurePass = canEvalStructure and ((isPrevMonthlyRed and mc1 > mo2) or (isPrevMonthlyGreen and mc1 >= mo2))
 structureOK = weeklyStructurePass and monthlyStructurePass
 
 emaStacked = w_ema10 > w_ema20 and w_ema20 > w_ema50 and w_ema50 > w_ema100 and w_ema100 > w_ema200
@@ -45,7 +48,7 @@ isB = structureOK and not isA and m_above20 and w_above20
 weeklyRatingLocked = isA ? "A" : isB ? "B" : "No Trade"
 
 // === DEBUG TABLE ===
-var table debugTable = table.new(position.top_right, 6, 2, frame_color=color.gray, border_color=color.gray)
+var table debugTable = table.new(position.top_right, 7, 2, frame_color=color.gray, border_color=color.gray)
 if showDebugLabels
     table.cell(debugTable, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.blue)
     table.cell(debugTable, 0, 1, weeklyRatingLocked, text_color=color.white, bgcolor=color.navy)
@@ -59,6 +62,8 @@ if showDebugLabels
     table.cell(debugTable, 4, 1, str.tostring(w_above20), text_color=color.white, bgcolor=color.blue)
     table.cell(debugTable, 5, 0, "m > 20", text_color=color.white, bgcolor=color.blue)
     table.cell(debugTable, 5, 1, str.tostring(m_above20), text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 6, 0, "canEvalStruct", text_color=color.white, bgcolor=color.gray)
+    table.cell(debugTable, 6, 1, str.tostring(canEvalStructure), text_color=color.white, bgcolor=canEvalStructure ? color.green : color.red)
 
 // === LIVE DIAGNOSTIC LABEL ===
 var label liveLabel = na
