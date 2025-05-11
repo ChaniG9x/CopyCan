@@ -13,6 +13,11 @@ if barstate.isfirst
 
 
 // === GLOBAL INPUTS ===
+// Populate debug table each runtime
+if showDebugLabels and inSession
+    table.cell(debugTable, 0, 1, weeklyRating, text_color=color.white, bgcolor=color.blue)
+    table.cell(debugTable, 1, 1, dailyBias,   text_color=color.white, bgcolor=color.blue)
+
 contractSize    = input.int(1, "Contract Size")
 tradeDirection  = input.string("Long", "Trade Direction", options=["Long"], tooltip="Only bullish logic supported in Phase 1")
 showDebugLabels = input.bool(true, "Show Debug Labels")
