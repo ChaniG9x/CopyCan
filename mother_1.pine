@@ -81,32 +81,39 @@ daily_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmer
 daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
 daily_ema10 = request.security(syminfo.tickerid, "D", ta.ema(close, 10)[1], lookahead=barmerge.lookahead_off)
 
-// Prior daily bar values
-prev_red_open = request.security(syminfo.tickerid, "D", open[2], lookahead=barmerge.lookahead_off)
-prev_red_close = request.security(syminfo.tickerid, "D", close[2], lookahead=barmerge.lookahead_off)
-was_prev_red = prev_red_close < prev_red_open
+// ——— Improved Dominant Bullish Bar Detection ———
 daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
 
-// Initialize persistent state for dominant bar
+// Find last red daily bar (within max 5-bar lookback)
+last_red_open = na
+last_red_found = false
+for i = 1 to 5
+    red_o = request.security(syminfo.tickerid, "D", open[i], lookahead=barmerge.lookahead_off)
+    red_c = request.security(syminfo.tickerid, "D", close[i], lookahead=barmerge.lookahead_off)
+    if not last_red_found and red_c < red_o
+        last_red_open := red_o
+        last_red_found := true
+
+// Initialize persistent dominant bar state
 var float dominant_open  = na
 var float dominant_close = na
 var float dominant_ema10 = na
 
-// Detect new dominant bar and update only when it overtakes previous
-is_new_dominant = daily_color == 1 and was_prev_red and daily_close > prev_red_open and (na(dominant_close) or daily_close > dominant_close)
+// Update logic: dominant bullish bar must close above last red open
+is_new_dominant = daily_color == 1 and not na(last_red_open) and daily_close > last_red_open and (na(dominant_close) or daily_close > dominant_close)
+
 if is_new_dominant
     dominant_open  := daily_open
     dominant_close := daily_close
     dominant_ema10 := daily_ema10
 
-// Optional: Debug label on the daily chart to confirm which bar is retained
+    // Debug label on daily chart
     if timeframe.period == "D"
         label.new(bar_index, high,
          "✓ Dominant Bullish\nOpen: " + str.tostring(daily_open, "#.##") +
          "\nClose: " + str.tostring(daily_close, "#.##") +
          "\nEMA10: " + str.tostring(daily_ema10, "#.##"),
          style=label.style_label_up, textcolor=color.white, size=size.small, color=color.green)
-
 
 // Debugging: Draw label on 1m showing retained values
 show_debug = input.bool(true, "Show Dominant Bar Debug (1m only)")
