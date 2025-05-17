@@ -75,6 +75,10 @@ daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmer
 daily_ema10 = request.security(syminfo.tickerid, "D", ta.ema(close, 10)[1], lookahead=barmerge.lookahead_off)
 daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
 
+var float last_bull_open = na
+if daily_color == 1
+    last_bull_open := daily_open
+
 // 5-day lookback to find most recent red candle
 red1_o = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
 red1_c = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
@@ -105,6 +109,13 @@ if is_new_dominant
     dominant_open  := daily_open
     dominant_close := daily_close
     dominant_ema10 := daily_ema10
+
+// Invalidate bullish context if daily flips bearish
+bearish_reset = daily_color == -1 and not na(last_bull_open) and daily_close < last_bull_open
+if bearish_reset
+    dominant_open := na
+    dominant_close := na
+    dominant_ema10 := na
 
     if timeframe.period == "D"
         label.new(bar_index, high,
