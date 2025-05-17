@@ -99,27 +99,19 @@ var float dominant_open  = na
 var float dominant_close = na
 var float dominant_ema10 = na
 
-is_new_dominant = daily_color == 1 and (
-    (not na(last_red_open) and daily_close > last_red_open)
-    or
-    (not na(dominant_close) and daily_close > dominant_close)
-)
-// Always retain last dominant values (done above)
+is_new_dominant = daily_color == 1 and ((not na(last_red_open) and daily_close > last_red_open)or(not na(dominant_close) and daily_close > dominant_close))
 
-// Label the current bar **if it's the bar that caused the update**
-if timeframe.period == "D"
-    label_text = "✓ Dominant Bullish\nOpen: " + str.tostring(dominant_open, "#.##") +
-                 "\nClose: " + str.tostring(dominant_close, "#.##") +
-                 "\nEMA10: " + str.tostring(dominant_ema10, "#.##")
+if is_new_dominant
+    dominant_open  := daily_open
+    dominant_close := daily_close
+    dominant_ema10 := daily_ema10
 
-    if is_new_dominant
-        label.new(bar_index, high, label_text,
-            style=label.style_label_up, textcolor=color.white, size=size.small, color=color.green)
-    else
-        // Persist reference as a faded label or other style
-        label.new(bar_index, high, label_text,
-            style=label.style_label_up, textcolor=color.white, size=size.tiny, color=color.new(color.green, 80))
-
+    if timeframe.period == "D"
+        label.new(bar_index, high,
+         "✓ Dominant Bullish\nOpen: " + str.tostring(daily_open, "#.##") +
+         "\nClose: " + str.tostring(daily_close, "#.##") +
+         "\nEMA10: " + str.tostring(daily_ema10, "#.##"),
+         style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
 
 // ——— Debug Label on 1m ———
 show_debug = input.bool(true, "Show Dominant Bar Debug (1m only)")
