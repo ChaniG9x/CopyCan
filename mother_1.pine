@@ -137,11 +137,14 @@ isMomentumSetup(string setup_label, float dominant_open, float ema20_d, float em
     dominant_open > ema20_d
 
 // ——— Entry Label Logic ———
+super_early_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
+early_ok = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
+
 if (timeframe.period == "1" or timeframe.period == "10S") and isMomentumSetup(overall_condition, dominant_open, ema20_d, ema10_d, ema50_d, ema100_d, ema200_d)
     entry_tag = (overall_condition == "Setup A" ? "A.M." : "B.M.")
-    if isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
+    if super_early_ok
         label.new(bar_index, high, entry_tag + "SE", style=label.style_label_up, color=color.yellow, textcolor=color.black, size=size.tiny)
-    else if isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
+    else if early_ok
         label.new(bar_index, high, entry_tag + "E", style=label.style_label_up, color=color.orange, textcolor=color.black, size=size.tiny)
 
 // ——— Final Table ———
