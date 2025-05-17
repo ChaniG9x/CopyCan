@@ -92,12 +92,14 @@ last_red_open =
 // State
 var float dominant_open  = na
 var float dominant_close = na
+var float dominant_saved_close = na  // NEW: store dominant close for filtering
 
 is_new_dominant = daily_color == 1 and ((not na(last_red_open) and daily_close > last_red_open)or (not na(dominant_close) and daily_close > dominant_close))
 
 if is_new_dominant
     dominant_open  := daily_open
     dominant_close := daily_close
+    dominant_saved_close := daily_close  // NEW: assign at same time
 
     if timeframe.period == "D"
         label.new(bar_index, high,
@@ -128,7 +130,7 @@ super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_em
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
 // ——— Momentum Label Logic ———
-is_momentum = close > dominant_close
+is_momentum = close > dominant_saved_close
 
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
     if super_early_entry_ok
