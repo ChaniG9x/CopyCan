@@ -109,18 +109,23 @@ if is_new_dominant
 
 // ——— Super Early Entry Pattern Function ———
 isSuperEarlyEntry(float ema10, float ema20, float ema50, float ema100, float ema200) =>
-    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and
-    close > open and close[1] < open[1] and
-    close > ema10 and
-    ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and
-    ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and
-    (math.abs(close - open) > math.abs(close[1] - open[1]))
+    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and(math.abs(close - open) > math.abs(close[1] - open[1]))
 
-// Debug labels on 1m or 10s for Super Early Entry pattern
-if (timeframe.period == "1" or timeframe.period == "10") and isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
-    label.new(bar_index, high,
-     "Super Early Entry",
-     style=label.style_label_up, color=color.yellow, textcolor=color.black, size=size.tiny)
+// ——— Early Entry Pattern Function ———
+isEarlyEntry(float ema50, float ema100, float ema200) =>
+    ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and
+    close > open and close[1] < open[1] and
+    ((low < ema50 or low < ema100 or low < ema200) or (low[1] < ema50 or low[1] < ema100 or low[1] < ema200)) and
+    ((high > ema50 or high > ema100 or high > ema200) or (high[1] > ema50 or high[1] > ema100 or high[1] > ema200)) and
+    math.abs(close - open) > math.abs(close[1] - open[1])
+
+// Debug labels for Super Early
+if (timeframe.period == "1" or timeframe.period == "10S") and isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
+    label.new(bar_index, high, "Super Early Entry", style=label.style_label_up, color=color.yellow, textcolor=color.black, size=size.tiny)
+
+// Debug labels for Early
+if (timeframe.period == "1" or timeframe.period == "10S") and isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
+    label.new(bar_index, high, "Early Entry", style=label.style_label_up, color=color.orange, textcolor=color.black, size=size.tiny)
 
 // ——— Final Table ———
 var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
