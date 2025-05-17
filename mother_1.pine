@@ -49,22 +49,18 @@ string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bu
 
 // ——— Draw Table with Overall Condition ———
 var table bias_tbl = table.new(position.top_right, 3, 4, border_width=1)
-// headers
 table.cell(bias_tbl, 0, 0, "Timeframe",      text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 0, "Status",         text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 2, 0, "EMA Order",      text_color=color.white, bgcolor=color.blue)
-// Monthly row
 table.cell(bias_tbl, 0, 1, "Monthly",        text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 1, monthly_status,   text_color=(monthly_status=="Bullish" ? color.green : color.red))
 table.cell(bias_tbl, 2, 1, monthly_ema_flag, text_color=(monthly_ema_flag=="Aligned" ? color.green : color.red))
-// Weekly row
 table.cell(bias_tbl, 0, 2, "Weekly",         text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 2, weekly_status,    text_color=(weekly_status=="Bullish" ? color.green : color.red))
 table.cell(bias_tbl, 2, 2, weekly_ema_flag,  text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
-// Overall Condition row
 table.cell(bias_tbl, 0, 3, "Condition",      text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
-table.cell(bias_tbl, 2, 3, "")  // empty cell
+table.cell(bias_tbl, 2, 3, "")
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
@@ -73,13 +69,13 @@ plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 
-// ——— Daily Dominant Bullish Bar Tracker (Enhanced) ———
+// ——— Daily Dominant Bullish Bar Tracker (Improved Logic) ———
 daily_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
 daily_ema10 = request.security(syminfo.tickerid, "D", ta.ema(close, 10)[1], lookahead=barmerge.lookahead_off)
 daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
 
-// Hardcoded 10-day lookback to find last red candle
+// 5-day lookback to find most recent red candle
 red1_o = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
 red1_c = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 red2_o = request.security(syminfo.tickerid, "D", open[2], lookahead=barmerge.lookahead_off)
@@ -90,43 +86,30 @@ red4_o = request.security(syminfo.tickerid, "D", open[4], lookahead=barmerge.loo
 red4_c = request.security(syminfo.tickerid, "D", close[4], lookahead=barmerge.lookahead_off)
 red5_o = request.security(syminfo.tickerid, "D", open[5], lookahead=barmerge.lookahead_off)
 red5_c = request.security(syminfo.tickerid, "D", close[5], lookahead=barmerge.lookahead_off)
-red6_o = request.security(syminfo.tickerid, "D", open[6], lookahead=barmerge.lookahead_off)
-red6_c = request.security(syminfo.tickerid, "D", close[6], lookahead=barmerge.lookahead_off)
-red7_o = request.security(syminfo.tickerid, "D", open[7], lookahead=barmerge.lookahead_off)
-red7_c = request.security(syminfo.tickerid, "D", close[7], lookahead=barmerge.lookahead_off)
-red8_o = request.security(syminfo.tickerid, "D", open[8], lookahead=barmerge.lookahead_off)
-red8_c = request.security(syminfo.tickerid, "D", close[8], lookahead=barmerge.lookahead_off)
-red9_o = request.security(syminfo.tickerid, "D", open[9], lookahead=barmerge.lookahead_off)
-red9_c = request.security(syminfo.tickerid, "D", close[9], lookahead=barmerge.lookahead_off)
-red10_o = request.security(syminfo.tickerid, "D", open[10], lookahead=barmerge.lookahead_off)
-red10_c = request.security(syminfo.tickerid, "D", close[10], lookahead=barmerge.lookahead_off)
 
-// Find the most recent red candle (first match wins)
 last_red_open =
      red1_c < red1_o ? red1_o :
      red2_c < red2_o ? red2_o :
      red3_c < red3_o ? red3_o :
      red4_c < red4_o ? red4_o :
-     red5_c < red5_o ? red5_o :
-     red6_c < red6_o ? red6_o :
-     red7_c < red7_o ? red7_o :
-     red8_c < red8_o ? red8_o :
-     red9_c < red9_o ? red9_o :
-     red10_c < red10_o ? red10_o : na
-
+     red5_c < red5_o ? red5_o : na
 
 // State
 var float dominant_open  = na
 var float dominant_close = na
 var float dominant_ema10 = na
 
-is_new_dominant = daily_color == 1 and not na(last_red_open) and daily_close > last_red_open and (na(dominant_close) or daily_close > dominant_close)
+is_new_dominant = daily_color == 1 and (
+    (not na(last_red_open) and daily_close > last_red_open)
+    or
+    (not na(dominant_close) and daily_close > dominant_close)
+)
+
 if is_new_dominant
     dominant_open  := daily_open
     dominant_close := daily_close
     dominant_ema10 := daily_ema10
 
-    // Daily label
     if timeframe.period == "D"
         label.new(bar_index, high,
          "✓ Dominant Bullish\nOpen: " + str.tostring(daily_open, "#.##") +
@@ -134,7 +117,7 @@ if is_new_dominant
          "\nEMA10: " + str.tostring(daily_ema10, "#.##"),
          style=label.style_label_up, textcolor=color.white, size=size.small, color=color.green)
 
-// Debugging: Draw label on 1m showing retained values
+// ——— Debug Label on 1m ———
 show_debug = input.bool(true, "Show Dominant Bar Debug (1m only)")
 if show_debug and timeframe.period == "1"
     label.new(bar_index, high,
