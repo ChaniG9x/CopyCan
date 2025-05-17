@@ -63,6 +63,11 @@ daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
 live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
 live_ema20_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 
+// Local EMAs for lower timeframe logic
+dtf_ema10 = ta.ema(close, 10)
+dtf_ema20 = ta.ema(close, 20)
+dtf_ema200 = ta.ema(close, 200)
+
 // 5-day lookback to find most recent red candle
 red1_o = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
 red1_c = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
@@ -86,10 +91,7 @@ last_red_open =
 var float dominant_open  = na
 var float dominant_close = na
 
-is_new_dominant = daily_color == 1 and (
-    (not na(last_red_open) and daily_close > last_red_open)
-    or (not na(dominant_close) and daily_close > dominant_close)
-)
+is_new_dominant = daily_color == 1 and ((not na(last_red_open) and daily_close > last_red_open)or (not na(dominant_close) and daily_close > dominant_close))
 
 if is_new_dominant
     dominant_open  := daily_open
@@ -102,6 +104,21 @@ if is_new_dominant
          "\nEMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
          "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
          style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
+
+// ——— Super Early Entry Pattern Function ———
+isSuperEarlyEntry(float ema10, float ema20, float ema200) =>
+    ema10 > ema20 and ema20 > ema200 and
+    close > open and close[1] < open[1] and
+    close > ema10 and
+    ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and
+    ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and
+    ((high - low) > (high[1] - low[1]))
+
+// Debug labels on 1m or 10s for Super Early Entry pattern
+if (timeframe.period == "1" or timeframe.period == "10") and isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema200)
+    label.new(bar_index, high,
+     "Super Early Entry",
+     style=label.style_label_up, color=color.yellow, textcolor=color.black, size=size.tiny)
 
 // ——— Final Table ———
 var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
@@ -122,11 +139,5 @@ table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO
 table.cell(bias_tbl, 2, 3, "")
 
 table.cell(bias_tbl, 0, 4, "Dominant",       text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 4,
-    "O: " + str.tostring(dominant_open, "#.##") +
-    " / C: " + str.tostring(dominant_close, "#.##"),
-    text_color=color.white)
-table.cell(bias_tbl, 2, 4,
-    "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
-    "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
-    text_color=color.white)
+table.cell(bias_tbl, 1, 4, "O: " + str.tostring(dominant_open, "#.##") +" / C: " + str.tostring(dominant_close, "#.##"),text_color=color.white)
+table.cell(bias_tbl, 2, 4,"EMA10: " + str.tostring(live_ema10_snapshot, "#.##") +"\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),text_color=color.white)
