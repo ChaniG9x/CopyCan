@@ -60,7 +60,7 @@ table.cell(bias_tbl, 1, 2, weekly_status,    text_color=(weekly_status=="Bullish
 table.cell(bias_tbl, 2, 2, weekly_ema_flag,  text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
 table.cell(bias_tbl, 0, 3, "Condition",      text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
-table.cell(bias_tbl, 2, 3, "")  // empty cell
+table.cell(bias_tbl, 2, 3, "")
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
@@ -69,7 +69,7 @@ plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 
-// ——— Daily Dominant Bullish Bar Tracker (Improved Logic) ———
+// ——— Daily Dominant Bullish Bar Tracker ———
 daily_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
 daily_ema10 = request.security(syminfo.tickerid, "D", ta.ema(close, 10)[1], lookahead=barmerge.lookahead_off)
@@ -94,10 +94,9 @@ last_red_open =
      red4_c < red4_o ? red4_o :
      red5_c < red5_o ? red5_o : na
 
-// ——— Dominant Bar State ———
+// State
 var float dominant_open  = na
 var float dominant_close = na
-var float dominant_ema10 = na
 
 is_new_dominant = daily_color == 1 and (
     (not na(last_red_open) and daily_close > last_red_open)
@@ -107,7 +106,6 @@ is_new_dominant = daily_color == 1 and (
 if is_new_dominant
     dominant_open  := daily_open
     dominant_close := daily_close
-    dominant_ema10 := daily_ema10
 
     if timeframe.period == "D"
         label.new(bar_index, high,
@@ -116,14 +114,12 @@ if is_new_dominant
          "\nEMA10: " + str.tostring(daily_ema10, "#.##"),
          style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
 
-// ——— Debug Label on 1m (Only While Daily is Bullish or Above Dominant Close) ———
+// ——— Debug Label on 1m ———
 show_debug = input.bool(true, "Show Dominant Bar Debug (1m only)")
-is_bull_trend = daily_color == 1 or (not na(dominant_close) and daily_close > dominant_close)
-
-if show_debug and timeframe.period == "1" and is_bull_trend
+if show_debug and timeframe.period == "1"
     label.new(bar_index, high,
      "Dominant Bullish Bar\n" +
      "Open: " + str.tostring(dominant_open, "#.##") + "\n" +
      "Close: " + str.tostring(dominant_close, "#.##") + "\n" +
-     "EMA10: " + str.tostring(dominant_ema10, "#.##"),
+     "EMA10: " + str.tostring(daily_ema10, "#.##"),
      style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
