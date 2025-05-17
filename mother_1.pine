@@ -60,7 +60,7 @@ table.cell(bias_tbl, 1, 2, weekly_status,    text_color=(weekly_status=="Bullish
 table.cell(bias_tbl, 2, 2, weekly_ema_flag,  text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
 table.cell(bias_tbl, 0, 3, "Condition",      text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
-table.cell(bias_tbl, 2, 3, "")  // empty cell
+table.cell(bias_tbl, 2, 3, "")
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
@@ -74,7 +74,7 @@ daily_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmer
 daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
 daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
 
-// Live forming-bar EMA10 (updates once per 1m bar)
+// Live forming-bar EMA10 and EMA20 (updated every 1m bar)
 live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
 live_ema20_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 
@@ -115,7 +115,7 @@ if is_new_dominant
          "✓ Dominant Bullish\nOpen: " + str.tostring(daily_open, "#.##") +
          "\nClose: " + str.tostring(daily_close, "#.##") +
          "\nEMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
-         "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##")
+         "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
          style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
 
 // ——— Debug Label on 1m ———
@@ -125,7 +125,6 @@ if show_debug and timeframe.period == "1"
      "Dominant Bullish Bar\n" +
      "Open: " + str.tostring(dominant_open, "#.##") + "\n" +
      "Close: " + str.tostring(dominant_close, "#.##") + "\n" +
-     "\nEMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
-     "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##")
-
+     "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") + "\n" +
+     "EMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
      style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
