@@ -99,6 +99,15 @@ if is_new_dominant
     dominant_close := daily_close
     dominant_ema10 := daily_ema10
 
+// Optional: Debug label on the daily chart to confirm which bar is retained
+    if timeframe.period == "D"
+        label.new(bar_index, high,
+         "✓ Dominant Bullish\nOpen: " + str.tostring(daily_open, "#.##") +
+         "\nClose: " + str.tostring(daily_close, "#.##") +
+         "\nEMA10: " + str.tostring(daily_ema10, "#.##"),
+         style=label.style_label_up, textcolor=color.white, size=size.small, color=color.green)
+
+
 // Debugging: Draw label on 1m showing retained values
 show_debug = input.bool(true, "Show Dominant Bar Debug (1m only)")
 if show_debug and timeframe.period == "1"
