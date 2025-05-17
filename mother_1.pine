@@ -1,63 +1,110 @@
 //@version=5
-indicator("Early Adopter Setup Rater [Bullish Only]", overlay=true)
+indicator("Monthly & Weekly Bias + EMA Order + Overall Condition", overlay=true)
 
-// === INPUTS ===
-showDebug = input.bool(false, "Show Debug Labels")
+// ——— Helper to track last opposite‐color open ———
+f_prev_opposite_open(_res) =>
+    var float prev_green_open = na
+    var float prev_red_open   = na
+    // look back one bar inside each resolution so we only ever use closed bars
+    _c = request.security(syminfo.tickerid, _res, close[1], lookahead=barmerge.lookahead_off)
+    _o = request.security(syminfo.tickerid, _res, open[1],  lookahead=barmerge.lookahead_off)
+    if _c > _o
+        prev_green_open := _o
+    else if _c < _o
+        prev_red_open   := _o
+    [ prev_green_open, prev_red_open ]
 
-// === FUNCTIONS ===
-// Price Action Phase Detection (Bullish Only)
-phaseBullish(close_, openPrevRed, isPrevGreen, openPrevGreen) =>
-    (not isPrevGreen and close_ > openPrevRed) or (isPrevGreen and close_ >= openPrevGreen)
+// ——— Monthly Status (only closed M bar) ———
+[ m_prev_green_open, m_prev_red_open ] = f_prev_opposite_open("M")
+m_open_closed  = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_off)
+m_close_closed = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_off)
+var string monthly_status = "Bearish"
+if m_close_closed > m_open_closed and m_close_closed > m_prev_red_open
+    monthly_status := "Bullish"
+else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
+    monthly_status := "Bearish"
 
-// EMA Alignment (Bullish)
-emaAlignedBullish(src) =>
-    e10 = ta.ema(src, 10)
-    e20 = ta.ema(src, 20)
-    e50 = ta.ema(src, 50)
-    e100 = ta.ema(src, 100)
-    e200 = ta.ema(src, 200)
-    stacked = (e10 > e20 and e20 > e50 and e50 > e100 and e100 > e200)
-    priceAbove = src > e10 and src > e20 and src > e50 and src > e100 and src > e200
-    stacked and priceAbove
+// ——— Weekly Status (only closed W bar) ———
+[ w_prev_green_open, w_prev_red_open ] = f_prev_opposite_open("W")
+w_open_closed  = request.security(syminfo.tickerid, "W", open[1],  lookahead=barmerge.lookahead_off)
+w_close_closed = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_off)
+var string weekly_status = "Bearish"
+if w_close_closed > w_open_closed and w_close_closed > w_prev_red_open
+    weekly_status := "Bullish"
+else if w_close_closed < w_open_closed and w_close_closed < w_prev_green_open
+    weekly_status := "Bearish"
 
-// === CONTEXT CHECK ===
-isWeekly = timeframe.isweekly
+// ——— Monthly & Weekly EMAs & Order Flags ———
+[ ema10_m, ema20_m, ema50_m, ema100_m ] = request.security(syminfo.tickerid, "M", 
+     [ ta.ema(close,10), ta.ema(close,20), ta.ema(close,50), ta.ema(close,100) ], 
+     lookahead=barmerge.lookahead_off)
+monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m) ? "Aligned" : "Not Aligned"
 
-// === HTF DATA ===
-monthlyClose = request.security(syminfo.tickerid, "M", close[1])
-monthlyOpenPrevRed = request.security(syminfo.tickerid, "M", open[2])
-monthlyWasGreen = request.security(syminfo.tickerid, "M", close[2] > open[2])
-monthlyOpenPrevGreen = request.security(syminfo.tickerid, "M", open[2])
-monthlyBullish = phaseBullish(monthlyClose, monthlyOpenPrevRed, monthlyWasGreen, monthlyOpenPrevGreen)
+[ ema10_w, ema20_w, ema50_w, ema100_w ] = request.security(syminfo.tickerid, "W",
+     [ ta.ema(close,10), ta.ema(close,20), ta.ema(close,50), ta.ema(close,100) ],
+     lookahead=barmerge.lookahead_off)
+weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w) ? "Aligned" : "Not Aligned"
 
-weeklyClose = close[1]
-weeklyOpenPrevRed = open[2]
-weeklyWasGreen = close[2] > open[2]
-weeklyOpenPrevGreen = open[2]
-weeklyBullish = phaseBullish(weeklyClose, weeklyOpenPrevRed, weeklyWasGreen, weeklyOpenPrevGreen)
+// ——— Overall Condition Logic ———
+string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bullish") ? (monthly_ema_flag == "Aligned" and weekly_ema_flag == "Aligned"? "Setup A"  : "Setup B") : "NO TRADE"
 
-// EMA Alignment (HTFs)
-monthlyEMAAligned = request.security(syminfo.tickerid, "M", emaAlignedBullish(close))
-weeklyEMAAligned = emaAlignedBullish(close)
+// ——— Draw Table with Overall Condition ———
+var table bias_tbl = table.new(position.top_right, 3, 4, border_width=1)
+// headers
+table.cell(bias_tbl, 0, 0, "Timeframe",      text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 0, "Status",         text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 2, 0, "EMA Order",      text_color=color.white, bgcolor=color.blue)
+// Monthly row
+table.cell(bias_tbl, 0, 1, "Monthly",        text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 1, monthly_status,   text_color=(monthly_status=="Bullish" ? color.green : color.red))
+table.cell(bias_tbl, 2, 1, monthly_ema_flag, text_color=(monthly_ema_flag=="Aligned" ? color.green : color.red))
+// Weekly row
+table.cell(bias_tbl, 0, 2, "Weekly",         text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 2, weekly_status,    text_color=(weekly_status=="Bullish" ? color.green : color.red))
+table.cell(bias_tbl, 2, 2, weekly_ema_flag,  text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
+// Overall Condition row
+table.cell(bias_tbl, 0, 3, "Condition",      text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
+table.cell(bias_tbl, 2, 3, "")  // empty cell
 
-// === SETUP RATING ===
-setupType = (monthlyBullish and weeklyBullish) ?
-     (monthlyEMAAligned and weeklyEMAAligned ? "A" : "B") : "-"
+// ——— Plot Daily EMAs (reference) ———
+plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
+plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
+plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
+plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
+plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 
-// === TABLE OUTPUT (ONLY WEEKLY CHART) ===
-var table t = table.new(position.top_left, 2, 5, frame_width=1)
-if bar_index % 5 == 0 and isWeekly
-    table.cell(t, 0, 0, "Setup Type:", text_color=color.white, bgcolor=color.navy)
-    table.cell(t, 1, 0, setupType, text_color=color.white, bgcolor=(setupType == "A" ? color.green : setupType == "B" ? color.orange : color.gray))
+// ——— Daily Dominant Bullish Bar Tracker ———
 
-    table.cell(t, 0, 1, "Monthly:", text_color=color.white)
-    table.cell(t, 1, 1, monthlyBullish ? "Bullish" : "Bearish", text_color=color.white)
+// Get daily bar values
+daily_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
+daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
+daily_ema10 = request.security(syminfo.tickerid, "D", ta.ema(close, 10)[1], lookahead=barmerge.lookahead_off)
 
-    table.cell(t, 0, 2, "Weekly:", text_color=color.white)
-    table.cell(t, 1, 2, weeklyBullish ? "Bullish" : "Bearish", text_color=color.white)
+// Prior daily bar values
+prev_red_open = request.security(syminfo.tickerid, "D", open[2], lookahead=barmerge.lookahead_off)
+prev_red_close = request.security(syminfo.tickerid, "D", close[2], lookahead=barmerge.lookahead_off)
+was_prev_red = prev_red_close < prev_red_open
+daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
 
-    table.cell(t, 0, 3, "EMAs Aligned (W):", text_color=color.white)
-    table.cell(t, 1, 3, weeklyEMAAligned ? "Yes" : "No", text_color=color.white)
+// Initialize persistent state for dominant bar
+var float dominant_open  = na
+var float dominant_close = na
+var float dominant_ema10 = na
 
-    table.cell(t, 0, 4, "EMAs Aligned (M):", text_color=color.white)
-    table.cell(t, 1, 4, monthlyEMAAligned ? "Yes" : "No", text_color=color.white)
+// Detect new dominant bar and update only when it overtakes previous
+is_new_dominant = daily_color == 1 and was_prev_red and daily_close > prev_red_open and (na(dominant_close) or daily_close > dominant_close)
+if is_new_dominant
+    dominant_open  := daily_open
+    dominant_close := daily_close
+    dominant_ema10 := daily_ema10
+
+// Debugging: Draw label on 1m showing retained values
+show_debug = input.bool(true, "Show Dominant Bar Debug (1m only)")
+if show_debug and timeframe.period == "1"
+    label.new(bar_index, high,
+     "Dominant Bullish Bar\n" +
+     "Open: " + str.tostring(dominant_open, "#.##") + "\n" +
+     "Close: " + str.tostring(dominant_close, "#.##") + "\n" +
+     "EMA10: " + str.tostring(dominant_ema10, "#.##"),
+     style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
