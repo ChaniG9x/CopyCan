@@ -79,7 +79,7 @@ daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmer
 daily_ema10 = request.security(syminfo.tickerid, "D", ta.ema(close, 10)[1], lookahead=barmerge.lookahead_off)
 daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
 
-// Hardcoded 5-day lookback to find last red candle
+// Hardcoded 10-day lookback to find last red candle
 red1_o = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
 red1_c = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 red2_o = request.security(syminfo.tickerid, "D", open[2], lookahead=barmerge.lookahead_off)
@@ -90,13 +90,30 @@ red4_o = request.security(syminfo.tickerid, "D", open[4], lookahead=barmerge.loo
 red4_c = request.security(syminfo.tickerid, "D", close[4], lookahead=barmerge.lookahead_off)
 red5_o = request.security(syminfo.tickerid, "D", open[5], lookahead=barmerge.lookahead_off)
 red5_c = request.security(syminfo.tickerid, "D", close[5], lookahead=barmerge.lookahead_off)
+red6_o = request.security(syminfo.tickerid, "D", open[6], lookahead=barmerge.lookahead_off)
+red6_c = request.security(syminfo.tickerid, "D", close[6], lookahead=barmerge.lookahead_off)
+red7_o = request.security(syminfo.tickerid, "D", open[7], lookahead=barmerge.lookahead_off)
+red7_c = request.security(syminfo.tickerid, "D", close[7], lookahead=barmerge.lookahead_off)
+red8_o = request.security(syminfo.tickerid, "D", open[8], lookahead=barmerge.lookahead_off)
+red8_c = request.security(syminfo.tickerid, "D", close[8], lookahead=barmerge.lookahead_off)
+red9_o = request.security(syminfo.tickerid, "D", open[9], lookahead=barmerge.lookahead_off)
+red9_c = request.security(syminfo.tickerid, "D", close[9], lookahead=barmerge.lookahead_off)
+red10_o = request.security(syminfo.tickerid, "D", open[10], lookahead=barmerge.lookahead_off)
+red10_c = request.security(syminfo.tickerid, "D", close[10], lookahead=barmerge.lookahead_off)
 
+// Find the most recent red candle (first match wins)
 last_red_open =
      red1_c < red1_o ? red1_o :
      red2_c < red2_o ? red2_o :
      red3_c < red3_o ? red3_o :
      red4_c < red4_o ? red4_o :
-     red5_c < red5_o ? red5_o : na
+     red5_c < red5_o ? red5_o :
+     red6_c < red6_o ? red6_o :
+     red7_c < red7_o ? red7_o :
+     red8_c < red8_o ? red8_o :
+     red9_c < red9_o ? red9_o :
+     red10_c < red10_o ? red10_o : na
+
 
 // State
 var float dominant_open  = na
