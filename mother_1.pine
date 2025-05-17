@@ -104,18 +104,22 @@ is_new_dominant = daily_color == 1 and (
     or
     (not na(dominant_close) and daily_close > dominant_close)
 )
+// Always retain last dominant values (done above)
 
-if is_new_dominant
-    dominant_open  := daily_open
-    dominant_close := daily_close
-    dominant_ema10 := daily_ema10
+// Label the current bar **if it's the bar that caused the update**
+if timeframe.period == "D"
+    label_text = "✓ Dominant Bullish\nOpen: " + str.tostring(dominant_open, "#.##") +
+                 "\nClose: " + str.tostring(dominant_close, "#.##") +
+                 "\nEMA10: " + str.tostring(dominant_ema10, "#.##")
 
-    if timeframe.period == "D"
-        label.new(bar_index, high,
-         "✓ Dominant Bullish\nOpen: " + str.tostring(daily_open, "#.##") +
-         "\nClose: " + str.tostring(daily_close, "#.##") +
-         "\nEMA10: " + str.tostring(daily_ema10, "#.##"),
-         style=label.style_label_up, textcolor=color.white, size=size.small, color=color.green)
+    if is_new_dominant
+        label.new(bar_index, high, label_text,
+            style=label.style_label_up, textcolor=color.white, size=size.small, color=color.green)
+    else
+        // Persist reference as a faded label or other style
+        label.new(bar_index, high, label_text,
+            style=label.style_label_up, textcolor=color.white, size=size.tiny, color=color.new(color.green, 80))
+
 
 // ——— Debug Label on 1m ———
 show_debug = input.bool(true, "Show Dominant Bar Debug (1m only)")
