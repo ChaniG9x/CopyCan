@@ -70,13 +70,6 @@ dtf_ema50 = ta.ema(close, 50)
 dtf_ema100 = ta.ema(close, 100)
 dtf_ema200 = ta.ema(close, 200)
 
-// Daily EMAs for HTF momentum check
-ema10_d = request.security(syminfo.tickerid, "D", ta.ema(close,10), lookahead=barmerge.lookahead_off)
-ema20_d = request.security(syminfo.tickerid, "D", ta.ema(close,20), lookahead=barmerge.lookahead_off)
-ema50_d = request.security(syminfo.tickerid, "D", ta.ema(close,50), lookahead=barmerge.lookahead_off)
-ema100_d = request.security(syminfo.tickerid, "D", ta.ema(close,100), lookahead=barmerge.lookahead_off)
-ema200_d = request.security(syminfo.tickerid, "D", ta.ema(close,200), lookahead=barmerge.lookahead_off)
-
 // 5-day lookback to find most recent red candle
 red1_o = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
 red1_c = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
@@ -130,22 +123,26 @@ isEarlyEntry(float ema50, float ema100, float ema200) =>
     close > ema200 and
     math.abs(close - open) > math.abs(close[1] - open[1])
 
-// ——— Momentum Setup Filter ———
-isMomentumSetup(string setup_label, float dominant_open, float ema20_d, float ema10_d, float ema50_d, float ema100_d, float ema200_d) =>
-    (setup_label == "Setup A" or setup_label == "Setup B") and
-    ema10_d > ema20_d and ema20_d > ema50_d and ema50_d > ema100_d and ema100_d > ema200_d and
-    dominant_open > ema20_d
+// ——— Entry Flags (Evaluated Once Per Bar) ———
+super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
+early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
-// ——— Entry Label Logic ———
-super_early_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
-early_ok = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
+// ——— Momentum Label Logic ———
+is_momentum = close > dominant_close
 
-if (timeframe.period == "1" or timeframe.period == "10S") and isMomentumSetup(overall_condition, dominant_open, ema20_d, ema10_d, ema50_d, ema100_d, ema200_d)
-    entry_tag = (overall_condition == "Setup A" ? "A.M." : "B.M.")
-    if super_early_ok
-        label.new(bar_index, high, entry_tag + "SE", style=label.style_label_up, color=color.yellow, textcolor=color.black, size=size.tiny)
-    else if early_ok
-        label.new(bar_index, high, entry_tag + "E", style=label.style_label_up, color=color.orange, textcolor=color.black, size=size.tiny)
+if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
+    if super_early_entry_ok
+        label.new(bar_index, high, "M.SE", style=label.style_label_up, color=color.green, textcolor=color.black, size=size.tiny)
+    else if early_entry_ok
+        label.new(bar_index, high, "M.E", style=label.style_label_up, color=color.green, textcolor=color.black, size=size.tiny)
+
+// Debug labels for Super Early
+if (timeframe.period == "1" or timeframe.period == "10S") and isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
+    label.new(bar_index, high, "Super Early Entry", style=label.style_label_up, color=color.yellow, textcolor=color.black, size=size.tiny)
+
+// Debug labels for Early
+if (timeframe.period == "1" or timeframe.period == "10S") and isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
+    label.new(bar_index, high, "Early Entry", style=label.style_label_up, color=color.orange, textcolor=color.black, size=size.tiny)
 
 // ——— Final Table ———
 var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
