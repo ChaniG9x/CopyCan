@@ -47,21 +47,6 @@ weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_
 // ——— Overall Condition Logic ———
 string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bullish") ? (monthly_ema_flag == "Aligned" and weekly_ema_flag == "Aligned"? "Setup A"  : "Setup B") : "NO TRADE"
 
-// ——— Draw Table with Overall Condition ———
-var table bias_tbl = table.new(position.top_right, 3, 4, border_width=1)
-table.cell(bias_tbl, 0, 0, "Timeframe",      text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 0, "Status",         text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 2, 0, "EMA Order",      text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 0, 1, "Monthly",        text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 1, monthly_status,   text_color=(monthly_status=="Bullish" ? color.green : color.red))
-table.cell(bias_tbl, 2, 1, monthly_ema_flag, text_color=(monthly_ema_flag=="Aligned" ? color.green : color.red))
-table.cell(bias_tbl, 0, 2, "Weekly",         text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 2, weekly_status,    text_color=(weekly_status=="Bullish" ? color.green : color.red))
-table.cell(bias_tbl, 2, 2, weekly_ema_flag,  text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
-table.cell(bias_tbl, 0, 3, "Condition",      text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
-table.cell(bias_tbl, 2, 3, "")
-
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
 plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
@@ -128,3 +113,31 @@ if show_debug and timeframe.period == "1"
      "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") + "\n" +
      "EMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
      style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
+
+// ——— Final Table ———
+var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
+table.cell(bias_tbl, 0, 0, "Timeframe",      text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 0, "Status",         text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 2, 0, "EMA Order",      text_color=color.white, bgcolor=color.blue)
+
+table.cell(bias_tbl, 0, 1, "Monthly",        text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 1, monthly_status,   text_color=(monthly_status=="Bullish" ? color.green : color.red))
+table.cell(bias_tbl, 2, 1, monthly_ema_flag, text_color=(monthly_ema_flag=="Aligned" ? color.green : color.red))
+
+table.cell(bias_tbl, 0, 2, "Weekly",         text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 2, weekly_status,    text_color=(weekly_status=="Bullish" ? color.green : color.red))
+table.cell(bias_tbl, 2, 2, weekly_ema_flag,  text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
+
+table.cell(bias_tbl, 0, 3, "Condition",      text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
+table.cell(bias_tbl, 2, 3, "")
+
+table.cell(bias_tbl, 0, 4, "Dominant",       text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 4,
+    "O: " + str.tostring(dominant_open, "#.##") +
+    " / C: " + str.tostring(dominant_close, "#.##"),
+    text_color=color.white)
+table.cell(bias_tbl, 2, 4,
+    "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
+    "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
+    text_color=color.white)
