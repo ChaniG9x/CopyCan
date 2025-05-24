@@ -88,6 +88,10 @@ last_red_open =
      red5_c < red5_o ? red5_o : na
 
 // ——— Delayed Dominant State Using Previous Day Detection ———
+
+var float temp_open  = na
+var float temp_close = na
+
 prev_open  = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
 prev_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 prev_color = prev_close > prev_open ? 1 : prev_close < prev_open ? -1 : 0
