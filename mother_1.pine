@@ -54,7 +54,7 @@ plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 
-// ——— Daily Dominant Bullish Bar Tracker ———
+// ——— Daily Color ———
 daily_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
 daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
@@ -80,18 +80,6 @@ red4_c = request.security(syminfo.tickerid, "D", close[4], lookahead=barmerge.lo
 red5_o = request.security(syminfo.tickerid, "D", open[5], lookahead=barmerge.lookahead_off)
 red5_c = request.security(syminfo.tickerid, "D", close[5], lookahead=barmerge.lookahead_off)
 
-last_red_open =
-     red1_c < red1_o ? red1_o :
-     red2_c < red2_o ? red2_o :
-     red3_c < red3_o ? red3_o :
-     red4_c < red4_o ? red4_o :
-     red5_c < red5_o ? red5_o : na
-
-// ——— Delayed Dominant State Using Previous Day Detection ———
-
-var float temp_open  = na
-var float temp_close = na
-
 prev_open  = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
 prev_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 prev_color = prev_close > prev_open ? 1 : prev_close < prev_open ? -1 : 0
@@ -102,18 +90,21 @@ prev_last_red_open =
      red4_c < red4_o ? red4_o :
      red5_c < red5_o ? red5_o : na
 
-was_prev_dominant = prev_color == 1 and ((not na(prev_last_red_open) and prev_close > prev_last_red_open) or (not na(temp_close) and prev_close > temp_close))
+var float dominant_open  = na
+var float dominant_close = na
+var float dominant_saved_close = na
+
+was_prev_dominant = prev_color == 1 and ((not na(prev_last_red_open) and prev_close > prev_last_red_open) or (not na(dominant_close) and prev_close > dominant_close))
 
 if was_prev_dominant
-    dominant_open  := prev_open
+    dominant_open := prev_open
     dominant_close := prev_close
     dominant_saved_close := prev_close
 
-// ——— Label for Detected Dominant ———
-if is_new_dominant and timeframe.period == "D"
+if was_prev_dominant and timeframe.period == "D"
     label.new(bar_index, high,
-     "✓ Dominant Bullish\nOpen: " + str.tostring(daily_open, "#.##") +
-     "\nClose: " + str.tostring(daily_close, "#.##") +
+     "✓ Dominant Bullish\nOpen: " + str.tostring(prev_open, "#.##") +
+     "\nClose: " + str.tostring(prev_close, "#.##") +
      "\nEMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
      "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
      style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
