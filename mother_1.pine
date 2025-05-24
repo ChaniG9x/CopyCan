@@ -54,57 +54,55 @@ plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 
-// ——— Daily Color ———
-daily_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
-daily_open  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
-daily_color = daily_close > daily_open ? 1 : daily_close < daily_open ? -1 : 0
-
+// ——— Daily EMA Snapshots ———
 live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
 live_ema20_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 
+// ——— Intraday EMAs ———
 dtf_ema10 = ta.ema(close, 10)
 dtf_ema20 = ta.ema(close, 20)
 dtf_ema50 = ta.ema(close, 50)
 dtf_ema100 = ta.ema(close, 100)
 dtf_ema200 = ta.ema(close, 200)
 
-// ——— Recent Red Candles ———
-red1_o = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
-red1_c = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
-red2_o = request.security(syminfo.tickerid, "D", open[2], lookahead=barmerge.lookahead_off)
-red2_c = request.security(syminfo.tickerid, "D", close[2], lookahead=barmerge.lookahead_off)
-red3_o = request.security(syminfo.tickerid, "D", open[3], lookahead=barmerge.lookahead_off)
-red3_c = request.security(syminfo.tickerid, "D", close[3], lookahead=barmerge.lookahead_off)
-red4_o = request.security(syminfo.tickerid, "D", open[4], lookahead=barmerge.lookahead_off)
-red4_c = request.security(syminfo.tickerid, "D", close[4], lookahead=barmerge.lookahead_off)
-red5_o = request.security(syminfo.tickerid, "D", open[5], lookahead=barmerge.lookahead_off)
-red5_c = request.security(syminfo.tickerid, "D", close[5], lookahead=barmerge.lookahead_off)
+// ——— Dominant Daily Bar Logic ———
+f_get_dominant() =>
+    var float dom_open  = na
+    var float dom_close = na
+    var float dom_saved_close = na
+    red1_o = open[1], red1_c = close[1]
+    red2_o = open[2], red2_c = close[2]
+    red3_o = open[3], red3_c = close[3]
+    red4_o = open[4], red4_c = close[4]
+    red5_o = open[5], red5_c = close[5]
+    last_red_open =
+         red1_c < red1_o ? red1_o :
+         red2_c < red2_o ? red2_o :
+         red3_c < red3_o ? red3_o :
+         red4_c < red4_o ? red4_o :
+         red5_c < red5_o ? red5_o : na
+    is_green = close > open
+    is_new_dominant = is_green and close > last_red_open
+    if is_new_dominant
+        dom_open := open
+        dom_close := close
+        dom_saved_close := close
+    [dom_open, dom_close, dom_saved_close]
 
-prev_open  = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
-prev_close = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
-prev_color = prev_close > prev_open ? 1 : prev_close < prev_open ? -1 : 0
+[dom_open_d, dom_close_d, dom_saved_close_d] = request.security(syminfo.tickerid, "D", f_get_dominant(), lookahead=barmerge.lookahead_off)
 
-prev_last_red_open =
-     red2_c < red2_o ? red2_o :
-     red3_c < red3_o ? red3_o :
-     red4_c < red4_o ? red4_o :
-     red5_c < red5_o ? red5_o : na
-
-var float dominant_open  = na
+var float dominant_open = na
 var float dominant_close = na
 var float dominant_saved_close = na
 
-was_prev_dominant = prev_color == 1 and ((not na(prev_last_red_open) and prev_close > prev_last_red_open) or (not na(dominant_close) and prev_close > dominant_close))
+dominant_open := nz(dom_open_d, dominant_open[1])
+dominant_close := nz(dom_close_d, dominant_close[1])
+dominant_saved_close := nz(dom_saved_close_d, dominant_saved_close[1])
 
-if was_prev_dominant
-    dominant_open := prev_open
-    dominant_close := prev_close
-    dominant_saved_close := prev_close
-
-if was_prev_dominant and timeframe.period == "D"
+if not na(dom_open_d) and timeframe.period == "D"
     label.new(bar_index, high,
-     "✓ Dominant Bullish\nOpen: " + str.tostring(prev_open, "#.##") +
-     "\nClose: " + str.tostring(prev_close, "#.##") +
+     "✓ Dominant Bullish\nOpen: " + str.tostring(dom_open_d, "#.##") +
+     "\nClose: " + str.tostring(dom_close_d, "#.##") +
      "\nEMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
      "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
      style=label.style_label_down, textcolor=color.white, size=size.small, color=color.green)
@@ -158,5 +156,5 @@ table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO
 table.cell(bias_tbl, 2, 3, "")
 
 table.cell(bias_tbl, 0, 4, "Dominant",       text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 4, "O: " + str.tostring(dominant_open, "#.##") +" / C: " + str.tostring(dominant_close, "#.##"),text_color=color.white)
-table.cell(bias_tbl, 2, 4,"EMA10: " + str.tostring(live_ema10_snapshot, "#.##") +"\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),text_color=color.white)
+table.cell(bias_tbl, 1, 4, "O: " + str.tostring(dominant_open, "#.##") +" / C: " + str.tostring(dominant_close, "#.##"), text_color=color.white)
+table.cell(bias_tbl, 2, 4, "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") + "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"), text_color=color.white)
