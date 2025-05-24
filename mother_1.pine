@@ -70,23 +70,37 @@ f_get_dominant() =>
     var float dom_open  = na
     var float dom_close = na
     var float dom_saved_close = na
+
     red1_o = open[1], red1_c = close[1]
     red2_o = open[2], red2_c = close[2]
     red3_o = open[3], red3_c = close[3]
     red4_o = open[4], red4_c = close[4]
     red5_o = open[5], red5_c = close[5]
+
+    green1_o = open[1], green1_c = close[1]
+    green2_o = open[2], green2_c = close[2]
+    green3_o = open[3], green3_c = close[3]
+
     last_red_open =
          red1_c < red1_o ? red1_o :
          red2_c < red2_o ? red2_o :
          red3_c < red3_o ? red3_o :
          red4_c < red4_o ? red4_o :
          red5_c < red5_o ? red5_o : na
+
+    last_green_close =
+         green1_c > green1_o ? green1_c :
+         green2_c > green2_o ? green2_c :
+         green3_c > green3_o ? green3_c : na
+
     is_green = close > open
-    is_new_dominant = is_green and close > last_red_open
+    is_new_dominant = is_green and (close > last_red_open or close > last_green_close)
+
     if is_new_dominant
         dom_open := open
         dom_close := close
         dom_saved_close := close
+
     [dom_open, dom_close, dom_saved_close]
 
 [dom_open_d, dom_close_d, dom_saved_close_d] = request.security(syminfo.tickerid, "D", f_get_dominant(), lookahead=barmerge.lookahead_off)
