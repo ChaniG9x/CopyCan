@@ -17,7 +17,7 @@ f_prev_opposite_open(_res) =>
 [m_prev_green_open, m_prev_red_open] = f_prev_opposite_open("M")
 m_open_closed  = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_off)
 m_close_closed = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_off)
-string monthly_status = "Bearish"    // ← no var, so recalc every bar
+var string monthly_status = "Bearish"
 if m_close_closed > m_open_closed and m_close_closed > m_prev_red_open
     monthly_status := "Bullish"
 else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
@@ -27,7 +27,7 @@ else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
 [w_prev_green_open, w_prev_red_open] = f_prev_opposite_open("W")
 w_open_closed  = request.security(syminfo.tickerid, "W", open[1],  lookahead=barmerge.lookahead_off)
 w_close_closed = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_off)
-string weekly_status = "Bearish"
+var string weekly_status = "Bearish"
 if w_close_closed > w_open_closed and w_close_closed > w_prev_red_open
     weekly_status := "Bullish"
 else if w_close_closed < w_open_closed and w_close_closed < w_prev_green_open
@@ -56,6 +56,7 @@ if barstate.islast and timeframe.isintraday
     label.new(bar_index, high,
       text = "overall: " + overall_condition + "\nA? " + str.tostring(is_setup_a) + " B? " + str.tostring(is_setup_b),
       style=label.style_label_down, color=color.blue, textcolor=color.white)
+
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
@@ -155,7 +156,7 @@ super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_em
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
 // ——— Momentum Condition ———
-is_momentum = close > dominant_saved_close and daily_ema_ok and (is_setup_a or is_setup_b)
+is_momentum = close > dominant_saved_close and daily_ema_ok
 
 // ——— Momentum Label Logic ———
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
