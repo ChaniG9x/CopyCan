@@ -202,6 +202,8 @@ isEarlyEntry(ema50, ema100, ema200) =>
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
+/// Momentum Chani Hobo //// 
+
 // ——— Momentum Condition ———
 is_momentum = close > dominant_saved_close and daily_ema_ok
 is_entry_timeframe = (timeframe.period == "1" or timeframe.period == "10S")
@@ -210,36 +212,16 @@ is_entry_timeframe = (timeframe.period == "1" or timeframe.period == "10S")
 momentum_se_trigger = is_entry_timeframe and is_momentum and super_early_entry_ok and can_enter_se
 momentum_e_trigger  = is_entry_timeframe and is_momentum and early_entry_ok and can_enter_e
 
-// ——— 1MIN TRADING LOGIC (Now Consistent Across All Chart Timeframes) ———
-is_1min_timeframe = timeframe.period == "1"
+// ——— Momentum Label Logic ———
+if momentum_se_trigger
+    label.new(bar_index, low, "M.SE (" + overall_condition + ")\nDom Close: " + str.tostring(dominant_saved_close, "#.##"),
+              style=label.style_label_up, color=color.green, textcolor=color.white, size=size.normal)
 
-// Your 1min trading logic - this will work consistently regardless of chart timeframe
-var bool setup_a_1min_signal = false
-var bool setup_b_1min_signal = false
+if momentum_e_trigger
+    label.new(bar_index, low, "M.E (" + overall_condition + ")\nDom Close: " + str.tostring(dominant_saved_close, "#.##"),
+              style=label.style_label_up, color=color.green, textcolor=color.white, size=size.normal)
 
-setup_a_1min_signal := if is_1min_timeframe and is_setup_a
-    // Setup A 1min logic here
-    // This condition will be the same whether you're viewing 1min, 5min, 1H, or 4H chart
-    if close > dtf_ema10 and dtf_ema10 > dtf_ema20
-        // Example: Additional Setup A entry criteria
-        // Add your specific Setup A 1min entry logic here
-        true
-    else
-        false
-else
-    setup_a_1min_signal
-
-setup_b_1min_signal := if is_1min_timeframe and is_setup_b
-    // Setup B 1min logic here
-    // This condition will be the same whether you're viewing 1min, 5min, 1H, or 4H chart
-    if close > dtf_ema20
-        // Example: Additional Setup B entry criteria  
-        // Add your specific Setup B 1min entry logic here
-        true
-    else
-        false
-else
-    setup_b_1min_signal
+/// END CHANI HOBO //// 
 
 // ——— Dominant Daily Bar Label Logic ———
 dominant_label_shown = if not na(dom_open_d) and timeframe.period == "1D"
