@@ -105,11 +105,11 @@ plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 live_ema10_snapshot = request.security(syminfo.tickerid, "1D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
 live_ema20_snapshot = request.security(syminfo.tickerid, "1D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 // ——— True Daily EMA Snapshots ———
-daily_ema10  = request.security(syminfo.tickerid, "1D", ta.ema(close, 10), lookahead=barmerge.lookahead_off)
-daily_ema20  = request.security(syminfo.tickerid, "1D", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
-daily_ema50  = request.security(syminfo.tickerid, "1D", ta.ema(close, 50), lookahead=barmerge.lookahead_off)
-daily_ema100 = request.security(syminfo.tickerid, "1D", ta.ema(close,100), lookahead=barmerge.lookahead_off)
-daily_ema200 = request.security(syminfo.tickerid, "1D", ta.ema(close,200), lookahead=barmerge.lookahead_off)
+daily_ema10  = request.security(syminfo.tickerid, "1D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
+daily_ema20  = request.security(syminfo.tickerid, "1D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+daily_ema50  = request.security(syminfo.tickerid, "1D", ta.ema(close, 50), lookahead=barmerge.lookahead_on)
+daily_ema100 = request.security(syminfo.tickerid, "1D", ta.ema(close,100), lookahead=barmerge.lookahead_on)
+daily_ema200 = request.security(syminfo.tickerid, "1D", ta.ema(close,200), lookahead=barmerge.lookahead_on)
 // ——— Higher-TF Trend Filter ———
 daily_ema_ok = daily_ema10 > daily_ema20 and daily_ema20 > daily_ema50 and daily_ema50 > daily_ema100 and daily_ema100 > daily_ema200
 // ——— Intraday EMAs ———
@@ -212,21 +212,18 @@ momentum_e_label_shown = if momentum_e_trigger
     true
 else
     false
+
 // ——— Intraday Entry Labels ———
-super_early_label_shown = if is_entry_timeframe and super_early_entry_ok
+if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
     label.new(bar_index, high, "Super Early Entry",
               style=label.style_label_up, color=color.yellow,
               textcolor=color.black, size=size.tiny)
-    true
-else
-    false
-early_label_shown = if is_entry_timeframe and early_entry_ok
+
+if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
     label.new(bar_index, high, "Early Entry",
               style=label.style_label_up, color=color.orange,
               textcolor=color.black, size=size.tiny)
-    true
-else
-    false
+
 // ——— CONSISTENT TABLE ———
 var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
 // Initialize table headers only once
