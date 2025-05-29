@@ -17,7 +17,7 @@ f_prev_opposite_open(_res) =>
 [m_prev_green_open, m_prev_red_open] = f_prev_opposite_open("M")
 m_open_closed  = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_off)
 m_close_closed = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_off)
-var string monthly_status = "Bearish"
+string monthly_status = "Bearish"    // ← no var, so recalc every bar
 if m_close_closed > m_open_closed and m_close_closed > m_prev_red_open
     monthly_status := "Bullish"
 else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
@@ -27,7 +27,7 @@ else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
 [w_prev_green_open, w_prev_red_open] = f_prev_opposite_open("W")
 w_open_closed  = request.security(syminfo.tickerid, "W", open[1],  lookahead=barmerge.lookahead_off)
 w_close_closed = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_off)
-var string weekly_status = "Bearish"
+string weekly_status = "Bearish"
 if w_close_closed > w_open_closed and w_close_closed > w_prev_red_open
     weekly_status := "Bullish"
 else if w_close_closed < w_open_closed and w_close_closed < w_prev_green_open
