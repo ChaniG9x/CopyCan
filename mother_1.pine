@@ -14,20 +14,24 @@ f_prev_opposite_open(_res) =>
     [prev_green_open, prev_red_open]
 
 // ——— Monthly Status ———
-[m_prev_green_open, m_prev_red_open] = request.security(syminfo.tickerid, "M", f_prev_opposite_open("M"), lookahead=barmerge.lookahead_off)
+[m_prev_green_open, m_prev_red_open] = f_prev_opposite_open("M")
 m_open_closed  = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_off)
 m_close_closed = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_off)
-var string monthly_status = request.security(syminfo.tickerid, "M", 
-    (close > open and close > request.security(syminfo.tickerid, "M", open[1], lookahead=barmerge.lookahead_off)) 
-    ? "Bullish" : "Bearish", lookahead=barmerge.lookahead_off)
+var string monthly_status = "Bearish"
+if m_close_closed > m_open_closed and m_close_closed > m_prev_red_open
+    monthly_status := "Bullish"
+else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
+    monthly_status := "Bearish"
 
 // ——— Weekly Status ———
-[w_prev_green_open, w_prev_red_open] = request.security(syminfo.tickerid, "W", f_prev_opposite_open("W"), lookahead=barmerge.lookahead_off)
+[w_prev_green_open, w_prev_red_open] = f_prev_opposite_open("W")
 w_open_closed  = request.security(syminfo.tickerid, "W", open[1],  lookahead=barmerge.lookahead_off)
 w_close_closed = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_off)
-var string weekly_status = request.security(syminfo.tickerid, "W", 
-    (close > open and close > request.security(syminfo.tickerid, "W", open[1], lookahead=barmerge.lookahead_off)) 
-    ? "Bullish" : "Bearish", lookahead=barmerge.lookahead_off)
+var string weekly_status = "Bearish"
+if w_close_closed > w_open_closed and w_close_closed > w_prev_red_open
+    weekly_status := "Bullish"
+else if w_close_closed < w_open_closed and w_close_closed < w_prev_green_open
+    weekly_status := "Bearish"
 
 // ——— Monthly & Weekly EMAs & Order Flags ———
 [ema10_m, ema20_m, ema50_m, ema100_m] = request.security( syminfo.tickerid, "M", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
@@ -39,11 +43,10 @@ weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_
      ? "Aligned" : "Not Aligned"
 
 // ——— Overall Condition Logic ———
-string overall_condition = request.security(syminfo.tickerid, timeframe.period, 
-    (monthly_status == "Bullish" and weekly_status == "Bullish")
+string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bullish")
      ? (monthly_ema_flag == "Aligned" and weekly_ema_flag == "Aligned"
          ? "Setup A" : "Setup B")
-     : "NO TRADE", lookahead=barmerge.lookahead_off)
+     : "NO TRADE"
 
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
@@ -116,10 +119,13 @@ f_get_dominant() =>
 var float dominant_open        = na
 var float dominant_close       = na
 var float dominant_saved_close = na
+var float dominant_saved_open = na
+
 
 dominant_open        := nz(dom_open_d,        dominant_open[1])
 dominant_close       := nz(dom_close_d,       dominant_close[1])
 dominant_saved_close := nz(dom_saved_close_d, dominant_saved_close[1])
+dominant_saved_open := nz(dom_open_d, dominant_saved_open[1])
 
 if not na(dom_open_d) and timeframe.period == "D"
     label.new(
@@ -159,6 +165,24 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
         label.new(bar_index, low, "M.E\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
+
+// ——— Retracement Condition ———
+
+// ——— Retracement Condition ———
+is_retracement =  daily_ema_ok and ((low < dominant_saved_open and close > dominant_saved_open) or(low[1] < dominant_saved_open and close > dominant_saved_open))
+
+// ——— Retracement Label Logic ———
+if (timeframe.period == "1" or timeframe.period == "10S") and is_retracement
+    label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
+    if super_early_entry_ok 
+        label.new(bar_index, low, "R.SE\n" + label_text,
+                  style=label.style_label_up, color=color.fuchsia,
+                  textcolor=color.white, size=size.normal)
+    else if early_entry_ok
+        label.new(bar_index, low, "R.E\n" + label_text,
+                  style=label.style_label_up, color=color.purple,
+                  textcolor=color.white, size=size.normal)
+
 
 // ——— Intraday Entry Labels ———
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
