@@ -177,7 +177,7 @@ if not retracement_active and is_retracement
     retracement_active := true
 
 // Deactivate retracement if price closes above dominant close (momentum)
-if retracement_active and close > dominant_saved_close
+if retracement_active and (close > dominant_saved_close or open > dominant_saved_open)
     retracement_active := false
 
 // ——— Retracement Label Logic (Persistent State) ———
