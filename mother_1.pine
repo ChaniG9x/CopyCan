@@ -171,8 +171,21 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
 // ——— Retracement Condition ———
 is_retracement =  daily_ema_ok and ((low < dominant_saved_open and close > dominant_saved_open) or(low[1] < dominant_saved_open and close > dominant_saved_open))
 
-// ——— Retracement Label Logic ———
-if (timeframe.period == "1" or timeframe.period == "10S") and is_retracement
+// ——— Retracement Activation State ———
+var bool retracement_active = false
+
+// Activate retracement once price crosses above dominant open
+if not retracement_active and is_retracement
+    retracement_active := true
+
+// Deactivate retracement if price closes above dominant close (momentum)
+if retracement_active and close > dominant_saved_close
+    retracement_active := false
+
+// ——— Retracement Label Logic (Persistent State) ———
+show_retracement_label = retracement_active and close < dominant_saved_close
+
+if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
     if super_early_entry_ok 
         label.new(bar_index, low, "R.SE\n" + label_text,
@@ -182,7 +195,6 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_retracement
         label.new(bar_index, low, "R.E\n" + label_text,
                   style=label.style_label_up, color=color.purple,
                   textcolor=color.white, size=size.normal)
-
 
 // ——— Intraday Entry Labels ———
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
