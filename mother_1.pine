@@ -1,6 +1,13 @@
 
 //@version=5
 indicator("Monthly & Weekly Bias + EMA Order + Overall Condition - CONSISTENT", overlay=true)
+
+// ─── SEED HISTORICAL “LAST OPPOSITE OPEN” VALUES ───
+var float last_month_red_open   = request.security(syminfo.tickerid, "1M", open,  lookahead=barmerge.lookahead_off)
+var float last_month_green_open = last_month_red_open
+
+var float last_week_red_open    = request.security(syminfo.tickerid, "1W", open,  lookahead=barmerge.lookahead_off)
+var float last_week_green_open  = last_week_red_open
 // ——— USER CONTROLS ———
 // Momentum Setup A/B Toggles
 allow_momentum_se_in_a = input.bool(true, title="Momentum - Allow Super Early in Setup A")
