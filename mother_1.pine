@@ -195,12 +195,14 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
                   textcolor=color.white, size=size.normal)
 
 
-// ——— Reaction Condition (Touch or Cross EMA10/EMA20) ———
-reaction_crossed_10 = ( (open < live_ema10_snapshot and close > live_ema10_snapshot) or (open[1] < live_ema10_snapshot and close > live_ema10_snapshot) or (low <= live_ema10_snapshot and high >= live_ema10_snapshot) or (low[1] <= live_ema10_snapshot and high[1] >= live_ema10_snapshot))
+// ——— Reaction Condition ———
+reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
+                       (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
 
-reaction_crossed_20 =( (open < live_ema20_snapshot and close > live_ema20_snapshot) or (open[1] < live_ema20_snapshot and close > live_ema20_snapshot) or (low <= live_ema20_snapshot and high >= live_ema20_snapshot) or (low[1] <= live_ema20_snapshot and high[1] >= live_ema20_snapshot))
+reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapshot) or
+                       (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
 
-is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20)
+is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20) and close < dominant_saved_close
 
 // ——— Reaction Activation State ———
 var bool reaction_active = false
@@ -217,7 +219,7 @@ if reaction_active and low < reaction_trigger_ema
     reaction_trigger_ema := na
 
 // ——— Reaction Label Logic (Persistent State) ———
-show_reaction_label = reaction_active and close < dominant_saved_close
+show_reaction_label = reaction_active 
 
 if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label
     label_text = "EMA: " + str.tostring(reaction_trigger_ema, "#.##")
