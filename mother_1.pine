@@ -196,6 +196,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
 
 // ——— Reaction Condition (Expanded with Touch + Cross Logic) ———
 
+
 reaction_crossed_10 =
     (
         // Open below, close above
@@ -221,8 +222,20 @@ reaction_crossed_20 =
 
 is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20)
 
+// ——— Reaction Activation State ———
+var bool reaction_active = false
+
+// Activate reaction if any cross/touch triggers
+if not reaction_active and is_reaction
+    reaction_active := true
+
+// Deactivate reaction if price dips below EMA20
+if reaction_active and (low < live_ema20_snapshot)
+    reaction_active := false
+
+
 // ——— Reaction Label Logic ———
-if (timeframe.period == "1" or timeframe.period == "10S") and is_reaction
+if (timeframe.period == "1" or timeframe.period == "10S") and reaction_active
     crossed_ema_text = reaction_crossed_10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
                        reaction_crossed_20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
 
