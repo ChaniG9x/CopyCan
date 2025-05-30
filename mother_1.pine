@@ -194,18 +194,14 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
                   style=label.style_label_up, color=color.purple,
                   textcolor=color.white, size=size.normal)
 
-// ——— Reaction Condition (Expanded with Touch + Cross Logic) ———
 
-
+// ——— Reaction Condition (Touch or Cross EMA10/EMA20) ———
 reaction_crossed_10 =
     (
         // Open below, close above
         (open < live_ema10_snapshot and close > live_ema10_snapshot) or
         (open[1] < live_ema10_snapshot and close > live_ema10_snapshot) or
-        // Wick below, close above
-        (low < live_ema10_snapshot and close > live_ema10_snapshot) or
-        (low[1] < live_ema10_snapshot and close > live_ema10_snapshot) or
-        // Touch or cross EMA
+        // Wick touch or cross
         (low <= live_ema10_snapshot and high >= live_ema10_snapshot) or
         (low[1] <= live_ema10_snapshot and high[1] >= live_ema10_snapshot)
     )
@@ -214,8 +210,6 @@ reaction_crossed_20 =
     (
         (open < live_ema20_snapshot and close > live_ema20_snapshot) or
         (open[1] < live_ema20_snapshot and close > live_ema20_snapshot) or
-        (low < live_ema20_snapshot and close > live_ema20_snapshot) or
-        (low[1] < live_ema20_snapshot and close > live_ema20_snapshot) or
         (low <= live_ema20_snapshot and high >= live_ema20_snapshot) or
         (low[1] <= live_ema20_snapshot and high[1] >= live_ema20_snapshot)
     )
@@ -224,27 +218,33 @@ is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20)
 
 // ——— Reaction Activation State ———
 var bool reaction_active = false
+var float reaction_trigger_ema = na
 
-// Activate reaction if any cross/touch triggers
+// Activate on reaction condition
 if not reaction_active and is_reaction
     reaction_active := true
+    reaction_trigger_ema := reaction_crossed_10 ? live_ema10_snapshot : live_ema20_snapshot
 
-// Deactivate reaction if price dips below EMA20
-if reaction_active and (low < live_ema20_snapshot or close > dominant_saved_close)
+// Deactivate if price closes back below the EMA it triggered on
+if reaction_active and low < reaction_trigger_ema
     reaction_active := false
+    reaction_trigger_ema := na
 
+// ——— Reaction Label Logic (Persistent State) ———
+show_reaction_label = reaction_active and close < dominant_saved_close
 
-// ——— Reaction Label Logic ———
-if (timeframe.period == "1" or timeframe.period == "10S") and reaction_active
-    crossed_ema_text = reaction_crossed_10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
-                       reaction_crossed_20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
+if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label
+    label_text = (reaction_crossed_10 ? "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
+                  reaction_crossed_20 ? "EMA20: " + str.tostring(live_ema20_snapshot, "#.##") :
+                  "") +
+                 "\nDom Close: " + str.tostring(dominant_saved_close, "#.##")
 
     if super_early_entry_ok
-        label.new(bar_index, low, "X.SE\n" + crossed_ema_text,
+        label.new(bar_index, low, "X.SE\n" + label_text,
                   style=label.style_label_up, color=color.teal,
                   textcolor=color.white, size=size.normal)
     else if early_entry_ok
-        label.new(bar_index, low, "X.E\n" + crossed_ema_text,
+        label.new(bar_index, low, "X.E\n" + label_text,
                   style=label.style_label_up, color=color.navy,
                   textcolor=color.white, size=size.normal)
 
