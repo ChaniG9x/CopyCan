@@ -220,11 +220,7 @@ if reaction_active and low < reaction_trigger_ema
 show_reaction_label = reaction_active and close < dominant_saved_close
 
 if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label
-    label_text = reaction_crossed_10
-        ? "EMA10: " + str.tostring(live_ema10_snapshot, "#.##")
-        : reaction_crossed_20
-            ? "EMA20: " + str.tostring(live_ema20_snapshot, "#.##")
-            : ""
+    label_text = "EMA: " + str.tostring(reaction_trigger_ema, "#.##")
 
     if super_early_entry_ok
         label.new(bar_index, low, "X.SE\n" + label_text,
