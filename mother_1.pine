@@ -167,8 +167,6 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
                   textcolor=color.white, size=size.normal)
 
 // ——— Retracement Condition ———
-
-// ——— Retracement Condition ———
 is_retracement =  daily_ema_ok and ((low < dominant_saved_open and close > dominant_saved_open) or(low[1] < dominant_saved_open and close > dominant_saved_open))
 
 // ——— Retracement Activation State ———
@@ -194,6 +192,29 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
     else if early_entry_ok
         label.new(bar_index, low, "R.E\n" + label_text,
                   style=label.style_label_up, color=color.purple,
+                  textcolor=color.white, size=size.normal)
+
+// ——— Reaction Condition ———
+reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
+                       (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
+
+reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapshot) or
+                       (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
+
+is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20)
+
+// ——— Reaction Label Logic ———
+if (timeframe.period == "1" or timeframe.period == "10S") and is_reaction
+    crossed_ema_text = reaction_crossed_10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
+                       reaction_crossed_20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
+
+    if super_early_entry_ok
+        label.new(bar_index, low, "X.SE\n" + crossed_ema_text,
+                  style=label.style_label_up, color=color.teal,
+                  textcolor=color.white, size=size.normal)
+    else if early_entry_ok
+        label.new(bar_index, low, "X.E\n" + crossed_ema_text,
+                  style=label.style_label_up, color=color.navy,
                   textcolor=color.white, size=size.normal)
 
 // ——— Intraday Entry Labels ———
