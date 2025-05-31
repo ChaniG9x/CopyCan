@@ -49,21 +49,19 @@ string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bu
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
 
+// Daily Status Funcionn /// 
+
+f_daily_status() =>
+    [prev_green, prev_red] = f_prev_opposite_open("D")
+    o = open[1]
+    c = close[1]
+    is_bull = c > o and c > prev_red
+    is_bear = c < o and c < prev_green
+    status = is_bull ? "Bullish" : is_bear ? "Bearish" : "Neutral"
+    [status, is_bull, is_bear]
+
 // ——— Daily Status ———
-[d_prev_green_open, d_prev_red_open] = f_prev_opposite_open("D")
-d_open_closed  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
-d_close_closed = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
-
-var string daily_status = "Bearish"
-daily_bullish = false
-daily_bearish = false
-
-if d_close_closed > d_open_closed and d_close_closed > d_prev_red_open
-    daily_status := "Bullish"
-    daily_bullish := true
-else if d_close_closed < d_open_closed and d_close_closed < d_prev_green_open
-    daily_status := "Bearish"
-    daily_bearish := true
+[daily_status, daily_bullish, daily_bearish] = request.security(syminfo.tickerid, "D", f_daily_status(), lookahead=barmerge.lookahead_off)
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
