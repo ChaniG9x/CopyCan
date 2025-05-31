@@ -49,19 +49,15 @@ string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bu
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
 
-// Daily Status Funcionn /// 
+// Get previous daily open/close and opposite-color open
+[d_prev_green_open, d_prev_red_open] = f_prev_opposite_open("D")
+d_open_closed  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
+d_close_closed = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
 
-f_daily_status() =>
-    [prev_green, prev_red] = f_prev_opposite_open("D")
-    o = open[1]
-    c = close[1]
-    is_bull = c > o and c > prev_red
-    is_bear = c < o and c < prev_green
-    status = is_bull ? "Bullish" : is_bear ? "Bearish" : "Neutral"
-    [status, is_bull, is_bear]
-
-// ——— Daily Status ———
-[daily_status, daily_bullish, daily_bearish] = request.security(syminfo.tickerid, "D", f_daily_status(), lookahead=barmerge.lookahead_off)
+// Compute status from the resolved values
+daily_bullish = d_close_closed > d_open_closed and d_close_closed > d_prev_red_open
+daily_bearish = d_close_closed < d_open_closed and d_close_closed < d_prev_green_open
+daily_status = daily_bullish ? "Bullish" : daily_bearish ? "Bearish" : "Neutral"
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
@@ -155,7 +151,7 @@ early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 // Momentum Condition // 
 
 if (timeframe.period == "1" or timeframe.period == "10S" or timeframe.period == "D") and daily_bullish
-    label.new(bar_index, high, "Daily Bullish", style=label.style_label_up, color=color.pink, textcolor=color.black, size=size.tiny)
+    label.new(bar_index, high, "Daily Bullish", style=label.style_label_up, color=color.gray, textcolor=color.black, size=size.tiny)
 
 is_momentum = close > dominant_saved_close and daily_ema_ok and daily_bullish
 
