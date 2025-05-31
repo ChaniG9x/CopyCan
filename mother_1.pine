@@ -162,9 +162,9 @@ show_retracement_label = retracement_active and close < dominant_saved_close
 if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
     if super_early_entry_ok 
-        label.new(bar_index, low, "R.SE\n" + label_text, style=label.style_label_up, color=color.fuchsia, textcolor=color.white, size=size.normal)
+        label.new(bar_index, low, "R.SE\n" + label_text, style=label.style_label_down, color=color.fuchsia, textcolor=color.white, size=size.normal)
     else if early_entry_ok
-        label.new(bar_index, low, "R.E\n" + label_text, style=label.style_label_up, color=color.purple, textcolor=color.white, size=size.normal)
+        label.new(bar_index, low, "R.E\n" + label_text, style=label.style_label_down, color=color.purple, textcolor=color.white, size=size.normal)
 
 // ——— Reaction Logic with Persistent State ———
 reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
