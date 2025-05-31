@@ -10,10 +10,12 @@ f_prev_opposite_open() =>
     [green_open, red_open]
 
 // Then, call it like this — from lower timeframes:
-[d_prev_green_open, d_prev_red_open] = request.security(syminfo.tickerid, "D", f_prev_opposite_open_isolated(), lookahead=barmerge.lookahead_off)
+[d_prev_green_open, d_prev_red_open] = request.security(syminfo.tickerid, "D", f_prev_opposite_open_(), lookahead=barmerge.lookahead_off)
+[w_prev_green_open, w_prev_red_open] = request.security(syminfo.tickerid, "W", f_prev_opposite_open_(), lookahead=barmerge.lookahead_off)
+[m_prev_green_open, m_prev_red_open] = request.security(syminfo.tickerid, "M", f_prev_opposite_open_(), lookahead=barmerge.lookahead_off)
 
 // ——— Monthly Status ———
-[m_prev_green_open, m_prev_red_open] = f_prev_opposite_open("M")
+[m_prev_green_open, m_prev_red_open] = request.security(syminfo.tickerid, "M", f_prev_opposite_open_isolated(), lookahead=barmerge.lookahead_off)
 m_open_closed  = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_off)
 m_close_closed = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_off)
 var string monthly_status = "Bearish"
@@ -23,7 +25,7 @@ else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
     monthly_status := "Bearish"
 
 // ——— Weekly Status ———
-[w_prev_green_open, w_prev_red_open] = f_prev_opposite_open("W")
+[w_prev_green_open, w_prev_red_open] = request.security(syminfo.tickerid, "W", f_prev_opposite_open_isolated(), lookahead=barmerge.lookahead_off)
 w_open_closed  = request.security(syminfo.tickerid, "W", open[1],  lookahead=barmerge.lookahead_off)
 w_close_closed = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_off)
 var string weekly_status = "Bearish"
