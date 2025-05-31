@@ -49,14 +49,16 @@ string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bu
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
 
-// Get previous daily open/close and opposite-color open
-[d_prev_green_open, d_prev_red_open] = f_prev_opposite_open("D")
-d_open_closed  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
-d_close_closed = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
+// Daily Bias // 
 
-// Compute status from the resolved values
-daily_bullish = d_close_closed > d_open_closed and d_close_closed > d_prev_red_open
-daily_bearish = d_close_closed < d_open_closed and d_close_closed < d_prev_green_open
+// Calculate daily status ONCE using confirmed previous daily bar
+d_open_yesterday  = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
+d_close_yesterday = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
+[d_prev_green_open, d_prev_red_open] = f_prev_opposite_open("D")
+
+// Evaluate based on yesterday's candle
+daily_bullish = d_close_yesterday > d_open_yesterday and d_close_yesterday > d_prev_red_open
+daily_bearish = d_close_yesterday < d_open_yesterday and d_close_yesterday < d_prev_green_open
 daily_status = daily_bullish ? "Bullish" : daily_bearish ? "Bearish" : "Neutral"
 
 // ——— Plot Daily EMAs (reference) ———
