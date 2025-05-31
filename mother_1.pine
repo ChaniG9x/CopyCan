@@ -2,16 +2,15 @@
 indicator("Monthly & Weekly Bias + EMA Order + Overall Condition", overlay=true)
 
 // ——— Helper to track last opposite-color open ———
-f_prev_opposite_open(_res) =>
-    var float prev_green_open = na
-    var float prev_red_open   = na
-    _c = request.security(syminfo.tickerid, _res, close[1], lookahead=barmerge.lookahead_off)
-    _o = request.security(syminfo.tickerid, _res, open[1],  lookahead=barmerge.lookahead_off)
-    if _c > _o
-        prev_green_open := _o
-    else if _c < _o
-        prev_red_open   := _o
-    [prev_green_open, prev_red_open]
+f_prev_opposite_open() =>
+    _c = close[1]
+    _o = open[1]
+    green_open = _c > _o ? _o : na
+    red_open   = _c < _o ? _o : na
+    [green_open, red_open]
+
+// Then, call it like this — from lower timeframes:
+[d_prev_green_open, d_prev_red_open] = request.security(syminfo.tickerid, "D", f_prev_opposite_open_isolated(), lookahead=barmerge.lookahead_off)
 
 // ——— Monthly Status ———
 [m_prev_green_open, m_prev_red_open] = f_prev_opposite_open("M")
@@ -51,15 +50,17 @@ is_setup_b = overall_condition == "Setup B"
 
 // Daily Bias // 
 
-// Calculate daily status ONCE using confirmed previous daily bar
-d_open_yesterday  = request.security(syminfo.tickerid, "D", open[1], lookahead=barmerge.lookahead_off)
-d_close_yesterday = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
-[d_prev_green_open, d_prev_red_open] = f_prev_opposite_open("D")
+f_get_daily_bias() =>
+    [prev_green, prev_red] = f_prev_opposite_open("D")
+    o = open[1]
+    c = close[1]
+    is_bull = c > o and c > prev_red
+    is_bear = c < o and c < prev_green
+    status = is_bull ? "Bullish" : is_bear ? "Bearish" : "Neutral"
+    [status, is_bull, is_bear]
 
-// Evaluate based on yesterday's candle
-daily_bullish = d_close_yesterday > d_open_yesterday and d_close_yesterday > d_prev_red_open
-daily_bearish = d_close_yesterday < d_open_yesterday and d_close_yesterday < d_prev_green_open
-daily_status = daily_bullish ? "Bullish" : daily_bearish ? "Bearish" : "Neutral"
+// Call it ON the daily timeframe
+[daily_status, daily_bullish, daily_bearish] = request.security(syminfo.tickerid, "D", f_get_daily_bias(), lookahead=barmerge.lookahead_off)
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
