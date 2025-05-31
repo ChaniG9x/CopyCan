@@ -1,13 +1,25 @@
 //@version=5
-indicator("Monthly & Weekly Bias + EMA Order + Overall Condition", overlay=true)
+indicator("Monthly & Weekly Bias + EMA Order + Overall Condition",overlay=true)
 
 // ——— Helper to track last opposite-color open ———
+
 f_prev_opposite_open(_res) =>
-    request.security(syminfo.tickerid, _res, () => 
-        close[1] > open[1] ? [open[1], na] :
-        close[1] < open[1] ? [na, open[1]] :
-        [na, na], 
-        lookahead=barmerge.lookahead_off)
+    request.security(
+        syminfo.tickerid,
+        _res,
+        () =>
+            // Previous candle’s open and close on the higher TF
+            _c = close[1]
+            _o = open[1]
+
+            // Decide which value to return
+            prev_green_open = _c > _o ? _o : na
+            prev_red_open   = _c < _o ? _o : na
+
+            // Return both in an array
+            [prev_green_open, prev_red_open],
+        lookahead = barmerge.lookahead_off
+    )
 
 // ——— Monthly Status ———
 [m_prev_green_open, m_prev_red_open] = f_prev_opposite_open("M")
