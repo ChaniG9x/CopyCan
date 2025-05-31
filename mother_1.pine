@@ -167,8 +167,12 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
         label.new(bar_index, low, "R.E\n" + label_text, style=label.style_label_down, color=color.purple, textcolor=color.white, size=size.normal)
 
 // ——— Reaction Logic with Persistent State ———
-reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
-reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapshot) or (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
+
+touched_and_closed_above(ema) =>
+    (open < ema and close > ema) or (open[1] < ema and close > ema) or (low <= ema and close > ema)
+
+reaction_crossed_10 = touched_and_closed_above(live_ema10_snapshot)
+reaction_crossed_20 = touched_and_closed_above(live_ema20_snapshot)
 
 var bool reaction_active_10 = false
 var bool reaction_active_20 = false
