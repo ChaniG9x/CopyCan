@@ -1,112 +1,110 @@
 //@version=5
-indicator("Monthly & Weekly Bias + EMA Order + Overall Condition",overlay=true)
+indicator("Monthly & Weekly Bias + EMA Order + Overall Condition", overlay = true)
 
-// ——— Helper to track last opposite-color open ———
-
+// --- Helper: last opposite-colour open on higher TF ---
 f_prev_opposite_open(_res) =>
     request.security(
         syminfo.tickerid,
         _res,
         () =>
-            // Previous candle’s open and close on the higher TF
             _c = close[1]
             _o = open[1]
-
-            // Decide which value to return
             prev_green_open = _c > _o ? _o : na
             prev_red_open   = _c < _o ? _o : na
-
-            // Return both in an array
             [prev_green_open, prev_red_open],
         lookahead = barmerge.lookahead_off
     )
 
-// ——— Monthly Status ———
+// --- Monthly Status ---
 [m_prev_green_open, m_prev_red_open] = f_prev_opposite_open("M")
-m_open_closed  = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_off)
-m_close_closed = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_off)
+m_open_closed  = request.security(syminfo.tickerid, "M", open[1],  lookahead = barmerge.lookahead_off)
+m_close_closed = request.security(syminfo.tickerid, "M", close[1], lookahead = barmerge.lookahead_off)
 var string monthly_status = "Bearish"
 if m_close_closed > m_open_closed and m_close_closed > m_prev_red_open
     monthly_status := "Bullish"
 else if m_close_closed < m_open_closed and m_close_closed < m_prev_green_open
     monthly_status := "Bearish"
 
-// ——— Weekly Status ———
+// --- Weekly Status ---
 [w_prev_green_open, w_prev_red_open] = f_prev_opposite_open("W")
-w_open_closed  = request.security(syminfo.tickerid, "W", open[1],  lookahead=barmerge.lookahead_off)
-w_close_closed = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_off)
+w_open_closed  = request.security(syminfo.tickerid, "W", open[1],  lookahead = barmerge.lookahead_off)
+w_close_closed = request.security(syminfo.tickerid, "W", close[1], lookahead = barmerge.lookahead_off)
 var string weekly_status = "Bearish"
 if w_close_closed > w_open_closed and w_close_closed > w_prev_red_open
     weekly_status := "Bullish"
 else if w_close_closed < w_open_closed and w_close_closed < w_prev_green_open
     weekly_status := "Bearish"
 
-// ——— Monthly & Weekly EMAs & Order Flags ———
-[ema10_m, ema20_m, ema50_m, ema100_m] = request.security( syminfo.tickerid, "M", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
-monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m)
-     ? "Aligned" : "Not Aligned"
+// --- Monthly & Weekly EMAs & Order Flags ---
+[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(
+     syminfo.tickerid, "M",
+     [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)],
+     lookahead = barmerge.lookahead_off
+)
+monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m) ? "Aligned" : "Not Aligned"
 
-[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
-weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w)
-     ? "Aligned" : "Not Aligned"
+[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(
+     syminfo.tickerid, "W",
+     [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)],
+     lookahead = barmerge.lookahead_off
+)
+weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w) ? "Aligned" : "Not Aligned"
 
-// ——— Overall Condition Logic ———
-string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bullish")
-     ? (monthly_ema_flag == "Aligned" and weekly_ema_flag == "Aligned"
-         ? "Setup A" : "Setup B")
-     : "NO TRADE"
+// --- Overall Condition Logic ---
+string overall_condition =
+     (monthly_status == "Bullish" and weekly_status == "Bullish") ?
+        ((monthly_ema_flag == "Aligned" and weekly_ema_flag == "Aligned") ? "Setup A" : "Setup B")
+        : "NO TRADE"
 
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
 
-// Daily Status // 
-
-[d_prev_green_open, d_prev_red_open] = f_prev_opposite_open_fixed("D")
-d_open_closed  = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
-d_close_closed = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
+// --- Daily Status ---
+[d_prev_green_open, d_prev_red_open] = f_prev_opposite_open("D")
+d_open_closed  = request.security(syminfo.tickerid, "D", open[1],  lookahead = barmerge.lookahead_off)
+d_close_closed = request.security(syminfo.tickerid, "D", close[1], lookahead = barmerge.lookahead_off)
 
 daily_bullish = d_close_closed > d_open_closed and d_close_closed > d_prev_red_open
 daily_bearish = d_close_closed < d_open_closed and d_close_closed < d_prev_green_open
 
-// Daily Lables // 
-
+// --- Daily Labels ---
 if (timeframe.period == "1" or timeframe.period == "10S" or timeframe.period == "D") and daily_bullish
     label.new(bar_index, high, "Bullish",
-              style=label.style_label_up, color=color.gray,
-              textcolor=color.black, size=size.tiny)
+              style = label.style_label_up, color = color.gray,
+              textcolor = color.black, size = size.tiny)
 
-// ——— Plot Daily EMAs (reference) ———
-plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
-plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
-plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
-plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
-plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
+// --- Plot Daily EMAs (reference) ---
+plot(ta.ema(close, 10),  title = "EMA 10",  color = color.blue,   linewidth = 2)
+plot(ta.ema(close, 20),  title = "EMA 20",  color = color.red,    linewidth = 2)
+plot(ta.ema(close, 50),  title = "EMA 50",  color = color.gray,   linewidth = 2)
+plot(ta.ema(close,100),  title = "EMA 100", color = color.purple, linewidth = 2)
+plot(ta.ema(close,200),  title = "EMA 200", color = color.orange, linewidth = 2)
 
-// ——— Daily EMA Snapshots ———
-live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
-live_ema20_snapshot = request.security( syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+// --- Daily EMA Snapshots ---
+live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead = barmerge.lookahead_on)
+live_ema20_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead = barmerge.lookahead_on)
 
-// ——— True Daily EMA Snapshots ———
-daily_ema10  = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_off)
-daily_ema20  = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
-daily_ema50  = request.security(syminfo.tickerid, "D", ta.ema(close, 50), lookahead=barmerge.lookahead_off)
-daily_ema100 = request.security(syminfo.tickerid, "D", ta.ema(close,100), lookahead=barmerge.lookahead_off)
-daily_ema200 = request.security(syminfo.tickerid, "D", ta.ema(close,200), lookahead=barmerge.lookahead_off)
+// --- True Daily EMA Snapshots ---
+daily_ema10  = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead = barmerge.lookahead_off)
+daily_ema20  = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead = barmerge.lookahead_off)
+daily_ema50  = request.security(syminfo.tickerid, "D", ta.ema(close, 50), lookahead = barmerge.lookahead_off)
+daily_ema100 = request.security(syminfo.tickerid, "D", ta.ema(close,100), lookahead = barmerge.lookahead_off)
+daily_ema200 = request.security(syminfo.tickerid, "D", ta.ema(close,200), lookahead = barmerge.lookahead_off)
 
-// ——— Higher-TF Trend Filter ———
+// --- Higher-TF Trend Filter ---
 daily_ema_ok = daily_ema10  > daily_ema20 and
                daily_ema20  > daily_ema50 and
                daily_ema50  > daily_ema100 and
                daily_ema100 > daily_ema200
 
-// ——— Intraday EMAs ———
+// --- Intraday EMAs ---
 dtf_ema10  = ta.ema(close, 10)
 dtf_ema20  = ta.ema(close, 20)
 dtf_ema50  = ta.ema(close, 50)
 dtf_ema100 = ta.ema(close, 100)
 dtf_ema200 = ta.ema(close, 200)
 
-// ——— Dominant Daily Bar Logic ———
+// --- Dominant Daily Bar Logic ---
 f_get_dominant() =>
     var float dom_open = na
     var float dom_close = na
@@ -122,11 +120,17 @@ f_get_dominant() =>
     green2_o = open[2], green2_c = close[2]
     green3_o = open[3], green3_c = close[3]
 
-    last_red_open = red1_c < red1_o ? red1_o : red2_c < red2_o ? red2_o : red3_c < red3_o ? red3_o : red4_c < red4_o ? red4_o : red5_c < red5_o ? red5_o : na
+    last_red_open =
+        red1_c < red1_o ? red1_o :
+        red2_c < red2_o ? red2_o :
+        red3_c < red3_o ? red3_o :
+        red4_c < red4_o ? red4_o :
+        red5_c < red5_o ? red5_o : na
 
-    last_green_close = green1_c > green1_o ? green1_c :
-                       green2_c > green2_o ? green2_c :
-                       green3_c > green3_o ? green3_c : na
+    last_green_close =
+        green1_c > green1_o ? green1_c :
+        green2_c > green2_o ? green2_c :
+        green3_c > green3_o ? green3_c : na
 
     is_green = close > open
     is_new_dominant = is_green and (close > last_red_open or close > last_green_close)
@@ -138,142 +142,149 @@ f_get_dominant() =>
 
     [dom_open, dom_close, dom_saved_close]
 
-[dom_open_d, dom_close_d, dom_saved_close_d] = request.security(syminfo.tickerid, "D", f_get_dominant(), lookahead=barmerge.lookahead_off)
+[dom_open_d, dom_close_d, dom_saved_close_d] = request.security(
+     syminfo.tickerid, "D", f_get_dominant(), lookahead = barmerge.lookahead_off)
 
 var float dominant_open        = na
 var float dominant_close       = na
 var float dominant_saved_close = na
-var float dominant_saved_open = na
-
+var float dominant_saved_open  = na
 
 dominant_open        := nz(dom_open_d,        dominant_open[1])
 dominant_close       := nz(dom_close_d,       dominant_close[1])
 dominant_saved_close := nz(dom_saved_close_d, dominant_saved_close[1])
-dominant_saved_open := nz(dom_open_d, dominant_saved_open[1])
+dominant_saved_open  := nz(dom_open_d,        dominant_saved_open[1])
 
 if not na(dom_open_d) and timeframe.period == "D"
-    label.new(
-      bar_index, high,
+    label.new(bar_index, high,
       "✓ Dominant Bullish\nOpen: " + str.tostring(dom_open_d, "#.##") +
       "\nClose: " + str.tostring(dom_close_d, "#.##") +
       "\nEMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
       "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
-      style=label.style_label_down, textcolor=color.white,
-      size=size.normal, color=color.green)
+      style = label.style_label_down, textcolor = color.white,
+      size = size.normal, color = color.green)
 
-// ——— Entry Pattern Functions ———
+// --- Entry Pattern Functions ---
 isSuperEarlyEntry(ema10, ema20, ema50, ema100, ema200) =>
-    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and(math.abs(close - open) > math.abs(close[1] - open[1]))
+    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and
+    close > open and close[1] < open[1] and close > ema10 and
+    ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and
+    ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and
+    (math.abs(close - open) > math.abs(close[1] - open[1]))
 
 crossed(ema) =>
     (low < ema and high > ema) or (low[1] < ema and high[1] > ema)
 
 isEarlyEntry(ema50, ema100, ema200) =>
-    ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and close > open and close[1] < open[1] and (crossed(ema50) or crossed(ema100) or crossed(ema200)) and close > ema200 and math.abs(close - open) > math.abs(close[1] - open[1])
+    ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and
+    close > open and close[1] < open[1] and
+    (crossed(ema50) or crossed(ema100) or crossed(ema200)) and
+    close > ema200 and
+    math.abs(close - open) > math.abs(close[1] - open[1])
 
-// ——— Entry Flags (Evaluated Once Per Bar) ———
+// --- Entry Flags ---
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
-// ——— Momentum Condition ———
+// --- Momentum Condition ---
 is_momentum = close > dominant_saved_close and daily_ema_ok
 
-// ——— Momentum Label Logic ———
+// --- Momentum Labels ---
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
-    if super_early_entry_ok 
+    if super_early_entry_ok
         label.new(bar_index, low, "M.SE\n" + label_text,
-                  style=label.style_label_up, color=color.green,
-                  textcolor=color.white, size=size.normal)
+                  style = label.style_label_up, color = color.green,
+                  textcolor = color.white, size = size.normal)
     else if early_entry_ok
         label.new(bar_index, low, "M.E\n" + label_text,
-                  style=label.style_label_up, color=color.green,
-                  textcolor=color.white, size=size.normal)
+                  style = label.style_label_up, color = color.green,
+                  textcolor = color.white, size = size.normal)
 
-// ——— Retracement Condition ———
-is_retracement =  daily_ema_ok and ((low < dominant_saved_open and close > dominant_saved_open) or(low[1] < dominant_saved_open and close > dominant_saved_open))
+// --- Retracement Condition ---
+is_retracement =
+    daily_ema_ok and
+    ((low < dominant_saved_open and close > dominant_saved_open) or
+     (low[1] < dominant_saved_open and close > dominant_saved_open))
 
-// ——— Retracement Activation State ———
+// --- Retracement Activation State ---
 var bool retracement_active = false
-
-// Activate retracement once price crosses above dominant open
 if not retracement_active and is_retracement
     retracement_active := true
-
-// Deactivate retracement if price closes above dominant close (momentum)
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
     retracement_active := false
 
-// ——— Retracement Label Logic (Persistent State) ———
+// --- Retracement Labels ---
 show_retracement_label = retracement_active and close < dominant_saved_close
-
 if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
-    if super_early_entry_ok 
+    if super_early_entry_ok
         label.new(bar_index, low, "R.SE\n" + label_text,
-                  style=label.style_label_up, color=color.fuchsia,
-                  textcolor=color.white, size=size.normal)
+                  style = label.style_label_up, color = color.fuchsia,
+                  textcolor = color.white, size = size.normal)
     else if early_entry_ok
         label.new(bar_index, low, "R.E\n" + label_text,
-                  style=label.style_label_up, color=color.purple,
-                  textcolor=color.white, size=size.normal)
+                  style = label.style_label_up, color = color.purple,
+                  textcolor = color.white, size = size.normal)
 
-// ——— Reaction Condition ———
-reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
-                       (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
+// --- Reaction Condition ---
+reaction_crossed_10 =
+    ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
+     (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
 
-reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapshot) or
-                       (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
+reaction_crossed_20 =
+    ((open < live_ema20_snapshot and close > live_ema20_snapshot) or
+     (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
 
 is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20)
 
-// ——— Reaction Label Logic ———
+// --- Reaction Labels ---
 if (timeframe.period == "1" or timeframe.period == "10S") and is_reaction
-    crossed_ema_text = reaction_crossed_10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
-                       reaction_crossed_20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
-
+    crossed_ema_text =
+        reaction_crossed_10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
+        reaction_crossed_20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
     if super_early_entry_ok
         label.new(bar_index, low, "X.SE\n" + crossed_ema_text,
-                  style=label.style_label_up, color=color.teal,
-                  textcolor=color.white, size=size.normal)
+                  style = label.style_label_up, color = color.teal,
+                  textcolor = color.white, size = size.normal)
     else if early_entry_ok
         label.new(bar_index, low, "X.E\n" + crossed_ema_text,
-                  style=label.style_label_up, color=color.navy,
-                  textcolor=color.white, size=size.normal)
+                  style = label.style_label_up, color = color.navy,
+                  textcolor = color.white, size = size.normal)
 
-// ——— Intraday Entry Labels ———
+// --- Intraday Entry Labels ---
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
     label.new(bar_index, high, "Super Early Entry",
-              style=label.style_label_up, color=color.yellow,
-              textcolor=color.black, size=size.tiny)
+              style = label.style_label_up, color = color.yellow,
+              textcolor = color.black, size = size.tiny)
 
 if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
     label.new(bar_index, high, "Early Entry",
-              style=label.style_label_up, color=color.orange,
-              textcolor=color.black, size=size.tiny)
+              style = label.style_label_up, color = color.orange,
+              textcolor = color.black, size = size.tiny)
 
-// ——— Final Table ———
-var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
-table.cell(bias_tbl, 0, 0, "Timeframe",       text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 0, "Status",          text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 2, 0, "EMA Order",       text_color=color.white, bgcolor=color.blue)
+// --- Final Table ---
+var table bias_tbl = table.new(position.top_right, 3, 5, border_width = 1)
+table.cell(bias_tbl, 0, 0, "Timeframe",   text_color = color.white, bgcolor = color.blue)
+table.cell(bias_tbl, 1, 0, "Status",      text_color = color.white, bgcolor = color.blue)
+table.cell(bias_tbl, 2, 0, "EMA Order",   text_color = color.white, bgcolor = color.blue)
 
-table.cell(bias_tbl, 0, 1, "Monthly",         text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 1, monthly_status,    text_color=(monthly_status=="Bullish" ? color.green : color.red))
-table.cell(bias_tbl, 2, 1, monthly_ema_flag,  text_color=(monthly_ema_flag=="Aligned" ? color.green : color.red))
+table.cell(bias_tbl, 0, 1, "Monthly",     text_color = color.white, bgcolor = color.blue)
+table.cell(bias_tbl, 1, 1, monthly_status,    text_color = (monthly_status == "Bullish" ? color.green : color.red))
+table.cell(bias_tbl, 2, 1, monthly_ema_flag,  text_color = (monthly_ema_flag == "Aligned" ? color.green : color.red))
 
-table.cell(bias_tbl, 0, 2, "Weekly",          text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 2, weekly_status,     text_color=(weekly_status=="Bullish" ? color.green : color.red))
-table.cell(bias_tbl, 2, 2, weekly_ema_flag,   text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
+table.cell(bias_tbl, 0, 2, "Weekly",      text_color = color.white, bgcolor = color.blue)
+table.cell(bias_tbl, 1, 2, weekly_status,     text_color = (weekly_status == "Bullish" ? color.green : color.red))
+table.cell(bias_tbl, 2, 2, weekly_ema_flag,   text_color = (weekly_ema_flag == "Aligned" ? color.green : color.red))
 
-table.cell(bias_tbl, 0, 3, "Condition",       text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
+table.cell(bias_tbl, 0, 3, "Condition",   text_color = color.white, bgcolor = color.blue)
+table.cell(bias_tbl, 1, 3, overall_condition, text_color = (overall_condition == "NO TRADE" ? color.red : color.green))
 table.cell(bias_tbl, 2, 3, "")
 
-table.cell(bias_tbl, 0, 4, "Dominant",        text_color=color.white, bgcolor=color.blue)
-table.cell(bias_tbl, 1, 4, "O: " + str.tostring(dominant_open, "#.##") +
-                          " / C: " + str.tostring(dominant_close, "#.##"),
-                          text_color=color.white)
-table.cell(bias_tbl, 2, 4, "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
-                          "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
-                          text_color=color.white)
+table.cell(bias_tbl, 0, 4, "Dominant",    text_color = color.white, bgcolor = color.blue)
+table.cell(bias_tbl, 1, 4,
+           "O: " + str.tostring(dominant_open, "#.##") + " / C: " + str.tostring(dominant_close, "#.##"),
+           text_color = color.white)
+table.cell(bias_tbl, 2, 4,
+           "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") + "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
+           text_color = color.white)
