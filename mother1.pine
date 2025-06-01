@@ -193,7 +193,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
                   textcolor=color.white, size=size.normal)
 
 // ——— Retracement Condition ———
-is_retracement =  daily_ema_ok and daily_bullish and ((low < dominant_saved_open and close > dominant_saved_open) or (low[1] < dominant_saved_open and close > dominant_saved_open))
+is_retracement =  daily_ema_ok and ((low < dominant_saved_open and close > dominant_saved_open) or (low[1] < dominant_saved_open and close > dominant_saved_open))
 
 // ——— Retracement Activation State ———
 var bool retracement_active = false
