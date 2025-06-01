@@ -1,6 +1,14 @@
 //@version=5
 indicator("Monthly & Weekly Bias + EMA Order + Overall Condition", overlay=true)
 
+// ——— User Inputs for Setup Control ———
+allow_mom_a  = input.bool(true, "Momentum: Allow Setup A", group="Setup Filters")
+allow_mom_b  = input.bool(true, "Momentum: Allow Setup B", group="Setup Filters")
+allow_ret_a  = input.bool(true, "Retracement: Allow Setup A", group="Setup Filters")
+allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filters")
+allow_rea_a  = input.bool(true, "Reaction: Allow Setup A", group="Setup Filters")
+allow_rea_b  = input.bool(true, "Reaction: Allow Setup B", group="Setup Filters")
+
 // ——— Monthly & Weekly Timeframe Settings ———
 monthly_timeframe = "M"
 weekly_timeframe  = "W"
@@ -71,6 +79,11 @@ string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bu
 
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
+
+// ——— Setup Flags for Conditions ———
+allow_momentum   = (is_setup_a and allow_mom_a) or (is_setup_b and allow_mom_b)
+allow_retracement = (is_setup_a and allow_ret_a) or (is_setup_b and allow_ret_b)
+allow_reaction    = (is_setup_a and allow_rea_a) or (is_setup_b and allow_rea_b)
 
 // ——— Plot Daily EMAs (reference) ———
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
@@ -167,16 +180,12 @@ crossed(ema) =>
 isEarlyEntry(ema50, ema100, ema200) =>
     ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and close > open and close[1] < open[1] and (crossed(ema50) or crossed(ema100) or crossed(ema200)) and close > ema200 and math.abs(close - open) > math.abs(close[1] - open[1])
 
-// ... [code continues unchanged after this point]
-
-
-
 // ——— Entry Flags (Evaluated Once Per Bar) ———
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
 // ——— Momentum Condition ———
-is_momentum = close > dominant_saved_close and daily_ema_ok and daily_bullish
+is_momentum = close > dominant_saved_close and daily_ema_ok and daily_bullish and allow_momentum
 
 // ——— Momentum Label Logic ———
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
@@ -197,7 +206,7 @@ is_retracement =  daily_ema_ok and daily_bullish and ((low < dominant_saved_open
 var bool retracement_active = false
 
 // Activate retracement once price crosses above dominant open
-if not retracement_active and is_retracement
+if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 
 // Deactivate retracement if price closes above dominant close (momentum)
@@ -225,7 +234,7 @@ reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapsh
 reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapshot) or
                        (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
 
-is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20)
+is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20) and allow_reaction
 
 // ——— Reaction Label Logic ———
 if (timeframe.period == "1" or timeframe.period == "10S") and is_reaction
