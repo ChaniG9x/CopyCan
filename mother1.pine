@@ -215,16 +215,21 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
                   textcolor=color.white, size=size.normal)
 
 // ——— Retracement Condition ———
-is_retracement =  daily_ema_ok and daily_bullish and ((low < dominant_saved_open and close > dominant_saved_open) or(low[1] < dominant_saved_open and close > dominant_saved_open))
+is_retracement =  daily_ema_ok and daily_bullish and ((low < dominant_saved_open and close > dominant_saved_open) or (low[1] < dominant_saved_open and close > dominant_saved_open))
 
 // ——— Retracement Activation State ———
 var bool retracement_active = false
+
+// NEW: Reset at start of each trading day
+is_new_day = ta.change(time("D")) // Detects new trading day
+if is_new_day
+    retracement_active := false  // Force reset state
 
 // Activate retracement once price crosses above dominant open
 if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 
-// Deactivate retracement if price closes above dominant close (momentum)
+// Deactivate retracement if price closes above dominant close OR breaks low
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
     retracement_active := false
 
