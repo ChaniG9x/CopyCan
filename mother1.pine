@@ -9,32 +9,34 @@ allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filte
 allow_rea_a  = input.bool(true, "Reaction: Allow Setup A", group="Setup Filters")
 allow_rea_b  = input.bool(true, "Reaction: Allow Setup B", group="Setup Filters")
 
-// ——— Monthly & Weekly Timeframe Settings ———
-monthly_timeframe = "M"
-weekly_timeframe  = "W"
+// ——— Function for Completed HTF Values ———
+f_completed_htf(tf, src) =>
+    request.security(syminfo.tickerid, tf, src[barstate.isconfirmed ? 0 : 1], lookahead=barmerge.lookahead_off)
 
-// ——— Monthly Status (Persistent Evaluation) ———
-monthly_close      = request.security(syminfo.tickerid, "M", close[1], lookahead=barmerge.lookahead_off)
-monthly_open       = request.security(syminfo.tickerid, "M", open[1],  lookahead=barmerge.lookahead_off)
-monthly_prev_close = request.security(syminfo.tickerid, "M", close[2], lookahead=barmerge.lookahead_off)
-monthly_prev_open  = request.security(syminfo.tickerid, "M", open[2],  lookahead=barmerge.lookahead_off)
+// ——— Monthly Status ———
+monthly_close      = f_completed_htf("M", close)
+monthly_open       = f_completed_htf("M", open)
+monthly_prev_close = f_completed_htf("M", close[1])
+monthly_prev_open  = f_completed_htf("M", open[1])
 
 monthly_prev_green_open = monthly_prev_close > monthly_prev_open ? monthly_prev_open : na
 monthly_prev_red_open   = monthly_prev_close < monthly_prev_open ? monthly_prev_open : na
 
-monthly_status = (monthly_close > monthly_open and (na(monthly_prev_red_open) or monthly_close > monthly_prev_red_open)) ? "Bullish" : (monthly_close < monthly_open and (na(monthly_prev_green_open) or monthly_close < monthly_prev_green_open)) ? "Bearish" : (monthly_close >= monthly_open ? "Bullish" : "Bearish")
+monthly_status = (monthly_close > monthly_open and (na(monthly_prev_red_open) or monthly_close > monthly_prev_red_open)) ? "Bullish" : 
+                 (monthly_close < monthly_open and (na(monthly_prev_green_open) or monthly_close < monthly_prev_green_open)) ? "Bearish" : 
+                 (monthly_close >= monthly_open ? "Bullish" : "Bearish")
 
-// ——— Daily Status (Confirmed Evaluation with Boolean Flags) ———
-
-daily_close      = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
-daily_open       = request.security(syminfo.tickerid, "D", open[1],  lookahead=barmerge.lookahead_off)
-daily_prev_close = request.security(syminfo.tickerid, "D", close[2], lookahead=barmerge.lookahead_off)
-daily_prev_open  = request.security(syminfo.tickerid, "D", open[2],  lookahead=barmerge.lookahead_off)
+// ——— Daily Status ———
+daily_close      = f_completed_htf("D", close)
+daily_open       = f_completed_htf("D", open)
+daily_prev_close = f_completed_htf("D", close[1])
+daily_prev_open  = f_completed_htf("D", open[1])
 
 daily_prev_green_open = daily_prev_close > daily_prev_open ? daily_prev_open : na
 daily_prev_red_open   = daily_prev_close < daily_prev_open ? daily_prev_open : na
 
-daily_bullish = (daily_close > daily_open and (na(daily_prev_red_open) or daily_close > daily_prev_red_open)) or (daily_close >= daily_open and (na(daily_prev_red_open) or daily_close >= daily_prev_red_open))
+daily_bullish = (daily_close > daily_open and (na(daily_prev_red_open) or daily_close > daily_prev_red_open)) or 
+                (daily_close >= daily_open and (na(daily_prev_red_open) or daily_close >= daily_prev_red_open))
 
 daily_bearish = (daily_close < daily_open and (na(daily_prev_green_open) or daily_close < daily_prev_green_open))
 
@@ -44,22 +46,22 @@ if timeframe.period == "D" and daily_bullish
               style=label.style_label_down, color=color.gray, textcolor=color.white)
 
 // ——— Show Label on 1m or 10s ———
-if (timeframe.period == "1" or timeframe.period == "10S") and daily_bullish
+if (timeframe.period == "1" or timeframe.period == "10S") and daily_bullish and barstate.islast
     label.new(bar_index, high, "D.Bullish",
               style=label.style_label_down, color=color.gray, textcolor=color.white, size=size.tiny)
 
-
-// ——— Weekly Status (Persistent Evaluation) ———
-weekly_close      = request.security(syminfo.tickerid, "W", close[1], lookahead=barmerge.lookahead_off)
-weekly_open       = request.security(syminfo.tickerid, "W", open[1],  lookahead=barmerge.lookahead_off)
-weekly_prev_close = request.security(syminfo.tickerid, "W", close[2], lookahead=barmerge.lookahead_off)
-weekly_prev_open  = request.security(syminfo.tickerid, "W", open[2],  lookahead=barmerge.lookahead_off)
-
+// ——— Weekly Status ———
+weekly_close      = f_completed_htf("W", close)
+weekly_open       = f_completed_htf("W", open)
+weekly_prev_close = f_completed_htf("W", close[1])
+weekly_prev_open  = f_completed_htf("W", open[1])
 
 weekly_prev_green_open = weekly_prev_close > weekly_prev_open ? weekly_prev_open : na
 weekly_prev_red_open   = weekly_prev_close < weekly_prev_open ? weekly_prev_open : na
 
-weekly_status = (weekly_close > weekly_open and (na(weekly_prev_red_open) or weekly_close > weekly_prev_red_open)) ? "Bullish" :(weekly_close < weekly_open and (na(weekly_prev_green_open) or weekly_close < weekly_prev_green_open)) ? "Bearish" :(weekly_close >= weekly_open ? "Bullish" : "Bearish")
+weekly_status = (weekly_close > weekly_open and (na(weekly_prev_red_open) or weekly_close > weekly_prev_red_open)) ? "Bullish" :
+                (weekly_close < weekly_open and (na(weekly_prev_green_open) or weekly_close < weekly_prev_green_open)) ? "Bearish" :
+                (weekly_close >= weekly_open ? "Bullish" : "Bearish")
 
 
 // ——— Monthly & Weekly EMAs & Order Flags ———
