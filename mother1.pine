@@ -35,8 +35,7 @@ daily_prev_open  = f_completed_htf("D", open[1])
 daily_prev_green_open = daily_prev_close > daily_prev_open ? daily_prev_open : na
 daily_prev_red_open   = daily_prev_close < daily_prev_open ? daily_prev_open : na
 
-daily_bullish = (daily_close > daily_open and (na(daily_prev_red_open) or daily_close > daily_prev_red_open)) or 
-                (daily_close >= daily_open and (na(daily_prev_red_open) or daily_close >= daily_prev_red_open))
+daily_bullish = (daily_close > daily_open and (na(daily_prev_red_open) or daily_close > daily_prev_red_open)) or  (daily_close >= daily_open and (na(daily_prev_red_open) or daily_close >= daily_prev_red_open))
 
 daily_bearish = (daily_close < daily_open and (na(daily_prev_green_open) or daily_close < daily_prev_green_open))
 
@@ -59,9 +58,7 @@ weekly_prev_open  = f_completed_htf("W", open[1])
 weekly_prev_green_open = weekly_prev_close > weekly_prev_open ? weekly_prev_open : na
 weekly_prev_red_open   = weekly_prev_close < weekly_prev_open ? weekly_prev_open : na
 
-weekly_status = (weekly_close > weekly_open and (na(weekly_prev_red_open) or weekly_close > weekly_prev_red_open)) ? "Bullish" :
-                (weekly_close < weekly_open and (na(weekly_prev_green_open) or weekly_close < weekly_prev_green_open)) ? "Bearish" :
-                (weekly_close >= weekly_open ? "Bullish" : "Bearish")
+weekly_status = (weekly_close > weekly_open and (na(weekly_prev_red_open) or weekly_close > weekly_prev_red_open)) ? "Bullish" : (weekly_close < weekly_open and (na(weekly_prev_green_open) or weekly_close < weekly_prev_green_open)) ? "Bearish" : (weekly_close >= weekly_open ? "Bullish" : "Bearish")
 
 
 // ——— Monthly & Weekly EMAs & Order Flags ———
@@ -187,7 +184,7 @@ super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_em
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
 // ——— Momentum Condition ———
-is_momentum = close > dominant_saved_close and daily_ema_ok and daily_bullish and allow_momentum
+is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum
 
 // ——— Momentum Label Logic ———
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
