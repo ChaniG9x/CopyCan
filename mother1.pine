@@ -14,10 +14,7 @@ monthly_prev_open  = request.security(syminfo.tickerid, "M", open[2],  lookahead
 monthly_prev_green_open = monthly_prev_close > monthly_prev_open ? monthly_prev_open : na
 monthly_prev_red_open   = monthly_prev_close < monthly_prev_open ? monthly_prev_open : na
 
-monthly_status =
-    (monthly_close > monthly_open and (na(monthly_prev_red_open) or monthly_close > monthly_prev_red_open)) ? "Bullish" :
-    (monthly_close < monthly_open and (na(monthly_prev_green_open) or monthly_close < monthly_prev_green_open)) ? "Bearish" :
-    (monthly_close >= monthly_open ? "Bullish" : "Bearish")
+monthly_status = (monthly_close > monthly_open and (na(monthly_prev_red_open) or monthly_close > monthly_prev_red_open)) ? "Bullish" : (monthly_close < monthly_open and (na(monthly_prev_green_open) or monthly_close < monthly_prev_green_open)) ? "Bearish" : (monthly_close >= monthly_open ? "Bullish" : "Bearish")
 
 
 
@@ -31,10 +28,7 @@ weekly_prev_open  = request.security(syminfo.tickerid, "W", open[2],  lookahead=
 weekly_prev_green_open = weekly_prev_close > weekly_prev_open ? weekly_prev_open : na
 weekly_prev_red_open   = weekly_prev_close < weekly_prev_open ? weekly_prev_open : na
 
-weekly_status =
-    (weekly_close > weekly_open and (na(weekly_prev_red_open) or weekly_close > weekly_prev_red_open)) ? "Bullish" :
-    (weekly_close < weekly_open and (na(weekly_prev_green_open) or weekly_close < weekly_prev_green_open)) ? "Bearish" :
-    (weekly_close >= weekly_open ? "Bullish" : "Bearish")
+weekly_status = (weekly_close > weekly_open and (na(weekly_prev_red_open) or weekly_close > weekly_prev_red_open)) ? "Bullish" :(weekly_close < weekly_open and (na(weekly_prev_green_open) or weekly_close < weekly_prev_green_open)) ? "Bearish" :(weekly_close >= weekly_open ? "Bullish" : "Bearish")
 
 
 // ——— Monthly & Weekly EMAs & Order Flags ———
