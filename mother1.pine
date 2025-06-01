@@ -10,81 +10,59 @@ allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filte
 allow_rea_a  = input.bool(true, "Reaction: Allow Setup A", group="Setup Filters")
 allow_rea_b  = input.bool(true, "Reaction: Allow Setup B", group="Setup Filters")
 
+
 // ——— Function for Completed HTF Values ———
 f_completed_htf(tf, src) =>
     request.security(syminfo.tickerid, tf, src[barstate.isconfirmed ? 0 : 1], lookahead=barmerge.lookahead_off)
 
+// ——— Monthly Status (calculated on monthly timeframe) ———
+f_monthly_status() =>
+    m_close = close
+    m_open = open
+    prev_red = ta.valuewhen(m_close < m_open, m_open, 0)
+    prev_green = ta.valuewhen(m_close > m_open, m_open, 0)
+    
+    string status = "Neutral"
+    if m_close > m_open
+        if na(prev_red) or m_close > prev_red
+            status := "Bullish"
+    else if m_close < m_open
+        if na(prev_green) or m_close < prev_green
+            status := "Bearish"
+    status
 
-// ——— Monthly Status ———
-monthly_close      = f_completed_htf("M", close)
-monthly_open       = f_completed_htf("M", open)
-monthly_prev_close = f_completed_htf("M", close[1])
-monthly_prev_open  = f_completed_htf("M", open[1])
-
-// Find most recent significant levels
-recent_red_open = ta.valuewhen(monthly_close < monthly_open, monthly_open, 0)
-recent_green_open = ta.valuewhen(monthly_close > monthly_open, monthly_open, 0)
-
-// Improved trend detection
-var string monthly_status = "Neutral"
-if monthly_close > monthly_open
-    if na(recent_red_open) or monthly_close > recent_red_open
-        monthly_status := "Bullish"
-else if monthly_close < monthly_open
-    if na(recent_green_open) or monthly_close < recent_green_open
-        monthly_status := "Bearish"
-
-// ——— Daily Status ———
-daily_close      = f_completed_htf("D", close)
-daily_open       = f_completed_htf("D", open)
-daily_prev_close = f_completed_htf("D", close[1])
-daily_prev_open  = f_completed_htf("D", open[1])
-
-daily_prev_green_open = daily_prev_close > daily_prev_open ? daily_prev_open : na
-daily_prev_red_open   = daily_prev_close < daily_prev_open ? daily_prev_open : na
-
-daily_bullish = (daily_close > daily_open and (na(daily_prev_red_open) or daily_close > daily_prev_red_open)) or  (daily_close >= daily_open and (na(daily_prev_red_open) or daily_close >= daily_prev_red_open))
-
-daily_bearish = (daily_close < daily_open and (na(daily_prev_green_open) or daily_close < daily_prev_green_open))
-
-// ——— Show Label on Daily ———
-if timeframe.period == "D" and daily_bullish
-    label.new(bar_index, high, "✓ Daily Bullish",
-              style=label.style_label_down, color=color.gray, textcolor=color.white)
-
-// ——— Show Label on 1m or 10s ———
-if (timeframe.period == "1" or timeframe.period == "10S") and daily_bullish and barstate.islast
-    label.new(bar_index, high, "D.Bullish",
-              style=label.style_label_down, color=color.gray, textcolor=color.white, size=size.tiny)
+monthly_status = request.security(syminfo.tickerid, "M", f_monthly_status(), lookahead=barmerge.lookahead_off)
 
 
-// ——— Weekly Status ———
-weekly_close      = f_completed_htf("W", close)
-weekly_open       = f_completed_htf("W", open)
+// ——— Weekly Status (calculated on weekly timeframe) ———
+f_weekly_status() =>
+    w_close = close
+    w_open = open
+    prev_red_w = ta.valuewhen(w_close < w_open, w_open, 0)
+    prev_green_w = ta.valuewhen(w_close > w_open, w_open, 0)
+    
+    string status = "Neutral"
+    if w_close > w_open
+        if na(prev_red_w) or w_close > prev_red_w
+            status := "Bullish"
+    else if w_close < w_open
+        if na(prev_green_w) or w_close < prev_green_w
+            status := "Bearish"
+    status
 
-// Find most recent significant levels
-recent_red_open_w = ta.valuewhen(weekly_close < weekly_open, weekly_open, 0)
-recent_green_open_w = ta.valuewhen(weekly_close > weekly_open, weekly_open, 0)
-
-// Improved trend detection
-var string weekly_status = "Neutral"
-if weekly_close > weekly_open
-    if na(recent_red_open_w) or weekly_close > recent_red_open_w
-        weekly_status := "Bullish"
-else if weekly_close < weekly_open
-    if na(recent_green_open_w) or weekly_close < recent_green_open_w
-        weekly_status := "Bearish"
-
-
+weekly_status = request.security(syminfo.tickerid, "W", f_weekly_status(), lookahead=barmerge.lookahead_off)
 
 // ——— Monthly & Weekly EMAs & Order Flags ———
-[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
+[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M", 
+     [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], 
+     lookahead=barmerge.lookahead_off)
+
 monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m)
      ? "Aligned" : "Not Aligned"
 
-[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
-weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w)
-     ? "Aligned" : "Not Aligned"
+[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W", 
+     [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], 
+     lookahead=barmerge.lookahead_off)
 
 // ——— Overall Condition Logic ———
 string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bullish")
