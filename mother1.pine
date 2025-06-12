@@ -1,153 +1,198 @@
 //@version=5
-indicator("Monthly & Weekly Bias + EMA Order + Overall Condition", overlay=true)
-
+strategy("Monthly & Weekly Bias + EMA Order + Overall Condition (Enhanced Stop Management)", overlay=true, 
+         default_qty_type=strategy.percent_of_equity, default_qty_value=1)
 
 // ——— User Inputs for Setup Control ———
-allow_mom_a  = input.bool(true, "Momentum: Allow Setup A", group="Setup Filters")
-allow_mom_b  = input.bool(true, "Momentum: Allow Setup B", group="Setup Filters")
+allow_mom_a  = input.bool(true, "Momentum: Allow Setup A",    group="Setup Filters")
+allow_mom_b  = input.bool(true, "Momentum: Allow Setup B",    group="Setup Filters")
 allow_ret_a  = input.bool(true, "Retracement: Allow Setup A", group="Setup Filters")
 allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filters")
-allow_rea_a  = input.bool(true, "Reaction: Allow Setup A", group="Setup Filters")
-allow_rea_b  = input.bool(true, "Reaction: Allow Setup B", group="Setup Filters")
+allow_rea_a  = input.bool(true, "Reaction: Allow Setup A",    group="Setup Filters")
+allow_rea_b  = input.bool(true, "Reaction: Allow Setup B",    group="Setup Filters")
 
+// ——— Enhanced Price Action Management Tool ———
+// Default Price Action Line timeframe
+selectedTimeframe_PA = input.timeframe("15", 
+     title="Default Price Action Timeframe", 
+     options=["1", "5", "10", "15", "30", "60", "240", "D"],
+     group="Price Action Tool",
+     tooltip="Default timeframe for price action calculations")
+
+// Per-entry type Price Action Line timeframes
+tf_super_early = input.timeframe("240", 
+     title="Super Early Entry PA Timeframe", 
+     options=["1", "5", "10", "15", "30", "60", "240", "D"],
+     group="Price Action Tool",
+     tooltip="Price Action Line timeframe for Super Early entries")
+
+tf_early = input.timeframe("60", 
+     title="Early Entry PA Timeframe", 
+     options=["1", "5", "10", "15", "30", "60", "240", "D"],
+     group="Price Action Tool",
+     tooltip="Price Action Line timeframe for Early entries")
+
+tf_momentum = input.timeframe("15", 
+     title="Momentum Entry PA Timeframe", 
+     options=["1", "5", "10", "15", "30", "60", "240", "D"],
+     group="Price Action Tool",
+     tooltip="Price Action Line timeframe for Momentum entries")
+
+tf_retracement = input.timeframe("30", 
+     title="Retracement Entry PA Timeframe", 
+     options=["1", "5", "10", "15", "30", "60", "240", "D"],
+     group="Price Action Tool",
+     tooltip="Price Action Line timeframe for Retracement entries")
+
+tf_reaction = input.timeframe("15", 
+     title="Reaction Entry PA Timeframe", 
+     options=["1", "5", "10", "15", "30", "60", "240", "D"],
+     group="Price Action Tool",
+     tooltip="Price Action Line timeframe for Reaction entries")
+
+adjust_pct = input.float(0.0, 
+     "Price Action Line Adjustment (%)",  
+     minval=-100, 
+     maxval=100, 
+     step=0.1, 
+     group="Price Action Tool",
+     tooltip="Adjust the Price Action Line up or down by a percentage")
+
+// ——— Stop Loss Management Settings ———
+enable_trailing = input.bool(true, "Enable Trailing Stop", group="Stop Loss Management")
+trail_buffer = input.float(0.1, "Trail Buffer (%)", minval=0, maxval=5, step=0.1, group="Stop Loss Management", tooltip="Buffer above Price Action Line for trailing stop")
 
 // ——— Function for Completed HTF Values ———
 f_completed_htf(tf, src) =>
     request.security(syminfo.tickerid, tf, src[barstate.isconfirmed ? 0 : 1], lookahead=barmerge.lookahead_off)
 
-// ——— Monthly Status (calculated on monthly timeframe) ———
-f_monthly_status() =>
-    m_close = close
-    m_open = open
-    prev_red = ta.valuewhen(m_close < m_open, m_open, 0)
-    prev_green = ta.valuewhen(m_close > m_open, m_open, 0)
-    
-    string status = "Neutral"
-    if m_close > m_open
-        if na(prev_red) or m_close > prev_red
-            status := "Bullish"
-    else if m_close < m_open
-        if na(prev_green) or m_close < prev_green
-            status := "Bearish"
-    status
+// ——— Function for Price Action Line on HTF ———
+f_price_action_htf() =>
+    isGreen = close > open
+    prevIsRed = close[1] < open[1]
+    cond1 = isGreen and close > high[1]
+    cond2 = isGreen and close > open[1] and prevIsRed
+    (cond1 or cond2) ? low : na
 
-monthly_status = request.security(syminfo.tickerid, "M", f_monthly_status(), lookahead=barmerge.lookahead_off)
+// === Monthly Status ===
+monthly_close      = f_completed_htf("M", close)
+monthly_open       = f_completed_htf("M", open)
+recent_red_open    = ta.valuewhen(monthly_close < monthly_open, monthly_open, 0)
+recent_green_open  = ta.valuewhen(monthly_close > monthly_open, monthly_open, 0)
+var string monthly_status = "Neutral"
+if monthly_close > monthly_open
+    if na(recent_red_open) or monthly_close > recent_red_open
+        monthly_status := "Bullish"
+else if monthly_close < monthly_open
+    if na(recent_green_open) or monthly_close < recent_green_open
+        monthly_status := "Bearish"
 
+// === Daily Status ===
+daily_close      = f_completed_htf("D", close)
+daily_open       = f_completed_htf("D", open)
+daily_prev_close = f_completed_htf("D", close[1])
+daily_prev_open  = f_completed_htf("D", open[1])
+daily_prev_green_open = daily_prev_close > daily_prev_open ? daily_prev_open : na
+daily_prev_red_open   = daily_prev_close < daily_prev_open ? daily_prev_open : na
+daily_bullish = (daily_close > daily_open and (na(daily_prev_red_open) or daily_close > daily_prev_red_open)) or  (daily_close >= daily_open and (na(daily_prev_red_open) or daily_close >= daily_prev_red_open))
+daily_bearish  = (daily_close < daily_open and (na(daily_prev_green_open) or daily_close < daily_prev_green_open))
+if timeframe.period == "D" and daily_bullish
+    label.new(bar_index, high, "✓ Daily Bullish",
+              style=label.style_label_down, color=color.gray, textcolor=color.white)
 
-// ——— Weekly Status (calculated on weekly timeframe) ———
-f_weekly_status() =>
-    w_close = close
-    w_open = open
-    prev_red_w = ta.valuewhen(w_close < w_open, w_open, 0)
-    prev_green_w = ta.valuewhen(w_close > w_open, w_open, 0)
-    
-    string status = "Neutral"
-    if w_close > w_open
-        if na(prev_red_w) or w_close > prev_red_w
-            status := "Bullish"
-    else if w_close < w_open
-        if na(prev_green_w) or w_close < prev_green_w
-            status := "Bearish"
-    status
+// === Weekly Status ===
+weekly_close       = f_completed_htf("W", close)
+weekly_open        = f_completed_htf("W", open)
+recent_red_open_w   = ta.valuewhen(weekly_close < weekly_open, weekly_open, 0)
+recent_green_open_w = ta.valuewhen(weekly_close > weekly_open, weekly_open, 0)
+var string weekly_status = "Neutral"
+if weekly_close > weekly_open
+    if na(recent_red_open_w) or weekly_close > recent_red_open_w
+        weekly_status := "Bullish"
+else if weekly_close < weekly_open
+    if na(recent_green_open_w) or weekly_close < recent_green_open_w
+        weekly_status := "Bearish"
 
-weekly_status = request.security(syminfo.tickerid, "W", f_weekly_status(), lookahead=barmerge.lookahead_off)
+// === Monthly & Weekly EMAs & Order Flags ===
+[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)],  lookahead=barmerge.lookahead_off)
+monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m) ? "Aligned" : "Not Aligned"
 
-// ——— Monthly & Weekly EMAs & Order Flags ———
-[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M", 
-     [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], 
-     lookahead=barmerge.lookahead_off)
+[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
+weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w) ? "Aligned" : "Not Aligned"
 
-monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m)
-     ? "Aligned" : "Not Aligned"
-
-[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W", 
-     [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], 
-     lookahead=barmerge.lookahead_off)
-
-// ——— Overall Condition Logic ———
+// === Overall Condition Logic ===
 string overall_condition = (monthly_status == "Bullish" and weekly_status == "Bullish")
      ? (monthly_ema_flag == "Aligned" and weekly_ema_flag == "Aligned"
          ? "Setup A" : "Setup B")
      : "NO TRADE"
-
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
 
-// ——— Setup Flags for Conditions ———
-allow_momentum   = (is_setup_a and allow_mom_a) or (is_setup_b and allow_mom_b)
+// === Setup Flags for Conditions ===
+allow_momentum    = (is_setup_a and allow_mom_a) or (is_setup_b and allow_mom_b)
 allow_retracement = (is_setup_a and allow_ret_a) or (is_setup_b and allow_ret_b)
 allow_reaction    = (is_setup_a and allow_rea_a) or (is_setup_b and allow_rea_b)
 
-// ——— Plot Daily EMAs (reference) ———
+// === Plot Daily EMAs (reference) ===
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
 plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
 plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 
-// ——— Daily EMA Snapshots ———
+// === Daily EMA Snapshots ===
 live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
-live_ema20_snapshot = request.security( syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+live_ema20_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
 
-// ——— True Daily EMA Snapshots ———
+// === True Daily EMA Snapshots ===
 daily_ema10  = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_off)
 daily_ema20  = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
 daily_ema50  = request.security(syminfo.tickerid, "D", ta.ema(close, 50), lookahead=barmerge.lookahead_off)
 daily_ema100 = request.security(syminfo.tickerid, "D", ta.ema(close,100), lookahead=barmerge.lookahead_off)
 daily_ema200 = request.security(syminfo.tickerid, "D", ta.ema(close,200), lookahead=barmerge.lookahead_off)
 
-// ——— Higher-TF Trend Filter ———
+// === Higher-TF Trend Filter ===
 daily_ema_ok = daily_ema10  > daily_ema20 and
                daily_ema20  > daily_ema50 and
                daily_ema50  > daily_ema100 and
                daily_ema100 > daily_ema200
 
-// ——— Intraday EMAs ———
+// === Intraday EMAs ===
 dtf_ema10  = ta.ema(close, 10)
 dtf_ema20  = ta.ema(close, 20)
 dtf_ema50  = ta.ema(close, 50)
 dtf_ema100 = ta.ema(close, 100)
 dtf_ema200 = ta.ema(close, 200)
 
-// ——— Dominant Daily Bar Logic ———
+// === Dominant Daily Bar Logic ===
 f_get_dominant() =>
     var float dom_open = na
     var float dom_close = na
     var float dom_saved_close = na
-
     red1_o = open[1], red1_c = close[1]
     red2_o = open[2], red2_c = close[2]
     red3_o = open[3], red3_c = close[3]
     red4_o = open[4], red4_c = close[4]
     red5_o = open[5], red5_c = close[5]
-
     green1_o = open[1], green1_c = close[1]
     green2_o = open[2], green2_c = close[2]
     green3_o = open[3], green3_c = close[3]
-
-    last_red_open = red1_c < red1_o ? red1_o : red2_c < red2_o ? red2_o : red3_c < red3_o ? red3_o : red4_c < red4_o ? red4_o : red5_c < red5_o ? red5_o : na
-
+    last_red_open = red1_c < red1_o ? red1_o : red2_c < red2_o ? red2_o : red3_c < red3_o ? red3_o :red4_c < red4_o ? red4_o : red5_c < red5_o ? red5_o : na
     last_green_close = green1_c > green1_o ? green1_c :
                        green2_c > green2_o ? green2_c :
                        green3_c > green3_o ? green3_c : na
-
     is_green = close > open
     is_new_dominant = is_green and (close > last_red_open or close > last_green_close)
-
     if is_new_dominant
         dom_open := open
         dom_close := close
         dom_saved_close := close
-
     [dom_open, dom_close, dom_saved_close]
 
 [dom_open_d, dom_close_d, dom_saved_close_d] = request.security(syminfo.tickerid, "D", f_get_dominant(), lookahead=barmerge.lookahead_off)
-
 var float dominant_open        = na
 var float dominant_close       = na
 var float dominant_saved_close = na
 var float dominant_saved_open  = na
-
 dominant_open        := nz(dom_open_d,        dominant_open[1])
 dominant_close       := nz(dom_close_d,       dominant_close[1])
 dominant_saved_close := nz(dom_saved_close_d, dominant_saved_close[1])
@@ -163,124 +208,290 @@ if not na(dom_open_d) and timeframe.period == "D"
       style=label.style_label_down, textcolor=color.white,
       size=size.normal, color=color.green)
 
-// ——— Entry Pattern Functions ———
+// === Entry Pattern Functions ===
 isSuperEarlyEntry(ema10, ema20, ema50, ema100, ema200) =>
-    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and(math.abs(close - open) > math.abs(close[1] - open[1]))
-
+    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and (math.abs(close - open) > math.abs(close[1] - open[1]))
 crossed(ema) =>
     (low < ema and high > ema) or (low[1] < ema and high[1] > ema)
-
 isEarlyEntry(ema50, ema100, ema200) =>
     ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and close > open and close[1] < open[1] and (crossed(ema50) or crossed(ema100) or crossed(ema200)) and close > ema200 and math.abs(close - open) > math.abs(close[1] - open[1])
 
-// ——— Entry Flags (Evaluated Once Per Bar) ———
+// === Entry Flags ===
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
-// ——— Momentum Condition ———
+// === Momentum Condition ===
 is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum
 
-// ——— Momentum Label Logic ———
+// === Helper Function for Off EMA Label ===
+getOffEMA(ema50, ema100, ema200) =>
+    crossed50  = crossed(ema50)
+    crossed100 = crossed(ema100)
+    crossed200 = crossed(ema200)
+    emaOff = crossed200 ? 200 : crossed100 ? 100 : crossed50 ? 50 : na
+    emaOff
+
+// === Price Action Lines for Different Timeframes ===
+pa_super_early = request.security(syminfo.tickerid, tf_super_early, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_early = request.security(syminfo.tickerid, tf_early, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_momentum = request.security(syminfo.tickerid, tf_momentum, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_retracement = request.security(syminfo.tickerid, tf_retracement, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_reaction = request.security(syminfo.tickerid, tf_reaction, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+
+// Apply adjustment percentage
+pa_super_early_adj = na(pa_super_early) ? na : pa_super_early * (1 + adjust_pct / 100)
+pa_early_adj = na(pa_early) ? na : pa_early * (1 + adjust_pct / 100)
+pa_momentum_adj = na(pa_momentum) ? na : pa_momentum * (1 + adjust_pct / 100)
+pa_retracement_adj = na(pa_retracement) ? na : pa_retracement * (1 + adjust_pct / 100)
+pa_reaction_adj = na(pa_reaction) ? na : pa_reaction * (1 + adjust_pct / 100)
+
+// === Enhanced Stop Loss Management Variables ===
+var float stop_mom_se = na
+var float stop_mom_e = na
+var float stop_ret_se = na
+var float stop_ret_e = na
+var float stop_rea_se = na
+var float stop_rea_e = na
+
+var bool trailing_mom_se = false
+var bool trailing_mom_e = false
+var bool trailing_ret_se = false
+var bool trailing_ret_e = false
+var bool trailing_rea_se = false
+var bool trailing_rea_e = false
+
+// Function to calculate trailing stop
+calc_trailing_stop(current_stop, pa_line, buffer_pct) =>
+    if na(pa_line)
+        current_stop
+    else
+        pa_with_buffer = pa_line * (1 - buffer_pct / 100)
+        math.max(current_stop, pa_with_buffer)
+
+// === Momentum Label & Entry Logic ===
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
-    if super_early_entry_ok 
+    if super_early_entry_ok
+        strategy.entry(id="Long_Mom_SE", direction=strategy.long)
+        stop_mom_se := dtf_ema200  // Set initial stop at 200 EMA
+        trailing_mom_se := false   // Not trailing yet
         label.new(bar_index, low, "M.SE\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
     else if early_entry_ok
-        label.new(bar_index, low, "M.E\n" + label_text,
+        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        label_suffix = na(emaOff) ? "" : ".F" + str.tostring(emaOff)
+        strategy.entry(id="Long_Mom_E", direction=strategy.long)
+        stop_mom_e := dtf_ema200   // Set initial stop at 200 EMA
+        trailing_mom_e := false    // Not trailing yet
+        label.new(bar_index, low, "M.E" + label_suffix + "\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
 
-// ——— Retracement Condition ———
-is_retracement =  daily_ema_ok and ((low < dominant_saved_open and close > dominant_saved_open) or (low[1] < dominant_saved_open and close > dominant_saved_open))
+// === Retracement Condition ===
+is_retracement = daily_ema_ok and daily_bullish and (
+                     (low < dominant_saved_open and close > dominant_saved_open) or
+                     (low[1] < dominant_saved_open and close > dominant_saved_open)
+                 )
 
-// ——— Retracement Activation State ———
+// === State Tracking ===
 var bool retracement_active = false
-
-// NEW: Reset at start of each trading day
-is_new_day = ta.change(time("D")) // Detects new trading day
+var bool reaction_active    = false
+var int  reaction_ema       = na
+is_new_day = ta.change(time("D"))
 if is_new_day
-    retracement_active := false  // Force reset state
+    retracement_active := false
+    reaction_active    := false
+    reaction_ema       := na
 
-// Activate retracement once price crosses above dominant open
 if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 
-// Deactivate retracement if price closes above dominant close OR breaks low
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
     retracement_active := false
 
-// ——— Retracement Label Logic (Persistent State) ———
+// === Retracement Label & Entry Logic ===
 show_retracement_label = retracement_active and close < dominant_saved_close
-
 if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
-    if super_early_entry_ok 
+    if super_early_entry_ok
+        strategy.entry(id="Long_Ret_SE", direction=strategy.long)
+        stop_ret_se := dtf_ema200  // Set initial stop at 200 EMA
+        trailing_ret_se := false   // Not trailing yet
         label.new(bar_index, low, "R.SE\n" + label_text,
-                  style=label.style_label_up, color=color.fuchsia,
+                  style=label.style_label_upper_right, color=color.fuchsia,
                   textcolor=color.white, size=size.normal)
     else if early_entry_ok
-        label.new(bar_index, low, "R.E\n" + label_text,
-                  style=label.style_label_up, color=color.purple,
+        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        label_suffix = na(emaOff) ? "" : ".F" + str.tostring(emaOff)
+        strategy.entry(id="Long_Ret_E", direction=strategy.long)
+        stop_ret_e := dtf_ema200   // Set initial stop at 200 EMA
+        trailing_ret_e := false    // Not trailing yet
+        label.new(bar_index, low, "R.E" + label_suffix + "\n" + label_text,
+                  style=label.style_label_upper_right, color=color.purple,
                   textcolor=color.white, size=size.normal)
 
-// ——— Reaction Condition ———
+// === Reaction Condition ===
 reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
                        (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
-
 reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapshot) or
                        (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
 
-is_reaction = daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20) and allow_reaction
+if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20) and allow_reaction
+    reaction_active := true
+    reaction_ema    := reaction_crossed_10 ? 10 : 20
 
-// ——— Reaction Label Logic ———
-if (timeframe.period == "1" or timeframe.period == "10S") and is_reaction
-    crossed_ema_text = reaction_crossed_10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
-                       reaction_crossed_20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
-
+// === Reaction Label & Entry Logic ===
+show_reaction_label = reaction_active and daily_ema_ok and  
+                      ((reaction_ema == 10 and close > live_ema10_snapshot) or 
+                       (reaction_ema == 20 and close > live_ema20_snapshot))
+if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label
+    crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
+                       reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
     if super_early_entry_ok
+        strategy.entry(id="Long_Rea_SE", direction=strategy.long)
+        stop_rea_se := dtf_ema200  // Set initial stop at 200 EMA
+        trailing_rea_se := false   // Not trailing yet
         label.new(bar_index, low, "X.SE\n" + crossed_ema_text,
                   style=label.style_label_up, color=color.teal,
                   textcolor=color.white, size=size.normal)
     else if early_entry_ok
-        label.new(bar_index, low, "X.E\n" + crossed_ema_text,
+        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        label_suffix = na(emaOff) ? "" : ".F" + str.tostring(emaOff)
+        strategy.entry(id="Long_Rea_E", direction=strategy.long)
+        stop_rea_e := dtf_ema200   // Set initial stop at 200 EMA
+        trailing_rea_e := false    // Not trailing yet
+        label.new(bar_index, low, "X.E" + label_suffix + "\n" + crossed_ema_text,
                   style=label.style_label_up, color=color.navy,
                   textcolor=color.white, size=size.normal)
 
-// ——— Intraday Entry Labels ———
+// === Enhanced Stop Loss Management ===
+if enable_trailing
+    // Get entry prices for profit checking
+    entry_mom_se = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    entry_mom_e = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    entry_ret_se = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    entry_ret_e = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    entry_rea_se = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    entry_rea_e = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    
+    // Momentum Super Early Management
+    if strategy.position_size > 0 and not na(stop_mom_se)
+        in_profit = close > entry_mom_se
+        if not trailing_mom_se and in_profit
+            trailing_mom_se := true  // Switch to trailing mode
+        if trailing_mom_se and not na(pa_super_early_adj)
+            stop_mom_se := calc_trailing_stop(stop_mom_se, pa_super_early_adj, trail_buffer)
+    
+    // Momentum Early Management
+    if strategy.position_size > 0 and not na(stop_mom_e)
+        in_profit = close > entry_mom_e
+        if not trailing_mom_e and in_profit
+            trailing_mom_e := true
+        if trailing_mom_e and not na(pa_momentum_adj)
+            stop_mom_e := calc_trailing_stop(stop_mom_e, pa_momentum_adj, trail_buffer)
+    
+    // Retracement Super Early Management
+    if strategy.position_size > 0 and not na(stop_ret_se)
+        in_profit = close > entry_ret_se
+        if not trailing_ret_se and in_profit
+            trailing_ret_se := true
+        if trailing_ret_se and not na(pa_super_early_adj)
+            stop_ret_se := calc_trailing_stop(stop_ret_se, pa_super_early_adj, trail_buffer)
+    
+    // Retracement Early Management
+    if strategy.position_size > 0 and not na(stop_ret_e)
+        in_profit = close > entry_ret_e
+        if not trailing_ret_e and in_profit
+            trailing_ret_e := true
+        if trailing_ret_e and not na(pa_retracement_adj)
+            stop_ret_e := calc_trailing_stop(stop_ret_e, pa_retracement_adj, trail_buffer)
+    
+    // Reaction Super Early Management
+    if strategy.position_size > 0 and not na(stop_rea_se)
+        in_profit = close > entry_rea_se
+        if not trailing_rea_se and in_profit
+            trailing_rea_se := true
+        if trailing_rea_se and not na(pa_super_early_adj)
+            stop_rea_se := calc_trailing_stop(stop_rea_se, pa_super_early_adj, trail_buffer)
+    
+    // Reaction Early Management
+    if strategy.position_size > 0 and not na(stop_rea_e)
+        in_profit = close > entry_rea_e
+        if not trailing_rea_e and in_profit
+            trailing_rea_e := true
+        if trailing_rea_e and not na(pa_reaction_adj)
+            stop_rea_e := calc_trailing_stop(stop_rea_e, pa_reaction_adj, trail_buffer)
+
+// === Enhanced STOP-LOSS Exits ===
+if not na(stop_mom_se)
+    strategy.exit(id="Exit_Long_Mom_SE", from_entry="Long_Mom_SE", stop=stop_mom_se)
+if not na(stop_mom_e)
+    strategy.exit(id="Exit_Long_Mom_E", from_entry="Long_Mom_E", stop=stop_mom_e)
+if not na(stop_ret_se)
+    strategy.exit(id="Exit_Long_Ret_SE", from_entry="Long_Ret_SE", stop=stop_ret_se)
+if not na(stop_ret_e)
+    strategy.exit(id="Exit_Long_Ret_E", from_entry="Long_Ret_E", stop=stop_ret_e)
+if not na(stop_rea_se)
+    strategy.exit(id="Exit_Long_Rea_SE", from_entry="Long_Rea_SE", stop=stop_rea_se)
+if not na(stop_rea_e)
+    strategy.exit(id="Exit_Long_Rea_E", from_entry="Long_Rea_E", stop=stop_rea_e)
+
+// === Intraday Entry Labels ===
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
     label.new(bar_index, high, "Super Early Entry",
               style=label.style_label_up, color=color.yellow,
               textcolor=color.black, size=size.tiny)
-
 if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
     label.new(bar_index, high, "Early Entry",
               style=label.style_label_up, color=color.orange,
               textcolor=color.black, size=size.tiny)
 
+// === Price Action Line Plots ===
+plot(pa_super_early_adj, color=color.new(color.blue, 70), title="PA Line - Super Early (" + tf_super_early + ")", linewidth=1)
+plot(pa_early_adj, color=color.new(color.purple, 70), title="PA Line - Early (" + tf_early + ")", linewidth=1)
+plot(pa_momentum_adj, color=color.new(color.green, 50), title="PA Line - Momentum (" + tf_momentum + ")", linewidth=2)
+plot(pa_retracement_adj, color=color.new(color.fuchsia, 70), title="PA Line - Retracement (" + tf_retracement + ")", linewidth=1)
+plot(pa_reaction_adj, color=color.new(color.teal, 70), title="PA Line - Reaction (" + tf_reaction + ")", linewidth=1)
+
+// === Debug Labels for Stop Management ===
+if barstate.islast and strategy.position_size > 0
+    debug_text = "Stop Management Status:\n"
+    debug_text += trailing_mom_se ? "Mom SE: Trailing\n" : (not na(stop_mom_se) ? "Mom SE: Fixed\n" : "")
+    debug_text += trailing_mom_e ? "Mom E: Trailing\n" : (not na(stop_mom_e) ? "Mom E: Fixed\n" : "")
+    debug_text += trailing_ret_se ? "Ret SE: Trailing\n" : (not na(stop_ret_se) ? "Ret SE: Fixed\n" : "")
+    debug_text += trailing_ret_e ? "Ret E: Trailing\n" : (not na(stop_ret_e) ? "Ret E: Fixed\n" : "")
+    debug_text += trailing_rea_se ? "Rea SE: Trailing\n" : (not na(stop_rea_se) ? "Rea SE: Fixed\n" : "")
+    debug_text += trailing_rea_e ? "Rea E: Trailing" : (not na(stop_rea_e) ? "Rea E: Fixed" : "")
+    
+    if debug_text != "Stop Management Status:\n"
+        label.new(bar_index, low - (high - low) * 0.1, debug_text,
+                  style=label.style_label_up, color=color.gray,
+                  textcolor=color.white, size=size.small)
+
 // ——— Final Table ———
-var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
+var table bias_tbl = table.new(position.top_right, 3, 6, border_width=1)
 table.cell(bias_tbl, 0, 0, "Timeframe",       text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 0, "Status",          text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 2, 0, "EMA Order",       text_color=color.white, bgcolor=color.blue)
-
 table.cell(bias_tbl, 0, 1, "Monthly",         text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 1, monthly_status,    text_color=(monthly_status=="Bullish" ? color.green : color.red))
 table.cell(bias_tbl, 2, 1, monthly_ema_flag,  text_color=(monthly_ema_flag=="Aligned" ? color.green : color.red))
-
 table.cell(bias_tbl, 0, 2, "Weekly",          text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 2, weekly_status,     text_color=(weekly_status=="Bullish" ? color.green : color.red))
 table.cell(bias_tbl, 2, 2, weekly_ema_flag,   text_color=(weekly_ema_flag=="Aligned" ? color.green : color.red))
-
 table.cell(bias_tbl, 0, 3, "Condition",       text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 3, overall_condition, text_color=(overall_condition=="NO TRADE" ? color.red : color.green))
 table.cell(bias_tbl, 2, 3, "")
-
 table.cell(bias_tbl, 0, 4, "Dominant",        text_color=color.white, bgcolor=color.blue)
 table.cell(bias_tbl, 1, 4, "O: " + str.tostring(dominant_open, "#.##") +
                           " / C: " + str.tostring(dominant_close, "#.##"),
                           text_color=color.white)
 table.cell(bias_tbl, 2, 4, "EMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
                           "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
+                          text_color=color.white)
+table.cell(bias_tbl, 0, 5, "Trail Status",    text_color=color.white, bgcolor=color.blue)
+table.cell(bias_tbl, 1, 5, enable_trailing ? "Enabled" : "Disabled", 
+                          text_color=(enable_trailing ? color.green : color.red))
+table.cell(bias_tbl, 2, 5, "Buffer: " + str.tostring(trail_buffer, "#.#") + "%",
                           text_color=color.white)
