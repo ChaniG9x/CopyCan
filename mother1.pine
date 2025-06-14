@@ -368,28 +368,48 @@ else
     entry_price := na
 
 // === Resolve SL EMA and Trail Timeframe Based on Entry ID ===
-sl_ema = na
-trail_tf = na
+float sl_ema = na
+string trail_tf = na
 
-switch active_id
-    // Momentum
-    "M.SE"       => [sl_ema, trail_tf] := [sl_M_SE, trail_M_SE]
-    "M.E.F50"    => [sl_ema, trail_tf] := [sl_M_E_F50, trail_M_E_F50]
-    "M.E.F100"   => [sl_ema, trail_tf] := [sl_M_E_F100, trail_M_E_F100]
-    "M.E.F200"   => [sl_ema, trail_tf] := [sl_M_E_F200, trail_M_E_F200]
-    
-    // Retracement
-    "R.SE"       => [sl_ema, trail_tf] := [sl_R_SE, trail_R_SE]
-    "R.E.F50"    => [sl_ema, trail_tf] := [sl_R_E_F50, trail_R_E_F50]
-    "R.E.F100"   => [sl_ema, trail_tf] := [sl_R_E_F100, trail_R_E_F100]
-    "R.E.F200"   => [sl_ema, trail_tf] := [sl_R_E_F200, trail_R_E_F200]
-    
-    // Reaction
-    "X.SE.EMA10" => [sl_ema, trail_tf] := [sl_X_SE_10, trail_X_SE_10]
-    "X.SE.EMA20" => [sl_ema, trail_tf] := [sl_X_SE_20, trail_X_SE_20]
-    "X.E.F50"    => [sl_ema, trail_tf] := [sl_X_E_F50, trail_X_E_F50]
-    "X.E.F100"   => [sl_ema, trail_tf] := [sl_X_E_F100, trail_X_E_F100]
-    "X.E.F200"   => [sl_ema, trail_tf] := [sl_X_E_F200, trail_X_E_F200]
+if active_id == "M.SE"
+    sl_ema := sl_M_SE
+    trail_tf := trail_M_SE
+else if active_id == "M.E.F50"
+    sl_ema := sl_M_E_F50
+    trail_tf := trail_M_E_F50
+else if active_id == "M.E.F100"
+    sl_ema := sl_M_E_F100
+    trail_tf := trail_M_E_F100
+else if active_id == "M.E.F200"
+    sl_ema := sl_M_E_F200
+    trail_tf := trail_M_E_F200
+else if active_id == "R.SE"
+    sl_ema := sl_R_SE
+    trail_tf := trail_R_SE
+else if active_id == "R.E.F50"
+    sl_ema := sl_R_E_F50
+    trail_tf := trail_R_E_F50
+else if active_id == "R.E.F100"
+    sl_ema := sl_R_E_F100
+    trail_tf := trail_R_E_F100
+else if active_id == "R.E.F200"
+    sl_ema := sl_R_E_F200
+    trail_tf := trail_R_E_F200
+else if active_id == "X.SE.EMA10"
+    sl_ema := sl_X_SE_10
+    trail_tf := trail_X_SE_10
+else if active_id == "X.SE.EMA20"
+    sl_ema := sl_X_SE_20
+    trail_tf := trail_X_SE_20
+else if active_id == "X.E.F50"
+    sl_ema := sl_X_E_F50
+    trail_tf := trail_X_E_F50
+else if active_id == "X.E.F100"
+    sl_ema := sl_X_E_F100
+    trail_tf := trail_X_E_F100
+else if active_id == "X.E.F200"
+    sl_ema := sl_X_E_F200
+    trail_tf := trail_X_E_F200
 
 // === STOP-LOSS Exits (One per Unique Entry Type) ===
 
