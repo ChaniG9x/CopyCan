@@ -411,6 +411,17 @@ else if active_id == "X.E.F200"
     sl_ema := sl_X_E_F200
     trail_tf := trail_X_E_F200
 
+// === Final stop loss level: static until profit, then trail - but never trail lower
+in_profit = close > entry_price
+float final_stop = na
+
+if not na(sl_level)
+    if not in_profit
+        final_stop := sl_level
+    else
+        // Only trail if line is above the original stop
+        final_stop := na(pa_line_adjusted) ? sl_level : math.max(pa_line_adjusted, sl_level)
+
 // === STOP-LOSS Exits (One per Unique Entry Type) ===
 
 if not na(active_id) and not na(final_stop)
@@ -425,16 +436,6 @@ sl_level = sl_ema == 50 ? dtf_ema50 :
 pa_line = request.security(syminfo.tickerid, trail_tf, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
 
-// === Final stop loss level: static until profit, then trail - but never trail lower
-in_profit = close > entry_price
-final_stop = na
-
-if not na(sl_level)
-    if not in_profit
-        final_stop := sl_level
-    else
-        // Only trail if line is above the original stop
-        final_stop := na(pa_line_adjusted) ? sl_level : math.max(pa_line_adjusted, sl_level)
 
 // === Plot Final Stop on Chart
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
