@@ -411,6 +411,15 @@ else if active_id == "X.E.F200"
     sl_ema := sl_X_E_F200
     trail_tf := trail_X_E_F200
 
+// === Compute EMA value for initial SL (from selected sl_ema)
+sl_level = sl_ema == 50 ? dtf_ema50 :
+           sl_ema == 100 ? dtf_ema100 :
+           sl_ema == 200 ? dtf_ema200 : na
+
+// === Get price action line from selected trail_tf
+pa_line = request.security(syminfo.tickerid, trail_tf, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
+
 // === Final stop loss level: static until profit, then trail - but never trail lower
 in_profit = close > entry_price
 float final_stop = na
@@ -426,16 +435,6 @@ if not na(sl_level)
 
 if not na(active_id) and not na(final_stop)
     strategy.exit(id="Exit", from_entry=active_id, stop=final_stop)
-
-// === Compute EMA value for initial SL (from selected sl_ema)
-sl_level = sl_ema == 50 ? dtf_ema50 :
-           sl_ema == 100 ? dtf_ema100 :
-           sl_ema == 200 ? dtf_ema200 : na
-
-// === Get price action line from selected trail_tf
-pa_line = request.security(syminfo.tickerid, trail_tf, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
-
 
 // === Plot Final Stop on Chart
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
