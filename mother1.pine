@@ -10,6 +10,36 @@ allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filte
 allow_rea_a  = input.bool(true, "Reaction: Allow Setup A",    group="Setup Filters")
 allow_rea_b  = input.bool(true, "Reaction: Allow Setup B",    group="Setup Filters")
 
+// === Stop Loss + Trail Settings ===
+group_SL = "Entry Stop Loss and Trail Settings"
+
+sl_M_SE     = input.int(200, "M.SE - Stop Loss EMA", group=group_SL)
+trail_M_SE  = input.timeframe("15", "M.SE - Trail TF", group=group_SL)
+sl_M_E_F50    = input.int(50, "M.E.F50 - Stop Loss EMA", group=group_SL)
+trail_M_E_F50 = input.timeframe("15", "M.E.F50 - Trail TF", group=group_SL)
+sl_M_E_F100    = input.int(100, "M.E.F100 - Stop Loss EMA", group=group_SL)
+trail_M_E_F100 = input.timeframe("15", "M.E.F100 - Trail TF", group=group_SL)
+sl_M_E_F200    = input.int(200, "M.E.F200 - Stop Loss EMA", group=group_SL)
+trail_M_E_F200 = input.timeframe("15", "M.E.F200 - Trail TF", group=group_SL)
+sl_R_SE     = input.int(200, "R.SE - Stop Loss EMA", group=group_SL)
+trail_R_SE  = input.timeframe("15", "R.SE - Trail TF", group=group_SL)
+sl_R_E_F50    = input.int(50, "R.E.F50 - Stop Loss EMA", group=group_SL)
+trail_R_E_F50 = input.timeframe("15", "R.E.F50 - Trail TF", group=group_SL)
+sl_R_E_F100    = input.int(100, "R.E.F100 - Stop Loss EMA", group=group_SL)
+trail_R_E_F100 = input.timeframe("15", "R.E.F100 - Trail TF", group=group_SL)
+sl_R_E_F200    = input.int(200, "R.E.F200 - Stop Loss EMA", group=group_SL)
+trail_R_E_F200 = input.timeframe("15", "R.E.F200 - Trail TF", group=group_SL)
+sl_X_SE_10     = input.int(200, "X.SE EMA10 - Stop Loss EMA", group=group_SL)
+trail_X_SE_10  = input.timeframe("15", "X.SE EMA10 - Trail TF", group=group_SL)
+sl_X_SE_20     = input.int(200, "X.SE EMA20 - Stop Loss EMA", group=group_SL)
+trail_X_SE_20  = input.timeframe("15", "X.SE EMA20 - Trail TF", group=group_SL)
+sl_X_E_F50     = input.int(50, "X.E.F50 - Stop Loss EMA", group=group_SL)
+trail_X_E_F50  = input.timeframe("15", "X.E.F50 - Trail TF", group=group_SL)
+sl_X_E_F100     = input.int(100, "X.E.F100 - Stop Loss EMA", group=group_SL)
+trail_X_E_F100  = input.timeframe("15", "X.E.F100 - Trail TF", group=group_SL)
+sl_X_E_F200     = input.int(200, "X.E.F200 - Stop Loss EMA", group=group_SL)
+trail_X_E_F200  = input.timeframe("15", "X.E.F200 - Trail TF", group=group_SL)
+
 // ——— Inputs for Price Action Management Tool ———
 selectedTimeframe_PA = input.timeframe("15", 
      title="Select Timeframe for Price Action", 
@@ -327,22 +357,67 @@ if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
               style=label.style_label_up, color=color.orange,
               textcolor=color.black, size=size.tiny)
 
+// === Track Active Entry ===
+var string active_id = na
+var float entry_price = na
+if strategy.opentrades > 0
+    active_id := strategy.opentrades.entry_id(0)
+    entry_price := strategy.opentrades.entry_price(0)
+else
+    active_id := na
+    entry_price := na
+
+// === Resolve SL EMA and Trail Timeframe Based on Entry ID ===
+sl_ema = na
+trail_tf = na
+
+switch active_id
+    // Momentum
+    "M.SE"       => [sl_ema, trail_tf] := [sl_M_SE, trail_M_SE]
+    "M.E.F50"    => [sl_ema, trail_tf] := [sl_M_E_F50, trail_M_E_F50]
+    "M.E.F100"   => [sl_ema, trail_tf] := [sl_M_E_F100, trail_M_E_F100]
+    "M.E.F200"   => [sl_ema, trail_tf] := [sl_M_E_F200, trail_M_E_F200]
+    
+    // Retracement
+    "R.SE"       => [sl_ema, trail_tf] := [sl_R_SE, trail_R_SE]
+    "R.E.F50"    => [sl_ema, trail_tf] := [sl_R_E_F50, trail_R_E_F50]
+    "R.E.F100"   => [sl_ema, trail_tf] := [sl_R_E_F100, trail_R_E_F100]
+    "R.E.F200"   => [sl_ema, trail_tf] := [sl_R_E_F200, trail_R_E_F200]
+    
+    // Reaction
+    "X.SE.EMA10" => [sl_ema, trail_tf] := [sl_X_SE_10, trail_X_SE_10]
+    "X.SE.EMA20" => [sl_ema, trail_tf] := [sl_X_SE_20, trail_X_SE_20]
+    "X.E.F50"    => [sl_ema, trail_tf] := [sl_X_E_F50, trail_X_E_F50]
+    "X.E.F100"   => [sl_ema, trail_tf] := [sl_X_E_F100, trail_X_E_F100]
+    "X.E.F200"   => [sl_ema, trail_tf] := [sl_X_E_F200, trail_X_E_F200]
+
 // === STOP-LOSS Exits (One per Unique Entry Type) ===
-strategy.exit(id="Exit_M.SE",      from_entry="M.SE",      stop=dtf_ema200)
-strategy.exit(id="Exit_M.E.F50",   from_entry="M.E.F50",   stop=dtf_ema200)
-strategy.exit(id="Exit_M.E.F100",  from_entry="M.E.F100",  stop=dtf_ema200)
-strategy.exit(id="Exit_M.E.F200",  from_entry="M.E.F200",  stop=dtf_ema200)
 
-strategy.exit(id="Exit_R.SE",      from_entry="R.SE",      stop=dtf_ema200)
-strategy.exit(id="Exit_R.E.F50",   from_entry="R.E.F50",   stop=dtf_ema200)
-strategy.exit(id="Exit_R.E.F100",  from_entry="R.E.F100",  stop=dtf_ema200)
-strategy.exit(id="Exit_R.E.F200",  from_entry="R.E.F200",  stop=dtf_ema200)
+if not na(active_id) and not na(final_stop)
+    strategy.exit(id="Exit", from_entry=active_id, stop=final_stop)
 
-strategy.exit(id="Exit_X.SE.EMA10", from_entry="X.SE.EMA10", stop=dtf_ema200)
-strategy.exit(id="Exit_X.SE.EMA20", from_entry="X.SE.EMA20", stop=dtf_ema200)
-strategy.exit(id="Exit_X.E.F50",    from_entry="X.E.F50",    stop=dtf_ema200)
-strategy.exit(id="Exit_X.E.F100",   from_entry="X.E.F100",   stop=dtf_ema200)
-strategy.exit(id="Exit_X.E.F200",   from_entry="X.E.F200",   stop=dtf_ema200)
+// === Compute EMA value for initial SL (from selected sl_ema)
+sl_level = sl_ema == 50 ? dtf_ema50 :
+           sl_ema == 100 ? dtf_ema100 :
+           sl_ema == 200 ? dtf_ema200 : na
+
+// === Get price action line from selected trail_tf
+pa_line = request.security(syminfo.tickerid, trail_tf, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
+
+// === Final stop loss level: static until profit, then trail - but never trail lower
+in_profit = close > entry_price
+final_stop = na
+
+if not na(sl_level)
+    if not in_profit
+        final_stop := sl_level
+    else
+        // Only trail if line is above the original stop
+        final_stop := na(pa_line_adjusted) ? sl_level : math.max(pa_line_adjusted, sl_level)
+
+// === Plot Final Stop on Chart
+plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
 
 // === Price Action Line Retrieval & Plot ===
 priceLineRaw = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
