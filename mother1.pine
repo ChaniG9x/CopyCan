@@ -416,11 +416,42 @@ sl_level = sl_ema == 50 ? dtf_ema50 :
            sl_ema == 100 ? dtf_ema100 :
            sl_ema == 200 ? dtf_ema200 : na
 
+// === Precompute all PA line values to avoid conditional request.security() ===
+pa_M_SE      = request.security(syminfo.tickerid, trail_M_SE, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_M_E_F50   = request.security(syminfo.tickerid, trail_M_E_F50, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_M_E_F100  = request.security(syminfo.tickerid, trail_M_E_F100, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_M_E_F200  = request.security(syminfo.tickerid, trail_M_E_F200, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_SE      = request.security(syminfo.tickerid, trail_R_SE, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_E_F50   = request.security(syminfo.tickerid, trail_R_E_F50, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_E_F100  = request.security(syminfo.tickerid, trail_R_E_F100, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_E_F200  = request.security(syminfo.tickerid, trail_R_E_F200, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_SE_10   = request.security(syminfo.tickerid, trail_X_SE_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_SE_20   = request.security(syminfo.tickerid, trail_X_SE_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F50   = request.security(syminfo.tickerid, trail_X_E_F50, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F100  = request.security(syminfo.tickerid, trail_X_E_F100, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F200  = request.security(syminfo.tickerid, trail_X_E_F200, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+
+// === Pick correct precomputed PA line
+pa_line =
+     active_id == "M.SE"        ? pa_M_SE :
+     active_id == "M.E.F50"     ? pa_M_E_F50 :
+     active_id == "M.E.F100"    ? pa_M_E_F100 :
+     active_id == "M.E.F200"    ? pa_M_E_F200 :
+     active_id == "R.SE"        ? pa_R_SE :
+     active_id == "R.E.F50"     ? pa_R_E_F50 :
+     active_id == "R.E.F100"    ? pa_R_E_F100 :
+     active_id == "R.E.F200"    ? pa_R_E_F200 :
+     active_id == "X.SE.EMA10"  ? pa_X_SE_10 :
+     active_id == "X.SE.EMA20"  ? pa_X_SE_20 :
+     active_id == "X.E.F50"     ? pa_X_E_F50 :
+     active_id == "X.E.F100"    ? pa_X_E_F100 :
+     active_id == "X.E.F200"    ? pa_X_E_F200 : na
+
 // === Get price action line from selected trail_tf
-pa_line = request.security(syminfo.tickerid, trail_tf, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
+
 
 // === Final stop loss level: static until profit, then trail - but never trail lower
+pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
 in_profit = close > entry_price
 float final_stop = na
 
