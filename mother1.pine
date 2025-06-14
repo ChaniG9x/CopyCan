@@ -244,6 +244,7 @@ if retracement_active and (close > dominant_saved_close or low < dominant_saved_
     retracement_active := false
 
 // === Retracement Label & Entry Logic (Hardcoded IDs) ===
+show_retracement_label = retracement_active and close < dominant_saved_close
 if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
     if super_early_entry_ok
@@ -280,6 +281,10 @@ if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_cro
     reaction_ema    := reaction_crossed_10 ? 10 : 20
 
 // === Reaction Label & Entry Logic (Hardcoded IDs) ===
+show_reaction_label = reaction_active and daily_ema_ok and  
+                      ((reaction_ema == 10 and close > live_ema10_snapshot) or 
+                       (reaction_ema == 20 and close > live_ema20_snapshot))
+
 if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label
     crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
                        reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
