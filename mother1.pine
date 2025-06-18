@@ -145,7 +145,7 @@ plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
 plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
-plot(ta.ema(close, 350), title="EMA 350", color=color.fuchsia, linewidth=2)
+plot(ta.ema(close, 350), title="EMA 350", color=color.lime, linewidth=2)
 
 // === Daily EMA Snapshots ===
 live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
@@ -383,6 +383,14 @@ else
     active_id := na
     entry_price := na
 
+// === Track SL once per trade + trail logic control ===
+var float sl_fixed = na
+var bool  trail_started = false
+
+if strategy.opentrades == 0
+    sl_fixed := na
+    trail_started := false
+
 // === Resolve SL EMA and Trail Timeframe Based on Entry ID ===
 float sl_ema = na
 string trail_tf = na
@@ -487,11 +495,19 @@ in_profit = close > entry_price
 float final_stop = na
 
 if not na(sl_level)
-    if not in_profit
-        final_stop := sl_level
+    // Lock in the fixed SL once per trade
+    if na(sl_fixed) and not na(entry_price)
+        sl_fixed := sl_level
+
+    // Enable trailing only once PA line is above fixed SL and we're in profit
+    if in_profit and not na(pa_line_adjusted) and pa_line_adjusted > sl_fixed
+        trail_started := true
+
+    // Apply appropriate stop based on whether trailing is active
+    if not trail_started
+        final_stop := sl_fixed
     else
-        // Only trail if line is above the original stop
-        final_stop := na(pa_line_adjusted) ? sl_level : math.max(pa_line_adjusted, sl_level)
+        final_stop := math.max(sl_fixed, pa_line_adjusted)
 
 // === STOP-LOSS Exits (One per Unique Entry Type) ===
 
