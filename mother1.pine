@@ -3,6 +3,29 @@ strategy("Monthly & Weekly Bias + EMA Order + Overall Condition (with 200EMA sto
          default_qty_type=strategy.percent_of_equity, default_qty_value=1)
 
 // ——— User Inputs for Setup Control ———
+
+group_trading_window = "Trading Windows"
+
+s1_start_hr  = input.int(9, "Session 1 Start Hour", minval=0, maxval=23, group=group_trading_window)
+s1_start_min = input.int(0, "Session 1 Start Minute", minval=0, maxval=59, group=group_trading_window)
+s1_end_hr    = input.int(12, "Session 1 End Hour", minval=0, maxval=23, group=group_trading_window)
+s1_end_min   = input.int(0, "Session 1 End Minute", minval=0, maxval=59, group=group_trading_window)
+
+s2_start_hr  = input.int(14, "Session 2 Start Hour", minval=0, maxval=23, group=group_trading_window)
+s2_start_min = input.int(0, "Session 2 Start Minute", minval=0, maxval=59, group=group_trading_window)
+s2_end_hr    = input.int(16, "Session 2 End Hour", minval=0, maxval=23, group=group_trading_window)
+s2_end_min   = input.int(0, "Session 2 End Minute", minval=0, maxval=59, group=group_trading_window)
+
+s1_start = timestamp("GMT+0", year, month, dayofmonth, s1_start_hr, s1_start_min)
+s1_end   = timestamp("GMT+0", year, month, dayofmonth, s1_end_hr, s1_end_min)
+
+s2_start = timestamp("GMT+0", year, month, dayofmonth, s2_start_hr, s2_start_min)
+s2_end   = timestamp("GMT+0", year, month, dayofmonth, s2_end_hr, s2_end_min)
+
+in_session_1 = time >= s1_start and time <= s1_end
+in_session_2 = time >= s2_start and time <= s2_end
+in_session   = in_session_1 or in_session_2
+
 allow_mom_a  = input.bool(true, "Momentum: Allow Setup A",    group="Setup Filters")
 allow_mom_b  = input.bool(true, "Momentum: Allow Setup B",    group="Setup Filters")
 allow_ret_a  = input.bool(true, "Retracement: Allow Setup A", group="Setup Filters")
@@ -276,7 +299,7 @@ super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_em
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
 // === Momentum Condition ===
-is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum
+is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum and in_session
 
 // === Helper Function for Off EMA Label ===
 getOffEMA(ema50, ema100, ema200) =>
@@ -287,7 +310,7 @@ getOffEMA(ema50, ema100, ema200) =>
     emaOff
 
 // === Momentum Label & Entry Logic ===
-if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
+if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
     if super_early_entry_ok and allow_M_SE
         strategy.entry(id="M.SE", direction=strategy.long)
@@ -336,7 +359,7 @@ if retracement_active and (close > dominant_saved_close or low < dominant_saved_
 
 // === Retracement Label & Entry Logic ===
 show_retracement_label = retracement_active and close < dominant_saved_close
-if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label
+if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
     if super_early_entry_ok and allow_R_SE
         strategy.entry(id="R.SE", direction=strategy.long)
@@ -375,7 +398,7 @@ if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_cro
 show_reaction_label = reaction_active and daily_ema_ok and  
                       ((reaction_ema == 10 and close > live_ema10_snapshot) or 
                        (reaction_ema == 20 and close > live_ema20_snapshot))
-if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label
+if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and in_session
     crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
                    reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
     
@@ -604,6 +627,10 @@ plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_lin
 priceLineRaw = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 priceLine    = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
+
+// Trading Windows Visual 
+
+bgcolor(in_session ? color.new(color.green, 90) : na, title="Trading Window Background")
 
 // ——— Final Table ———
 var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
