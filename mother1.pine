@@ -491,7 +491,6 @@ pa_line =
 
 // === Final stop loss level: static until profit, then trail - but never trail lower
 pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
-in_profit = close > entry_price
 float final_stop = na
 
 if not na(sl_level)
@@ -499,9 +498,9 @@ if not na(sl_level)
     if na(sl_fixed) and not na(entry_price)
         sl_fixed := sl_level
 
-    // Enable trailing only once PA line is above fixed SL and we're in profit
-    if in_profit and not na(pa_line_adjusted) and pa_line_adjusted > sl_fixed
-        trail_started := true
+// Enable trailing only once PA line is above the entry price
+if not na(pa_line_adjusted) and pa_line_adjusted > entry_price
+    trail_started := true
 
     // Apply appropriate stop based on whether trailing is active
     if not trail_started
