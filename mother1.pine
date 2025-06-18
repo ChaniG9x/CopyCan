@@ -10,58 +10,92 @@ allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filte
 allow_rea_a  = input.bool(true, "Reaction: Allow Setup A",    group="Setup Filters")
 allow_rea_b  = input.bool(true, "Reaction: Allow Setup B",    group="Setup Filters")
 
-// === Stop Loss + Trail Settings ===
-group_SL = "Entry Stop Loss and Trail Settings"
+// === Global Stop Loss Buffer ===
+sl_buffer_pct = input.float(0.0, "Stop Loss Buffer (%)", minval=0.0, step=0.01, group="Global SL Settings")
 
-sl_buffer_pct = input.float(0.0, "Stop Loss Buffer (%)", minval=0.0, step=0.01, group=group_SL,tooltip="Applies a global percentage buffer below the EMA for SL")
+// === Momentum Entries ===
+group_M_SE       = "Momentum: Super Early (M.SE)"
+allow_M_SE       = input.bool(true, "Enable", group=group_M_SE)
+sl_M_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_SE)
+trail_M_SE       = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_SE)
 
-sl_M_SE         = input.string("200", "M.SE - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_M_SE      = input.timeframe("15", "M.SE - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_M_E_F50    = "Momentum: Early F50 (M.E.F50)"
+allow_M_E_F50    = input.bool(true, "Enable", group=group_M_E_F50)
+sl_M_E_F50       = input.string("50", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F50)
+trail_M_E_F50    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F50)
 
-sl_M_E_F50      = input.string("50",  "M.E.F50 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_M_E_F50   = input.timeframe("15", "M.E.F50 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_M_E_F100   = "Momentum: Early F100 (M.E.F100)"
+allow_M_E_F100   = input.bool(true, "Enable", group=group_M_E_F100)
+sl_M_E_F100      = input.string("100", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F100)
+trail_M_E_F100   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F100)
 
-sl_M_E_F100     = input.string("100", "M.E.F100 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_M_E_F100  = input.timeframe("15", "M.E.F100 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_M_E_F200   = "Momentum: Early F200 (M.E.F200)"
+allow_M_E_F200   = input.bool(true, "Enable", group=group_M_E_F200)
+sl_M_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F200)
+trail_M_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F200)
 
-sl_M_E_F200     = input.string("200", "M.E.F200 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_M_E_F200  = input.timeframe("15", "M.E.F200 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+// === Retracement Entries ===
+group_R_SE       = "Retracement: Super Early (R.SE)"
+allow_R_SE       = input.bool(true, "Enable", group=group_R_SE)
+sl_R_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_SE)
+trail_R_SE       = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_SE)
 
-sl_R_SE         = input.string("200", "R.SE - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_R_SE      = input.timeframe("15", "R.SE - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_R_E_F50    = "Retracement: Early F50 (R.E.F50)"
+allow_R_E_F50    = input.bool(true, "Enable", group=group_R_E_F50)
+sl_R_E_F50       = input.string("50", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F50)
+trail_R_E_F50    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F50)
 
-sl_R_E_F50      = input.string("50",  "R.E.F50 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_R_E_F50   = input.timeframe("15", "R.E.F50 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_R_E_F100   = "Retracement: Early F100 (R.E.F100)"
+allow_R_E_F100   = input.bool(true, "Enable", group=group_R_E_F100)
+sl_R_E_F100      = input.string("100", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F100)
+trail_R_E_F100   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F100)
 
-sl_R_E_F100     = input.string("100", "R.E.F100 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_R_E_F100  = input.timeframe("15", "R.E.F100 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_R_E_F200   = "Retracement: Early F200 (R.E.F200)"
+allow_R_E_F200   = input.bool(true, "Enable", group=group_R_E_F200)
+sl_R_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F200)
+trail_R_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F200)
 
-sl_R_E_F200     = input.string("200", "R.E.F200 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_R_E_F200  = input.timeframe("15", "R.E.F200 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+// === Reaction: Super Early ===
+group_X_SE_10    = "Reaction: Super Early EMA10 (X.SE.EMA10)"
+allow_X_SE_10    = input.bool(true, "Enable", group=group_X_SE_10)
+sl_X_SE_10       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_10)
+trail_X_SE_10    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_10)
 
-sl_X_SE_10      = input.string("200", "X.SE EMA10 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_SE_10   = input.timeframe("15", "X.SE EMA10 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_X_SE_20    = "Reaction: Super Early EMA20 (X.SE.EMA20)"
+allow_X_SE_20    = input.bool(true, "Enable", group=group_X_SE_20)
+sl_X_SE_20       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_20)
+trail_X_SE_20    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_20)
 
-sl_X_SE_20      = input.string("200", "X.SE EMA20 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_SE_20   = input.timeframe("15", "X.SE EMA20 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+// === Reaction: Early by EMA Cross
+group_X_E_F50_10 = "Reaction: Early F50 EMA10 (X.E.F50.10)"
+allow_X_E_F50_10 = input.bool(true, "Enable", group=group_X_E_F50_10)
+sl_X_E_F50_10    = input.string("50", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F50_10)
+trail_X_E_F50_10 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F50_10)
 
-sl_X_E_F50_10     = input.string("50",  "X.E.F50.10 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_E_F50_10  = input.timeframe("15", "X.E.F50.10 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_X_E_F100_10 = "Reaction: Early F100 EMA10 (X.E.F100.10)"
+allow_X_E_F100_10 = input.bool(true, "Enable", group=group_X_E_F100_10)
+sl_X_E_F100_10    = input.string("100", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F100_10)
+trail_X_E_F100_10 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F100_10)
 
-sl_X_E_F100_10    = input.string("100", "X.E.F100.10 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_E_F100_10 = input.timeframe("15", "X.E.F100.10 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_X_E_F200_10 = "Reaction: Early F200 EMA10 (X.E.F200.10)"
+allow_X_E_F200_10 = input.bool(true, "Enable", group=group_X_E_F200_10)
+sl_X_E_F200_10    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F200_10)
+trail_X_E_F200_10 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F200_10)
 
-sl_X_E_F200_10    = input.string("200", "X.E.F200.10 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_E_F200_10 = input.timeframe("15", "X.E.F200.10 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_X_E_F50_20 = "Reaction: Early F50 EMA20 (X.E.F50.20)"
+allow_X_E_F50_20 = input.bool(true, "Enable", group=group_X_E_F50_20)
+sl_X_E_F50_20    = input.string("50", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F50_20)
+trail_X_E_F50_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F50_20)
 
-sl_X_E_F50_20     = input.string("50",  "X.E.F50.20 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_E_F50_20  = input.timeframe("15", "X.E.F50.20 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_X_E_F100_20 = "Reaction: Early F100 EMA20 (X.E.F100.20)"
+allow_X_E_F100_20 = input.bool(true, "Enable", group=group_X_E_F100_20)
+sl_X_E_F100_20    = input.string("100", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F100_20)
+trail_X_E_F100_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F100_20)
 
-sl_X_E_F100_20    = input.string("100", "X.E.F100.20 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_E_F100_20 = input.timeframe("15", "X.E.F100.20 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
-
-sl_X_E_F200_20    = input.string("200", "X.E.F200.20 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
-trail_X_E_F200_20 = input.timeframe("15", "X.E.F200.20 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
+group_X_E_F200_20 = "Reaction: Early F200 EMA20 (X.E.F200.20)"
+allow_X_E_F200_20 = input.bool(true, "Enable", group=group_X_E_F200_20)
+sl_X_E_F200_20    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F200_20)
+trail_X_E_F200_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F200_20)
 
 
 
@@ -252,27 +286,27 @@ getOffEMA(ema50, ema100, ema200) =>
     emaOff = crossed200 ? 200 : crossed100 ? 100 : crossed50 ? 50 : na
     emaOff
 
-// === Momentum Label & Entry Logic (Hardcoded IDs) ===
+// === Momentum Label & Entry Logic ===
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
-    if super_early_entry_ok
+    if super_early_entry_ok and allow_M_SE
         strategy.entry(id="M.SE", direction=strategy.long)
         label.new(bar_index, low, "M.SE\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
-        if emaOff == 50
+        if emaOff == 50 and allow_M_E_F50
             strategy.entry(id="M.E.F50", direction=strategy.long)
             label.new(bar_index, low, "M.E.F50\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
-        else if emaOff == 100
+        else if emaOff == 100 and allow_M_E_F100
             strategy.entry(id="M.E.F100", direction=strategy.long)
             label.new(bar_index, low, "M.E.F100\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
-        else if emaOff == 200
+        else if emaOff == 200 and allow_M_E_F200
             strategy.entry(id="M.E.F200", direction=strategy.long)
             label.new(bar_index, low, "M.E.F200\n" + label_text,
                       style=label.style_label_up, color=color.green,
@@ -300,28 +334,28 @@ if not retracement_active and is_retracement and allow_retracement
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
     retracement_active := false
 
-// === Retracement Label & Entry Logic (Hardcoded IDs) ===
+// === Retracement Label & Entry Logic ===
 show_retracement_label = retracement_active and close < dominant_saved_close
 if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
-    if super_early_entry_ok
+    if super_early_entry_ok and allow_R_SE
         strategy.entry(id="R.SE", direction=strategy.long)
         label.new(bar_index, low, "R.SE\n" + label_text,
                   style=label.style_label_upper_right, color=color.fuchsia,
                   textcolor=color.white, size=size.normal)
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
-        if emaOff == 50
+        if emaOff == 50 and allow_R_E_F50
             strategy.entry(id="R.E.F50", direction=strategy.long)
             label.new(bar_index, low, "R.E.F50\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
-        else if emaOff == 100
+        else if emaOff == 100 and allow_R_E_F100
             strategy.entry(id="R.E.F100", direction=strategy.long)
             label.new(bar_index, low, "R.E.F100\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
-        else if emaOff == 200
+        else if emaOff == 200 and allow_R_E_F200
             strategy.entry(id="R.E.F200", direction=strategy.long)
             label.new(bar_index, low, "R.E.F200\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
@@ -337,22 +371,21 @@ if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_cro
     reaction_active := true
     reaction_ema    := reaction_crossed_10 ? 10 : 20
 
-// === Reaction Label & Entry Logic (Hardcoded IDs) ===
+// === Reaction Label & Entry Logic ===
 show_reaction_label = reaction_active and daily_ema_ok and  
                       ((reaction_ema == 10 and close > live_ema10_snapshot) or 
                        (reaction_ema == 20 and close > live_ema20_snapshot))
-
 if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label
     crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
-                       reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
+                   reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
     
     if super_early_entry_ok
-        if reaction_ema == 10
+        if reaction_ema == 10 and allow_X_SE_10
             strategy.entry(id="X.SE.EMA10", direction=strategy.long)
             label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
-        else if reaction_ema == 20
+        else if reaction_ema == 20 and allow_X_SE_20
             strategy.entry(id="X.SE.EMA20", direction=strategy.long)
             label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
@@ -362,36 +395,36 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
 
         if emaOff == 50
-            if reaction_ema == 10
+            if reaction_ema == 10 and allow_X_E_F50_10
                 strategy.entry(id="X.E.F50.10", direction=strategy.long)
                 label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
-            else if reaction_ema == 20
+            else if reaction_ema == 20 and allow_X_E_F50_20
                 strategy.entry(id="X.E.F50.20", direction=strategy.long)
                 label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
 
         else if emaOff == 100
-            if reaction_ema == 10
+            if reaction_ema == 10 and allow_X_E_F100_10
                 strategy.entry(id="X.E.F100.10", direction=strategy.long)
                 label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
-            else if reaction_ema == 20
+            else if reaction_ema == 20 and allow_X_E_F100_20
                 strategy.entry(id="X.E.F100.20", direction=strategy.long)
                 label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
 
         else if emaOff == 200
-            if reaction_ema == 10
+            if reaction_ema == 10 and allow_X_E_F200_10
                 strategy.entry(id="X.E.F200.10", direction=strategy.long)
                 label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
-            else if reaction_ema == 20
+            else if reaction_ema == 20 and allow_X_E_F200_20
                 strategy.entry(id="X.E.F200.20", direction=strategy.long)
                 label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
