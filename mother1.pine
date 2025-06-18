@@ -169,7 +169,8 @@ dtf_ema10  = ta.ema(close, 10)
 dtf_ema20  = ta.ema(close, 20)
 dtf_ema50  = ta.ema(close, 50)
 dtf_ema100 = ta.ema(close, 100)
-dtf_ema200 = ta.ema(close, 200)  // ← 200 EMA on the intraday timeframe
+dtf_ema200 = ta.ema(close, 200)
+dtf_ema350 = ta.ema(close, 350)// ← 350 EMA on the intraday timeframe
 
 // === Dominant Daily Bar Logic ===
 f_get_dominant() =>
@@ -444,7 +445,7 @@ else if active_id == "X.E.F200"
 sl_level = sl_ema == 50 ? dtf_ema50 :
            sl_ema == 100 ? dtf_ema100 :
            sl_ema == 200 ? dtf_ema200 :
-           sl_ema == 350 ? ta.ema(close, 350) : na
+           sl_ema == 350 ? dtf_ema350 : na
 
 // === Precompute all PA line values to avoid conditional request.security() ===
 pa_M_SE      = request.security(syminfo.tickerid, trail_M_SE, f_price_action_htf(), lookahead=barmerge.lookahead_off)
