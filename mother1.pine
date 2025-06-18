@@ -13,32 +13,48 @@ allow_rea_b  = input.bool(true, "Reaction: Allow Setup B",    group="Setup Filte
 // === Stop Loss + Trail Settings ===
 group_SL = "Entry Stop Loss and Trail Settings"
 
-sl_M_SE     = input.int(200, "M.SE - Stop Loss EMA", group=group_SL)
-trail_M_SE  = input.timeframe("15", "M.SE - Trail TF", group=group_SL)
-sl_M_E_F50    = input.int(50, "M.E.F50 - Stop Loss EMA", group=group_SL)
-trail_M_E_F50 = input.timeframe("15", "M.E.F50 - Trail TF", group=group_SL)
-sl_M_E_F100    = input.int(100, "M.E.F100 - Stop Loss EMA", group=group_SL)
-trail_M_E_F100 = input.timeframe("15", "M.E.F100 - Trail TF", group=group_SL)
-sl_M_E_F200    = input.int(200, "M.E.F200 - Stop Loss EMA", group=group_SL)
-trail_M_E_F200 = input.timeframe("15", "M.E.F200 - Trail TF", group=group_SL)
-sl_R_SE     = input.int(200, "R.SE - Stop Loss EMA", group=group_SL)
-trail_R_SE  = input.timeframe("15", "R.SE - Trail TF", group=group_SL)
-sl_R_E_F50    = input.int(50, "R.E.F50 - Stop Loss EMA", group=group_SL)
-trail_R_E_F50 = input.timeframe("15", "R.E.F50 - Trail TF", group=group_SL)
-sl_R_E_F100    = input.int(100, "R.E.F100 - Stop Loss EMA", group=group_SL)
-trail_R_E_F100 = input.timeframe("15", "R.E.F100 - Trail TF", group=group_SL)
-sl_R_E_F200    = input.int(200, "R.E.F200 - Stop Loss EMA", group=group_SL)
-trail_R_E_F200 = input.timeframe("15", "R.E.F200 - Trail TF", group=group_SL)
-sl_X_SE_10     = input.int(200, "X.SE EMA10 - Stop Loss EMA", group=group_SL)
-trail_X_SE_10  = input.timeframe("15", "X.SE EMA10 - Trail TF", group=group_SL)
-sl_X_SE_20     = input.int(200, "X.SE EMA20 - Stop Loss EMA", group=group_SL)
-trail_X_SE_20  = input.timeframe("15", "X.SE EMA20 - Trail TF", group=group_SL)
-sl_X_E_F50     = input.int(50, "X.E.F50 - Stop Loss EMA", group=group_SL)
-trail_X_E_F50  = input.timeframe("15", "X.E.F50 - Trail TF", group=group_SL)
-sl_X_E_F100     = input.int(100, "X.E.F100 - Stop Loss EMA", group=group_SL)
-trail_X_E_F100  = input.timeframe("15", "X.E.F100 - Trail TF", group=group_SL)
-sl_X_E_F200     = input.int(200, "X.E.F200 - Stop Loss EMA", group=group_SL)
-trail_X_E_F200  = input.timeframe("15", "X.E.F200 - Trail TF", group=group_SL)
+ema_options = ["20", "50", "100", "200", "350"]
+tf_options = ["5", "15", "30", "60", "240", "D"]
+
+sl_M_SE         = input.string("200", "M.SE - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_M_SE      = input.timeframe("15", "M.SE - Trail TF", options=tf_options, group=group_SL)
+
+sl_M_E_F50      = input.string("50",  "M.E.F50 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_M_E_F50   = input.timeframe("15", "M.E.F50 - Trail TF", options=tf_options, group=group_SL)
+
+sl_M_E_F100     = input.string("100", "M.E.F100 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_M_E_F100  = input.timeframe("15", "M.E.F100 - Trail TF", options=tf_options, group=group_SL)
+
+sl_M_E_F200     = input.string("200", "M.E.F200 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_M_E_F200  = input.timeframe("15", "M.E.F200 - Trail TF", options=tf_options, group=group_SL)
+
+sl_R_SE         = input.string("200", "R.SE - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_R_SE      = input.timeframe("15", "R.SE - Trail TF", options=tf_options, group=group_SL)
+
+sl_R_E_F50      = input.string("50",  "R.E.F50 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_R_E_F50   = input.timeframe("15", "R.E.F50 - Trail TF", options=tf_options, group=group_SL)
+
+sl_R_E_F100     = input.string("100", "R.E.F100 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_R_E_F100  = input.timeframe("15", "R.E.F100 - Trail TF", options=tf_options, group=group_SL)
+
+sl_R_E_F200     = input.string("200", "R.E.F200 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_R_E_F200  = input.timeframe("15", "R.E.F200 - Trail TF", options=tf_options, group=group_SL)
+
+sl_X_SE_10      = input.string("200", "X.SE EMA10 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_X_SE_10   = input.timeframe("15", "X.SE EMA10 - Trail TF", options=tf_options, group=group_SL)
+
+sl_X_SE_20      = input.string("200", "X.SE EMA20 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_X_SE_20   = input.timeframe("15", "X.SE EMA20 - Trail TF", options=tf_options, group=group_SL)
+
+sl_X_E_F50      = input.string("50",  "X.E.F50 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_X_E_F50   = input.timeframe("15", "X.E.F50 - Trail TF", options=tf_options, group=group_SL)
+
+sl_X_E_F100     = input.string("100", "X.E.F100 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_X_E_F100  = input.timeframe("15", "X.E.F100 - Trail TF", options=tf_options, group=group_SL)
+
+sl_X_E_F200     = input.string("200", "X.E.F200 - Stop Loss EMA", options=ema_options, group=group_SL)
+trail_X_E_F200  = input.timeframe("15", "X.E.F200 - Trail TF", options=tf_options, group=group_SL)
+
 
 // ——— Inputs for Price Action Management Tool ———
 selectedTimeframe_PA = input.timeframe("15", 
@@ -131,6 +147,7 @@ plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
 plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
+plot(ta.ema(close, 350), title="EMA 350", color=color.fuchsia, linewidth=2)
 
 // === Daily EMA Snapshots ===
 live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
@@ -371,50 +388,65 @@ else
 float sl_ema = na
 string trail_tf = na
 
+// Convert selected EMA dropdowns from string to number
+sl_M_SE_int        = str.tonumber(sl_M_SE)
+sl_M_E_F50_int     = str.tonumber(sl_M_E_F50)
+sl_M_E_F100_int    = str.tonumber(sl_M_E_F100)
+sl_M_E_F200_int    = str.tonumber(sl_M_E_F200)
+sl_R_SE_int        = str.tonumber(sl_R_SE)
+sl_R_E_F50_int     = str.tonumber(sl_R_E_F50)
+sl_R_E_F100_int    = str.tonumber(sl_R_E_F100)
+sl_R_E_F200_int    = str.tonumber(sl_R_E_F200)
+sl_X_SE_10_int     = str.tonumber(sl_X_SE_10)
+sl_X_SE_20_int     = str.tonumber(sl_X_SE_20)
+sl_X_E_F50_int     = str.tonumber(sl_X_E_F50)
+sl_X_E_F100_int    = str.tonumber(sl_X_E_F100)
+sl_X_E_F200_int    = str.tonumber(sl_X_E_F200)
 if active_id == "M.SE"
-    sl_ema := sl_M_SE
+    sl_ema := sl_M_SE_int
     trail_tf := trail_M_SE
 else if active_id == "M.E.F50"
-    sl_ema := sl_M_E_F50
+    sl_ema := sl_M_E_F50_int
     trail_tf := trail_M_E_F50
 else if active_id == "M.E.F100"
-    sl_ema := sl_M_E_F100
+    sl_ema := sl_M_E_F100_int
     trail_tf := trail_M_E_F100
 else if active_id == "M.E.F200"
-    sl_ema := sl_M_E_F200
+    sl_ema := sl_M_E_F200_int
     trail_tf := trail_M_E_F200
 else if active_id == "R.SE"
-    sl_ema := sl_R_SE
+    sl_ema := sl_R_SE_int
     trail_tf := trail_R_SE
 else if active_id == "R.E.F50"
-    sl_ema := sl_R_E_F50
+    sl_ema := sl_R_E_F50_int
     trail_tf := trail_R_E_F50
 else if active_id == "R.E.F100"
-    sl_ema := sl_R_E_F100
+    sl_ema := sl_R_E_F100_int
     trail_tf := trail_R_E_F100
 else if active_id == "R.E.F200"
-    sl_ema := sl_R_E_F200
+    sl_ema := sl_R_E_F200_int
     trail_tf := trail_R_E_F200
 else if active_id == "X.SE.EMA10"
-    sl_ema := sl_X_SE_10
+    sl_ema := sl_X_SE_10_int
     trail_tf := trail_X_SE_10
 else if active_id == "X.SE.EMA20"
-    sl_ema := sl_X_SE_20
+    sl_ema := sl_X_SE_20_int
     trail_tf := trail_X_SE_20
 else if active_id == "X.E.F50"
-    sl_ema := sl_X_E_F50
+    sl_ema := sl_X_E_F50_int
     trail_tf := trail_X_E_F50
 else if active_id == "X.E.F100"
-    sl_ema := sl_X_E_F100
+    sl_ema := sl_X_E_F100_int
     trail_tf := trail_X_E_F100
 else if active_id == "X.E.F200"
-    sl_ema := sl_X_E_F200
+    sl_ema := sl_X_E_F200_int
     trail_tf := trail_X_E_F200
 
 // === Compute EMA value for initial SL (from selected sl_ema)
 sl_level = sl_ema == 50 ? dtf_ema50 :
            sl_ema == 100 ? dtf_ema100 :
-           sl_ema == 200 ? dtf_ema200 : na
+           sl_ema == 200 ? dtf_ema200 :
+           sl_ema == 350 ? ta.ema(close, 350) : na
 
 // === Precompute all PA line values to avoid conditional request.security() ===
 pa_M_SE      = request.security(syminfo.tickerid, trail_M_SE, f_price_action_htf(), lookahead=barmerge.lookahead_off)
