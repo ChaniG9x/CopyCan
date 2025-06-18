@@ -489,24 +489,21 @@ pa_line =
 // === Get price action line from selected trail_tf
 
 
-// === Final stop loss level: static until profit, then trail - but never trail lower
+// === Final stop loss level: static until PA line is above entry, then trail — never trail lower
 pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
 float final_stop = na
 
-if not na(sl_level)
-    // Lock in the fixed SL once per trade
-    if na(sl_fixed) and not na(entry_price)
+if not na(sl_level) and not na(entry_price)
+    // Lock in SL once per trade
+    if na(sl_fixed)
         sl_fixed := sl_level
 
-// Enable trailing only once PA line is above the entry price
-if not na(pa_line_adjusted) and pa_line_adjusted > entry_price
-    trail_started := true
+    // Start trailing if PA line is above entry
+    if not trail_started and not na(pa_line_adjusted) and pa_line_adjusted > entry_price
+        trail_started := true
 
-    // Apply appropriate stop based on whether trailing is active
-    if not trail_started
-        final_stop := sl_fixed
-    else
-        final_stop := math.max(sl_fixed, pa_line_adjusted)
+    // Always assign final_stop
+    final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
 
 // === STOP-LOSS Exits (One per Unique Entry Type) ===
 
