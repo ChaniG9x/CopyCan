@@ -13,47 +13,45 @@ allow_rea_b  = input.bool(true, "Reaction: Allow Setup B",    group="Setup Filte
 // === Stop Loss + Trail Settings ===
 group_SL = "Entry Stop Loss and Trail Settings"
 
-ema_options = ["20", "50", "100", "200", "350"]
-tf_options = ["5", "15", "30", "60", "240", "D"]
+sl_M_SE         = input.string("200", "M.SE - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_M_SE      = input.timeframe("15", "M.SE - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_M_SE         = input.string("200", "M.SE - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_M_SE      = input.timeframe("15", "M.SE - Trail TF", options=tf_options, group=group_SL)
+sl_M_E_F50      = input.string("50",  "M.E.F50 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_M_E_F50   = input.timeframe("15", "M.E.F50 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_M_E_F50      = input.string("50",  "M.E.F50 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_M_E_F50   = input.timeframe("15", "M.E.F50 - Trail TF", options=tf_options, group=group_SL)
+sl_M_E_F100     = input.string("100", "M.E.F100 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_M_E_F100  = input.timeframe("15", "M.E.F100 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_M_E_F100     = input.string("100", "M.E.F100 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_M_E_F100  = input.timeframe("15", "M.E.F100 - Trail TF", options=tf_options, group=group_SL)
+sl_M_E_F200     = input.string("200", "M.E.F200 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_M_E_F200  = input.timeframe("15", "M.E.F200 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_M_E_F200     = input.string("200", "M.E.F200 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_M_E_F200  = input.timeframe("15", "M.E.F200 - Trail TF", options=tf_options, group=group_SL)
+sl_R_SE         = input.string("200", "R.SE - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_R_SE      = input.timeframe("15", "R.SE - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_R_SE         = input.string("200", "R.SE - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_R_SE      = input.timeframe("15", "R.SE - Trail TF", options=tf_options, group=group_SL)
+sl_R_E_F50      = input.string("50",  "R.E.F50 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_R_E_F50   = input.timeframe("15", "R.E.F50 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_R_E_F50      = input.string("50",  "R.E.F50 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_R_E_F50   = input.timeframe("15", "R.E.F50 - Trail TF", options=tf_options, group=group_SL)
+sl_R_E_F100     = input.string("100", "R.E.F100 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_R_E_F100  = input.timeframe("15", "R.E.F100 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_R_E_F100     = input.string("100", "R.E.F100 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_R_E_F100  = input.timeframe("15", "R.E.F100 - Trail TF", options=tf_options, group=group_SL)
+sl_R_E_F200     = input.string("200", "R.E.F200 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_R_E_F200  = input.timeframe("15", "R.E.F200 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_R_E_F200     = input.string("200", "R.E.F200 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_R_E_F200  = input.timeframe("15", "R.E.F200 - Trail TF", options=tf_options, group=group_SL)
+sl_X_SE_10      = input.string("200", "X.SE EMA10 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_X_SE_10   = input.timeframe("15", "X.SE EMA10 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_X_SE_10      = input.string("200", "X.SE EMA10 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_X_SE_10   = input.timeframe("15", "X.SE EMA10 - Trail TF", options=tf_options, group=group_SL)
+sl_X_SE_20      = input.string("200", "X.SE EMA20 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_X_SE_20   = input.timeframe("15", "X.SE EMA20 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_X_SE_20      = input.string("200", "X.SE EMA20 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_X_SE_20   = input.timeframe("15", "X.SE EMA20 - Trail TF", options=tf_options, group=group_SL)
+sl_X_E_F50      = input.string("50",  "X.E.F50 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_X_E_F50   = input.timeframe("15", "X.E.F50 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_X_E_F50      = input.string("50",  "X.E.F50 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_X_E_F50   = input.timeframe("15", "X.E.F50 - Trail TF", options=tf_options, group=group_SL)
+sl_X_E_F100     = input.string("100", "X.E.F100 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_X_E_F100  = input.timeframe("15", "X.E.F100 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_X_E_F100     = input.string("100", "X.E.F100 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_X_E_F100  = input.timeframe("15", "X.E.F100 - Trail TF", options=tf_options, group=group_SL)
+sl_X_E_F200     = input.string("200", "X.E.F200 - Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_SL)
+trail_X_E_F200  = input.timeframe("15", "X.E.F200 - Trail TF", options=["5", "15", "30", "60", "240", "D"], group=group_SL)
 
-sl_X_E_F200     = input.string("200", "X.E.F200 - Stop Loss EMA", options=ema_options, group=group_SL)
-trail_X_E_F200  = input.timeframe("15", "X.E.F200 - Trail TF", options=tf_options, group=group_SL)
 
 
 // ——— Inputs for Price Action Management Tool ———
