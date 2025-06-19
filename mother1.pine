@@ -272,6 +272,16 @@ dominant_close       := nz(dom_close_d,       dominant_close[1])
 dominant_saved_close := nz(dom_saved_close_d, dominant_saved_close[1])
 dominant_saved_open  := nz(dom_open_d,        dominant_saved_open[1])
 
+if not na(dom_open_d) and timeframe.period == "D"
+    label.new(
+      bar_index, high,
+      "✓ Dominant Bullish\nOpen: " + str.tostring(dom_open_d, "#.##") +
+      "\nClose: " + str.tostring(dom_close_d, "#.##") +
+      "\nEMA10: " + str.tostring(live_ema10_snapshot, "#.##") +
+      "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
+      style=label.style_label_down, textcolor=color.white,
+      size=size.normal, color=color.green)
+
 isSuperEarlyEntry(ema10, ema20, ema50, ema100, ema200) =>
     ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and (math.abs(close - open) > math.abs(close[1] - open[1]))
 crossed(ema) =>
