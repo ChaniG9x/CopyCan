@@ -1,9 +1,27 @@
-
 //@version=5
 strategy("Monthly & Weekly Bias + EMA Order + Overall Condition (with 200EMA stop + Price Action Line)", overlay=true, 
          default_qty_type=strategy.percent_of_equity, default_qty_value=1)
-// ——— User Inputs for Setup Control ———
-// === Bias Filters ===
+
+// ——— User Inputs for Account and Risk Management ———
+accountNumber = input.string("12345678", "Account Number", group="Account and Risk Management")
+tickerSymbol = input.string("SYMBOL", "Ticker Symbol", group="Account and Risk Management")
+pipSize = input.float(0.0001, "Pip Size", group="Account and Risk Management")
+riskPercentage = input.float(1.0, "Risk Percentage", minval=0.1, maxval=100, group="Account and Risk Management")
+contractSize = input.float(1.0, "Contract Size", group="Account and Risk Management")
+initial_stop_loss_percent = input.float(0.03, "Initial Stop Loss % Below EMA", group="Account and Risk Management")
+max_trades_per_window = input.int(2, "Max Trades per Session", group="Account and Risk Management")
+
+// ——— Position Sizing Function ———
+getPositionSize(entry_price, stop_level) =>
+    distance = math.abs(entry_price - stop_level)
+    riskAmount = 100000 * (riskPercentage / 100)
+    positionSize = riskAmount / distance
+    volume = positionSize / contractSize
+    [positionSize, volume]
+
+
+
+// ——— Original User Inputs ———
 useMonthlyBias = input.bool(true, "Use Monthly Bias Check?", group="Bias Filters")
 useWeeklyBias  = input.bool(true, "Use Weekly Bias Check?",  group="Bias Filters")
 
@@ -29,9 +47,7 @@ allow_ret_a  = input.bool(true, "Retracement: Allow Setup A", group="Setup Filte
 allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filters")
 allow_rea_a  = input.bool(true, "Reaction: Allow Setup A",    group="Setup Filters")
 allow_rea_b  = input.bool(true, "Reaction: Allow Setup B",    group="Setup Filters")
-// === Global Stop Loss Buffer ===
 sl_buffer_pct = input.float(0.0, "Stop Loss Buffer (%)", minval=0.0, step=0.01, group="Global SL Settings")
-// === Momentum Entries ===
 group_M_SE       = "Momentum: Super Early (M.SE)"
 allow_M_SE       = input.bool(true, "Enable", group=group_M_SE)
 sl_M_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_SE)
@@ -48,7 +64,6 @@ group_M_E_F200   = "Momentum: Early F200 (M.E.F200)"
 allow_M_E_F200   = input.bool(true, "Enable", group=group_M_E_F200)
 sl_M_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F200)
 trail_M_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F200)
-// === Retracement Entries ===
 group_R_SE       = "Retracement: Super Early (R.SE)"
 allow_R_SE       = input.bool(true, "Enable", group=group_R_SE)
 sl_R_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_SE)
@@ -65,7 +80,6 @@ group_R_E_F200   = "Retracement: Early F200 (R.E.F200)"
 allow_R_E_F200   = input.bool(true, "Enable", group=group_R_E_F200)
 sl_R_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F200)
 trail_R_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F200)
-// === Reaction: Super Early ===
 group_X_SE_10    = "Reaction: Super Early EMA10 (X.SE.EMA10)"
 allow_X_SE_10    = input.bool(true, "Enable", group=group_X_SE_10)
 sl_X_SE_10       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_10)
@@ -74,7 +88,6 @@ group_X_SE_20    = "Reaction: Super Early EMA20 (X.SE.EMA20)"
 allow_X_SE_20    = input.bool(true, "Enable", group=group_X_SE_20)
 sl_X_SE_20       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_20)
 trail_X_SE_20    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_20)
-// === Reaction: Early by EMA Cross
 group_X_E_F50_10 = "Reaction: Early F50 EMA10 (X.E.F50.10)"
 allow_X_E_F50_10 = input.bool(true, "Enable", group=group_X_E_F50_10)
 sl_X_E_F50_10    = input.string("50", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F50_10)
@@ -100,6 +113,12 @@ allow_X_E_F200_20 = input.bool(true, "Enable", group=group_X_E_F200_20)
 sl_X_E_F200_20    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F200_20)
 trail_X_E_F200_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F200_20)
 
+// ——— Trade Counter ———
+var int tradeCount = 0
+is_new_session = ta.change(in_session) and in_session
+if is_new_session
+    tradeCount := 0
+
 
 // ——— Inputs for Price Action Management Tool ———
 selectedTimeframe_PA = input.timeframe("15", 
@@ -114,9 +133,11 @@ adjust_pct = input.float(0.0,
      step=0.1, 
      group="Price Action Tool",
      tooltip="Adjust the Price Action Line up or down by a percentage")
+
 // ——— Function for Completed HTF Values ———
 f_completed_htf(tf, src) =>
     request.security(syminfo.tickerid, tf, src[barstate.isconfirmed ? 0 : 1], lookahead=barmerge.lookahead_off)
+
 // ——— Function for Price Action Line on HTF ———
 f_price_action_htf() =>
     isGreen = close > open
@@ -124,6 +145,7 @@ f_price_action_htf() =>
     cond1 = isGreen and close > high[1]
     cond2 = isGreen and close > open[1] and prevIsRed
     (cond1 or cond2) ? low : na
+
 // === Monthly Status ===
 monthly_close      = f_completed_htf("M", close)
 monthly_open       = f_completed_htf("M", open)
@@ -136,6 +158,7 @@ if monthly_close > monthly_open
 else if monthly_close < monthly_open
     if na(recent_green_open) or monthly_close < recent_green_open
         monthly_status := "Bearish"
+
 // === Daily Status ===
 daily_close      = f_completed_htf("D", close)
 daily_open       = f_completed_htf("D", open)
@@ -148,6 +171,7 @@ daily_bearish  = (daily_close < daily_open and (na(daily_prev_green_open) or dai
 if timeframe.period == "D" and daily_bullish
     label.new(bar_index, high, "✓ Daily Bullish",
               style=label.style_label_down, color=color.gray, textcolor=color.white)
+
 // === Weekly Status ===
 weekly_close       = f_completed_htf("W", close)
 weekly_open        = f_completed_htf("W", open)
@@ -160,11 +184,13 @@ if weekly_close > weekly_open
 else if weekly_close < weekly_open
     if na(recent_green_open_w) or weekly_close < recent_green_open_w
         weekly_status := "Bearish"
+
 // === Monthly & Weekly EMAs & Order Flags ===
 [ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)],  lookahead=barmerge.lookahead_off)
 monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m) ? "Aligned" : "Not Aligned"
 [ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
 weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w) ? "Aligned" : "Not Aligned"
+
 // Bias filter logic
 bool passMonthly = not useMonthlyBias or (monthly_status == "Bullish")
 bool passWeekly  = not useWeeklyBias  or (weekly_status == "Bullish")
@@ -174,10 +200,12 @@ string overall_condition = (passMonthly and passWeekly)
      : "NO TRADE"
 is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
+
 // === Setup Flags for Conditions ===
 allow_momentum    = (is_setup_a and allow_mom_a) or (is_setup_b and allow_mom_b)
 allow_retracement = (is_setup_a and allow_ret_a) or (is_setup_b and allow_ret_b)
 allow_reaction    = (is_setup_a and allow_rea_a) or (is_setup_b and allow_rea_b)
+
 // === Plot Daily EMAs (reference) ===
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
 plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
@@ -185,20 +213,24 @@ plot(ta.ema(close, 50),  title="EMA 50",  color=color.gray,   linewidth=2)
 plot(ta.ema(close,100),  title="EMA 100", color=color.purple, linewidth=2)
 plot(ta.ema(close,200),  title="EMA 200", color=color.orange, linewidth=2)
 plot(ta.ema(close, 350), title="EMA 350", color=color.lime, linewidth=2)
+
 // === Daily EMA Snapshots ===
 live_ema10_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
 live_ema20_snapshot = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
+
 // === True Daily EMA Snapshots ===
 daily_ema10  = request.security(syminfo.tickerid, "D", ta.ema(close, 10), lookahead=barmerge.lookahead_off)
 daily_ema20  = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
 daily_ema50  = request.security(syminfo.tickerid, "D", ta.ema(close, 50), lookahead=barmerge.lookahead_off)
 daily_ema100 = request.security(syminfo.tickerid, "D", ta.ema(close,100), lookahead=barmerge.lookahead_off)
 daily_ema200 = request.security(syminfo.tickerid, "D", ta.ema(close,200), lookahead=barmerge.lookahead_off)
+
 // === Higher-TF Trend Filter ===
 daily_ema_ok = daily_ema10  > daily_ema20 and
                daily_ema20  > daily_ema50 and
                daily_ema50  > daily_ema100 and
                daily_ema100 > daily_ema200
+
 // === Intraday EMAs ===
 dtf_ema10  = ta.ema(close, 10)
 dtf_ema20  = ta.ema(close, 20)
@@ -206,6 +238,7 @@ dtf_ema50  = ta.ema(close, 50)
 dtf_ema100 = ta.ema(close, 100)
 dtf_ema200 = ta.ema(close, 200)
 dtf_ema350 = ta.ema(close, 350)// ← 350 EMA on the intraday timeframe
+
 // === Dominant Daily Bar Logic ===
 f_get_dominant() =>
     var float dom_open = na
@@ -231,6 +264,7 @@ f_get_dominant() =>
         dom_close := close
         dom_saved_close := close
     [dom_open, dom_close, dom_saved_close]
+
 [dom_open_d, dom_close_d, dom_saved_close_d] = request.security(syminfo.tickerid, "D", f_get_dominant(), lookahead=barmerge.lookahead_off)
 var float dominant_open        = na
 var float dominant_close       = na
@@ -249,18 +283,24 @@ if not na(dom_open_d) and timeframe.period == "D"
       "\nEMA20: " + str.tostring(live_ema20_snapshot, "#.##"),
       style=label.style_label_down, textcolor=color.white,
       size=size.normal, color=color.green)
+
 // === Entry Pattern Functions ===
 isSuperEarlyEntry(ema10, ema20, ema50, ema100, ema200) =>
     ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and (math.abs(close - open) > math.abs(close[1] - open[1]))
+
 crossed(ema) =>
     (low < ema and high > ema) or (low[1] < ema and high[1] > ema)
+
 isEarlyEntry(ema50, ema100, ema200) =>
     ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and close > open and close[1] < open[1] and (crossed(ema50) or crossed(ema100) or crossed(ema200)) and close > ema200 and math.abs(close - open) > math.abs(close[1] - open[1])
+
 // === Entry Flags ===
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
+
 // === Momentum Condition ===
 is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum and in_session
+
 // === Helper Function for Off EMA Label ===
 getOffEMA(ema50, ema100, ema200) =>
     crossed50  = crossed(ema50)
@@ -268,36 +308,99 @@ getOffEMA(ema50, ema100, ema200) =>
     crossed200 = crossed(ema200)
     emaOff = crossed200 ? 200 : crossed100 ? 100 : crossed50 ? 50 : na
     emaOff
+
+// === Get Base SL Value ===
+getBaseSL(id) =>
+    sl_val = 
+      id == "M.SE" ? str.tonumber(sl_M_SE) :
+      id == "M.E.F50" ? str.tonumber(sl_M_E_F50) :
+      id == "M.E.F100" ? str.tonumber(sl_M_E_F100) :
+      id == "M.E.F200" ? str.tonumber(sl_M_E_F200) :
+      id == "R.SE" ? str.tonumber(sl_R_SE) :
+      id == "R.E.F50" ? str.tonumber(sl_R_E_F50) :
+      id == "R.E.F100" ? str.tonumber(sl_R_E_F100) :
+      id == "R.E.F200" ? str.tonumber(sl_R_E_F200) :
+      id == "X.SE.EMA10" ? str.tonumber(sl_X_SE_10) :
+      id == "X.SE.EMA20" ? str.tonumber(sl_X_SE_20) :
+      id == "X.E.F50.10" ? str.tonumber(sl_X_E_F50_10) :
+      id == "X.E.F100.10" ? str.tonumber(sl_X_E_F100_10) :
+      id == "X.E.F200.10" ? str.tonumber(sl_X_E_F200_10) :
+      id == "X.E.F50.20" ? str.tonumber(sl_X_E_F50_20) :
+      id == "X.E.F100.20" ? str.tonumber(sl_X_E_F100_20) :
+      id == "X.E.F200.20" ? str.tonumber(sl_X_E_F200_20) : na
+      
+    if not na(sl_val)
+        if sl_val == 20
+            dtf_ema20
+        else if sl_val == 50
+            dtf_ema50
+        else if sl_val == 100
+            dtf_ema100
+        else if sl_val == 200
+            dtf_ema200
+        else if sl_val == 350
+            dtf_ema350
+        else
+            na
+    else
+        na
+
 // === Momentum Label & Entry Logic ===
-if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session
+if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session and tradeCount < max_trades_per_window
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
     if super_early_entry_ok and allow_M_SE
-        strategy.entry(id="M.SE", direction=strategy.long)
+        base_sl_val = getBaseSL("M.SE")
+        total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+        sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+        [posSize, volume] = getPositionSize(close, sl_level_entry)
+        strategy.entry(id="M.SE", direction=strategy.long, qty=volume)
+        tradeCount := tradeCount + 1
         label.new(bar_index, low, "M.SE\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
+        alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
         if emaOff == 50 and allow_M_E_F50
-            strategy.entry(id="M.E.F50", direction=strategy.long)
+            base_sl_val = getBaseSL("M.E.F50")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="M.E.F50", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "M.E.F50\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
         else if emaOff == 100 and allow_M_E_F100
-            strategy.entry(id="M.E.F100", direction=strategy.long)
+            base_sl_val = getBaseSL("M.E.F100")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="M.E.F100", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "M.E.F100\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
         else if emaOff == 200 and allow_M_E_F200
-            strategy.entry(id="M.E.F200", direction=strategy.long)
+            base_sl_val = getBaseSL("M.E.F200")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="M.E.F200", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "M.E.F200\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
+
 // === Retracement Condition ===
 is_retracement = daily_ema_ok and daily_bullish and (
                      (low < dominant_saved_open and close > dominant_saved_open) or
                      (low[1] < dominant_saved_open and close > dominant_saved_open)
                  )
+
 // === State Tracking ===
 var bool retracement_active = false
 var bool reaction_active    = false
@@ -311,32 +414,58 @@ if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
     retracement_active := false
+
 // === Retracement Label & Entry Logic ===
 show_retracement_label = retracement_active and close < dominant_saved_close
-if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session
+if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session and tradeCount < max_trades_per_window
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
     if super_early_entry_ok and allow_R_SE
-        strategy.entry(id="R.SE", direction=strategy.long)
+        base_sl_val = getBaseSL("R.SE")
+        total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+        sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+        [posSize, volume] = getPositionSize(close, sl_level_entry)
+        strategy.entry(id="R.SE", direction=strategy.long, qty=volume)
+        tradeCount := tradeCount + 1
         label.new(bar_index, low, "R.SE\n" + label_text,
                   style=label.style_label_upper_right, color=color.fuchsia,
                   textcolor=color.white, size=size.normal)
+        alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
         if emaOff == 50 and allow_R_E_F50
-            strategy.entry(id="R.E.F50", direction=strategy.long)
+            base_sl_val = getBaseSL("R.E.F50")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="R.E.F50", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "R.E.F50\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
         else if emaOff == 100 and allow_R_E_F100
-            strategy.entry(id="R.E.F100", direction=strategy.long)
+            base_sl_val = getBaseSL("R.E.F100")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="R.E.F100", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "R.E.F100\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
         else if emaOff == 200 and allow_R_E_F200
-            strategy.entry(id="R.E.F200", direction=strategy.long)
+            base_sl_val = getBaseSL("R.E.F200")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="R.E.F200", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "R.E.F200\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
+
 // === Reaction Condition ===
 reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
                        (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
@@ -345,60 +474,109 @@ reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapsh
 if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20) and allow_reaction
     reaction_active := true
     reaction_ema    := reaction_crossed_10 ? 10 : 20
+
 // === Reaction Label & Entry Logic ===
 show_reaction_label = reaction_active and daily_ema_ok and  
                       ((reaction_ema == 10 and close > live_ema10_snapshot) or 
                        (reaction_ema == 20 and close > live_ema20_snapshot))
-if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and in_session
+if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and in_session and tradeCount < max_trades_per_window
     crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
                    reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
     
     if super_early_entry_ok
         if reaction_ema == 10 and allow_X_SE_10
-            strategy.entry(id="X.SE.EMA10", direction=strategy.long)
+            base_sl_val = getBaseSL("X.SE.EMA10")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="X.SE.EMA10", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
         else if reaction_ema == 20 and allow_X_SE_20
-            strategy.entry(id="X.SE.EMA20", direction=strategy.long)
+            base_sl_val = getBaseSL("X.SE.EMA20")
+            total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+            sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+            [posSize, volume] = getPositionSize(close, sl_level_entry)
+            strategy.entry(id="X.SE.EMA20", direction=strategy.long, qty=volume)
+            tradeCount := tradeCount + 1
             label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
+            alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
         if emaOff == 50
             if reaction_ema == 10 and allow_X_E_F50_10
-                strategy.entry(id="X.E.F50.10", direction=strategy.long)
+                base_sl_val = getBaseSL("X.E.F50.10")
+                total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+                sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+                [posSize, volume] = getPositionSize(close, sl_level_entry)
+                strategy.entry(id="X.E.F50.10", direction=strategy.long, qty=volume)
+                tradeCount := tradeCount + 1
                 label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
+                alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
             else if reaction_ema == 20 and allow_X_E_F50_20
-                strategy.entry(id="X.E.F50.20", direction=strategy.long)
+                base_sl_val = getBaseSL("X.E.F50.20")
+                total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+                sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+                [posSize, volume] = getPositionSize(close, sl_level_entry)
+                strategy.entry(id="X.E.F50.20", direction=strategy.long, qty=volume)
+                tradeCount := tradeCount + 1
                 label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
+                alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
         else if emaOff == 100
             if reaction_ema == 10 and allow_X_E_F100_10
-                strategy.entry(id="X.E.F100.10", direction=strategy.long)
+                base_sl_val = getBaseSL("X.E.F100.10")
+                total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+                sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+                [posSize, volume] = getPositionSize(close, sl_level_entry)
+                strategy.entry(id="X.E.F100.10", direction=strategy.long, qty=volume)
+                tradeCount := tradeCount + 1
                 label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
+                alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
             else if reaction_ema == 20 and allow_X_E_F100_20
-                strategy.entry(id="X.E.F100.20", direction=strategy.long)
+                base_sl_val = getBaseSL("X.E.F100.20")
+                total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+                sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+                [posSize, volume] = getPositionSize(close, sl_level_entry)
+                strategy.entry(id="X.E.F100.20", direction=strategy.long, qty=volume)
+                tradeCount := tradeCount + 1
                 label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
+                alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
         else if emaOff == 200
             if reaction_ema == 10 and allow_X_E_F200_10
-                strategy.entry(id="X.E.F200.10", direction=strategy.long)
+                base_sl_val = getBaseSL("X.E.F200.10")
+                total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+                sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+                [posSize, volume] = getPositionSize(close, sl_level_entry)
+                strategy.entry(id="X.E.F200.10", direction=strategy.long, qty=volume)
+                tradeCount := tradeCount + 1
                 label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
+                alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
             else if reaction_ema == 20 and allow_X_E_F200_20
-                strategy.entry(id="X.E.F200.20", direction=strategy.long)
+                base_sl_val = getBaseSL("X.E.F200.20")
+                total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+                sl_level_entry = base_sl_val * (1 - total_buffer_fraction)
+                [posSize, volume] = getPositionSize(close, sl_level_entry)
+                strategy.entry(id="X.E.F200.20", direction=strategy.long, qty=volume)
+                tradeCount := tradeCount + 1
                 label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
+                alert(accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume), alert.freq_once_per_bar)
                           
 // === Intraday Entry Labels ===
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
@@ -409,6 +587,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
     label.new(bar_index, high, "Early Entry",
               style=label.style_label_up, color=color.orange,
               textcolor=color.black, size=size.tiny)
+
 // === Track Active Entry ===
 var string active_id = na
 var float entry_price = na
@@ -418,16 +597,17 @@ if strategy.opentrades > 0
 else
     active_id := na
     entry_price := na
+
 // === Track SL once per trade + trail logic control ===
 var float sl_fixed = na
 var bool  trail_started = false
 if strategy.opentrades == 0
     sl_fixed := na
     trail_started := false
+
 // === Resolve SL EMA and Trail Timeframe Based on Entry ID ===
 float sl_ema = na
 string trail_tf = na
-// Convert selected EMA dropdowns from string to number
 sl_M_SE_int        = str.tonumber(sl_M_SE)
 sl_M_E_F50_int     = str.tonumber(sl_M_E_F50)
 sl_M_E_F100_int    = str.tonumber(sl_M_E_F100)
@@ -444,6 +624,7 @@ sl_X_E_F200_10_int = str.tonumber(sl_X_E_F200_10)
 sl_X_E_F50_20_int  = str.tonumber(sl_X_E_F50_20)
 sl_X_E_F100_20_int = str.tonumber(sl_X_E_F100_20)
 sl_X_E_F200_20_int = str.tonumber(sl_X_E_F200_20)
+
 if active_id == "M.SE"
     sl_ema := sl_M_SE_int
     trail_tf := trail_M_SE
@@ -492,11 +673,15 @@ else if active_id == "X.E.F100.20"
 else if active_id == "X.E.F200.20"
     sl_ema := sl_X_E_F200_20_int
     trail_tf := trail_X_E_F200_20
-base_sl = sl_ema == 50 ? dtf_ema50 :
-          sl_ema == 100 ? dtf_ema100 :
-          sl_ema == 200 ? dtf_ema200 :
-          sl_ema == 350 ? dtf_ema350 : na
-sl_level = na(base_sl) ? na : base_sl * (1 - sl_buffer_pct / 100)
+
+float sl_level = na
+
+base_sl = getBaseSL(active_id)
+if not na(base_sl)
+    total_buffer_fraction = (sl_buffer_pct / 100.0) + initial_stop_loss_percent
+    sl_level = base_sl * (1 - total_buffer_fraction)
+else
+    sl_level := na
 
 // === Precompute all PA line values to avoid conditional request.security() ===
 pa_M_SE      = request.security(syminfo.tickerid, trail_M_SE, f_price_action_htf(), lookahead=barmerge.lookahead_off)
@@ -515,6 +700,7 @@ pa_X_E_F200_10  = request.security(syminfo.tickerid, trail_X_E_F200_10, f_price_
 pa_X_E_F50_20   = request.security(syminfo.tickerid, trail_X_E_F50_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_X_E_F100_20  = request.security(syminfo.tickerid, trail_X_E_F100_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_X_E_F200_20  = request.security(syminfo.tickerid, trail_X_E_F200_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+
 // === Pick correct precomputed PA line
 pa_line =
      active_id == "M.SE"         ? pa_M_SE :
@@ -533,7 +719,6 @@ pa_line =
      active_id == "X.E.F50.20"   ? pa_X_E_F50_20 :
      active_id == "X.E.F100.20"  ? pa_X_E_F100_20 :
      active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
-// === Get price action line from selected trail_tf
 
 // === Final stop loss level: static until PA line is above entry, then trail — never trail lower
 pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
@@ -543,24 +728,31 @@ if not na(sl_level) and not na(entry_price)
     if na(sl_fixed)
         sl_fixed := sl_level
     // Start trailing if PA line and price is above entry
-
     in_profit = close > entry_price
     if not trail_started and in_profit and not na(pa_line_adjusted) and pa_line_adjusted > entry_price
         trail_started := true
-
     // Always assign final_stop
     final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
+
 // === STOP-LOSS Exits (One per Unique Entry Type) ===
 if not na(active_id) and not na(final_stop)
     strategy.exit(id="Exit", from_entry=active_id, stop=final_stop)
+
+// === Exit Alerts ===
+if strategy.closedtrades > strategy.closedtrades[1]
+    alert(accountNumber + ",closelong," + tickerSymbol, alert.freq_once_per_bar)
+
 // === Plot Final Stop on Chart
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
+
 // === Price Action Line Retrieval & Plot ===
 priceLineRaw = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 priceLine    = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
+
 // Trading Windows Visual 
 bgcolor(in_session ? color.new(color.green, 90) : na, title="Trading Window Background")
+
 // ——— Final Table ———
 var table bias_tbl = table.new(position.top_right, 3, 5, border_width=1)
 table.cell(bias_tbl, 0, 0, "Timeframe",       text_color=color.white, bgcolor=color.blue)
