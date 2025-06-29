@@ -1,23 +1,42 @@
-
 //@version=5
 strategy("Monthly & Weekly Bias + EMA Order + Overall Condition (with 200EMA stop + Price Action Line)", overlay=true, 
-         default_qty_type = strategy.fixed, default_qty_value = 0 )
+         currency=currency.USD, process_orders_on_close=true, pyramiding=0)
 
-// -- Strategy Facts -- 
+// ======== START: MONEY MANAGEMENT ADDITIONS ======== //
+// ——— Money Management Inputs ———
+group_mm = "Money Management"
+riskAmount     = input.float(1000, "Risk Amount ($)", minval=1, group=group_mm)
+accountBalance = input.float(100000, "Account Balance ($)", minval=1, group=group_mm)
 
-acctSize   = 100000.0   // USD  
-riskPct    = 1.0         // percent per trade  
-riskAmt    = acctSize * riskPct / 100  // = 1 000 USD 
+// === Intraday EMAs ===
+dtf_ema10  = ta.ema(close, 10)
+dtf_ema20  = ta.ema(close, 20)
+dtf_ema50  = ta.ema(close, 50)
+dtf_ema100 = ta.ema(close, 100)
+dtf_ema200 = ta.ema(close, 200)
+dtf_ema350 = ta.ema(close, 350)// ← 350 EMA on the intraday timeframe
+// === Dominant Daily Bar Logic ===
 
-// helper: qty so that riskAmt = riskPct * acctSize
-// now takes entryPrice instead of always using `close`
-f_qty(entryPrice, slPrice) =>
-    // 1) distance in points
-    d = math.abs(entryPrice - slPrice)
-    // 2) guard against zero
-    d := d > syminfo.mintick ? d : syminfo.mintick
-    // 3) units to risk riskAmt
-    math.floor(riskAmt / d)
+// ——— Position Sizing Function ———
+f_positionSize(entryPrice, stopPrice, riskDollars) =>
+    stopDistance = math.abs(entryPrice - stopPrice)
+    stopDistance > 0 ? riskDollars / stopDistance : na
+    
+// ——— Function to Get Base SL Value ———
+f_base_sl(period) =>
+    if period == 20
+        dtf_ema20
+    else if period == 50
+        dtf_ema50
+    else if period == 100
+        dtf_ema100
+    else if period == 200
+        dtf_ema200
+    else if period == 350
+        dtf_ema350
+    else
+        na
+// ======== END: MONEY MANAGEMENT ADDITIONS ======== //
 
 // ——— User Inputs for Setup Control ———
 // === Bias Filters ===
@@ -216,14 +235,7 @@ daily_ema_ok = daily_ema10  > daily_ema20 and
                daily_ema20  > daily_ema50 and
                daily_ema50  > daily_ema100 and
                daily_ema100 > daily_ema200
-// === Intraday EMAs ===
-dtf_ema10  = ta.ema(close, 10)
-dtf_ema20  = ta.ema(close, 20)
-dtf_ema50  = ta.ema(close, 50)
-dtf_ema100 = ta.ema(close, 100)
-dtf_ema200 = ta.ema(close, 200)
-dtf_ema350 = ta.ema(close, 350)// ← 350 EMA on the intraday timeframe
-// === Dominant Daily Bar Logic ===
+
 f_get_dominant() =>
     var float dom_open = na
     var float dom_close = na
@@ -285,40 +297,69 @@ getOffEMA(ema50, ema100, ema200) =>
     crossed200 = crossed(ema200)
     emaOff = crossed200 ? 200 : crossed100 ? 100 : crossed50 ? 50 : na
     emaOff
-// === Momentum Label & Entry Logic with Dynamic Sizing ===
+
+// ======== START: MODIFIED ENTRY LOGIC WITH POSITION SIZING ======== //
+// === Momentum Label & Entry Logic ===
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
-    // --- Super Early Momentum ---
-    if super_early_entry_ok and allow_M_SE and strategy.opentrades == 0
-        // calculate this entry's stop price
-        slPrice = dtf_ema200 * (1 - sl_buffer_pct / 100)
-        // risk per unit = |entry - stop|
-        
-        
-        qty     = f_qty(close, slPrice)
-        strategy.entry(id="M.SE", direction=strategy.long, qty=qty)
-        label.new(bar_index, low, "M.SE  Qty:" + str.tostring(qty), style=label.style_label_up, color=color.green, textcolor=color.white)
-    // --- Early Momentum by EMA Offset ---
+    
+    // Super Early Momentum Entry
+    if super_early_entry_ok and allow_M_SE
+        ema_period = str.tonumber(sl_M_SE)
+        base_sl_val = f_base_sl(ema_period)
+        if not na(base_sl_val)
+            stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+            if close > stop_level
+                qty = f_positionSize(close, stop_level, riskAmount)
+                if not na(qty)
+                    strategy.entry("M.SE", strategy.long, qty=qty)
+                    label.new(bar_index, low, "M.SE\n" + label_text,
+                              style=label.style_label_up, color=color.green,
+                              textcolor=color.white, size=size.normal)
+    
+    // Early Momentum Entries
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        
         if emaOff == 50 and allow_M_E_F50
-            slPrice = dtf_ema50 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="M.E.F50", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "M.E.F50  Qty:" + str.tostring(qty), style=label.style_label_up, color=color.green, textcolor=color.white)
+            ema_period = str.tonumber(sl_M_E_F50)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("M.E.F50", strategy.long, qty=qty)
+                        label.new(bar_index, low, "M.E.F50\n" + label_text,
+                                  style=label.style_label_up, color=color.green,
+                                  textcolor=color.white, size=size.normal)
+        
         else if emaOff == 100 and allow_M_E_F100
-            slPrice = dtf_ema100 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="M.E.F100", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "M.E.F100  Qty:" + str.tostring(qty), style=label.style_label_up, color=color.green, textcolor=color.white)
+            ema_period = str.tonumber(sl_M_E_F100)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("M.E.F100", strategy.long, qty=qty)
+                        label.new(bar_index, low, "M.E.F100\n" + label_text,
+                                  style=label.style_label_up, color=color.green,
+                                  textcolor=color.white, size=size.normal)
+        
         else if emaOff == 200 and allow_M_E_F200
-            slPrice = dtf_ema200 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="M.E.F200", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "M.E.F200  Qty:" + str.tostring(qty), style=label.style_label_up, color=color.green, textcolor=color.white)
+            ema_period = str.tonumber(sl_M_E_F200)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("M.E.F200", strategy.long, qty=qty)
+                        label.new(bar_index, low, "M.E.F200\n" + label_text,
+                                  style=label.style_label_up, color=color.green,
+                                  textcolor=color.white, size=size.normal)
+
 // === Retracement Condition ===
 is_retracement = daily_ema_ok and daily_bullish and (
                      (low < dominant_saved_open and close > dominant_saved_open) or
@@ -337,38 +378,67 @@ if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
     retracement_active := false
-// === Retracement Label & Entry Logic with Dynamic Sizing ===
+// === Retracement Label & Entry Logic ===
 show_retracement_label = retracement_active and close < dominant_saved_close
 if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
-    // --- Super Early Retracement ---
-    if super_early_entry_ok and allow_R_SE and strategy.opentrades == 0
-        slPrice = dtf_ema200 * (1 - sl_buffer_pct / 100)
-        
-        qty     = f_qty(close, slPrice)
-        strategy.entry(id="R.SE", direction=strategy.long, qty=qty)
-        label.new(bar_index, low, "R.SE  Qty:" + str.tostring(qty), style=label.style_label_upper_right, color=color.fuchsia, textcolor=color.white)
-    // --- Early Retracement by EMA Offset ---
+    
+    // Super Early Retracement Entry
+    if super_early_entry_ok and allow_R_SE
+        ema_period = str.tonumber(sl_R_SE)
+        base_sl_val = f_base_sl(ema_period)
+        if not na(base_sl_val)
+            stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+            if close > stop_level
+                qty = f_positionSize(close, stop_level, riskAmount)
+                if not na(qty)
+                    strategy.entry("R.SE", strategy.long, qty=qty)
+                    label.new(bar_index, low, "R.SE\n" + label_text,
+                              style=label.style_label_upper_right, color=color.fuchsia,
+                              textcolor=color.white, size=size.normal)
+    
+    // Early Retracement Entries
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        
         if emaOff == 50 and allow_R_E_F50
-            slPrice = dtf_ema50 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="R.E.F50", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "R.E.F50  Qty:" + str.tostring(qty), style=label.style_label_upper_right, color=color.purple, textcolor=color.white)
+            ema_period = str.tonumber(sl_R_E_F50)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("R.E.F50", strategy.long, qty=qty)
+                        label.new(bar_index, low, "R.E.F50\n" + label_text,
+                                  style=label.style_label_upper_right, color=color.purple,
+                                  textcolor=color.white, size=size.normal)
+        
         else if emaOff == 100 and allow_R_E_F100
-            slPrice = dtf_ema100 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="R.E.F100", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "R.E.F100  Qty:" + str.tostring(qty), style=label.style_label_upper_right, color=color.purple, textcolor=color.white)
+            ema_period = str.tonumber(sl_R_E_F100)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("R.E.F100", strategy.long, qty=qty)
+                        label.new(bar_index, low, "R.E.F100\n" + label_text,
+                                  style=label.style_label_upper_right, color=color.purple,
+                                  textcolor=color.white, size=size.normal)
+        
         else if emaOff == 200 and allow_R_E_F200
-            slPrice = dtf_ema200 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="R.E.F200", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "R.E.F200  Qty:" + str.tostring(qty), style=label.style_label_upper_right, color=color.purple, textcolor=color.white)
+            ema_period = str.tonumber(sl_R_E_F200)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("R.E.F200", strategy.long, qty=qty)
+                        label.new(bar_index, low, "R.E.F200\n" + label_text,
+                                  style=label.style_label_upper_right, color=color.purple,
+                                  textcolor=color.white, size=size.normal)
 
 // === Reaction Condition ===
 reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
@@ -379,95 +449,127 @@ if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_cro
     reaction_active := true
     reaction_ema    := reaction_crossed_10 ? 10 : 20
 // === Reaction Label & Entry Logic ===
-// Flag when we should place the entry
-show_reaction_label = reaction_active and daily_ema_ok and
-     ((reaction_ema == 10 and close > live_ema10_snapshot) or
-      (reaction_ema == 20 and close > live_ema20_snapshot))
-
+show_reaction_label = reaction_active and daily_ema_ok and  
+                      ((reaction_ema == 10 and close > live_ema10_snapshot) or 
+                       (reaction_ema == 20 and close > live_ema20_snapshot))
 if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and in_session
-    // Shared label text
-    crossedText = reaction_ema == 10 ? "Crossed EMA10" : "Crossed EMA20"
-
-    // --- Super Early Reaction ---
+    crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
+                   reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
+    
+    // Super Early Reaction Entries
     if super_early_entry_ok
-        // EMA 10 version
-        if reaction_ema == 10 and allow_X_SE_10 and strategy.opentrades == 0
-            slPrice     = dtf_ema10 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="X.SE.EMA10", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "X.SE.EMA10 Qty:" + str.tostring(qty),
-                      style=label.style_label_up, color=color.teal, textcolor=color.white)
-
-        // EMA 20 version
-        else if reaction_ema == 20 and allow_X_SE_20 and strategy.opentrades == 0
-            slPrice     = dtf_ema20 * (1 - sl_buffer_pct / 100)
-            
-            qty     = f_qty(close, slPrice)
-            strategy.entry(id="X.SE.EMA20", direction=strategy.long, qty=qty)
-            label.new(bar_index, low, "X.SE.EMA20 Qty:" + str.tostring(qty),
-                      style=label.style_label_up, color=color.teal, textcolor=color.white)
-
-    // --- Early Reaction by EMA Offset ---
+        if reaction_ema == 10 and allow_X_SE_10
+            ema_period = str.tonumber(sl_X_SE_10)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("X.SE.EMA10", strategy.long, qty=qty)
+                        label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
+                                  style=label.style_label_up, color=color.teal,
+                                  textcolor=color.white, size=size.normal)
+        
+        else if reaction_ema == 20 and allow_X_SE_20
+            ema_period = str.tonumber(sl_X_SE_20)
+            base_sl_val = f_base_sl(ema_period)
+            if not na(base_sl_val)
+                stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                if close > stop_level
+                    qty = f_positionSize(close, stop_level, riskAmount)
+                    if not na(qty)
+                        strategy.entry("X.SE.EMA20", strategy.long, qty=qty)
+                        label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
+                                  style=label.style_label_up, color=color.teal,
+                                  textcolor=color.white, size=size.normal)
+    
+    // Early Reaction Entries
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
-
-        // Offset = 50 EMA
+        
         if emaOff == 50
-            baseEma = dtf_ema50
-            // EMA10 cross
-            if reaction_ema == 10 and allow_X_E_F50_10 and strategy.opentrades == 0
-                slPrice     = baseEma * (1 - sl_buffer_pct / 100)
-                
-                qty     = f_qty(close, slPrice)
-                strategy.entry(id="X.E.F50.10", direction=strategy.long, qty=qty)
-                label.new(bar_index, low, "X.E.F50.10 Qty:" + str.tostring(qty),
-                          style=label.style_label_up, color=color.navy, textcolor=color.white)
-            // EMA20 cross
-            else if reaction_ema == 20 and allow_X_E_F50_20 and strategy.opentrades == 0
-                slPrice     = baseEma * (1 - sl_buffer_pct / 100)
-                
-                qty     = f_qty(close, slPrice)
-                strategy.entry(id="X.E.F50.20", direction=strategy.long, qty=qty)
-                label.new(bar_index, low, "X.E.F50.20 Qty:" + str.tostring(qty),
-                          style=label.style_label_up, color=color.navy, textcolor=color.white)
-
-        // Offset = 100 EMA
+            if reaction_ema == 10 and allow_X_E_F50_10
+                ema_period = str.tonumber(sl_X_E_F50_10)
+                base_sl_val = f_base_sl(ema_period)
+                if not na(base_sl_val)
+                    stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                    if close > stop_level
+                        qty = f_positionSize(close, stop_level, riskAmount)
+                        if not na(qty)
+                            strategy.entry("X.E.F50.10", strategy.long, qty=qty)
+                            label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
+                                      style=label.style_label_up, color=color.navy,
+                                      textcolor=color.white, size=size.normal)
+            
+            else if reaction_ema == 20 and allow_X_E_F50_20
+                ema_period = str.tonumber(sl_X_E_F50_20)
+                base_sl_val = f_base_sl(ema_period)
+                if not na(base_sl_val)
+                    stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                    if close > stop_level
+                        qty = f_positionSize(close, stop_level, riskAmount)
+                        if not na(qty)
+                            strategy.entry("X.E.F50.20", strategy.long, qty=qty)
+                            label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
+                                      style=label.style_label_up, color=color.navy,
+                                      textcolor=color.white, size=size.normal)
+        
         else if emaOff == 100
-            baseEma = dtf_ema100
-            if reaction_ema == 10 and allow_X_E_F100_10 and strategy.opentrades == 0
-                slPrice     = baseEma * (1 - sl_buffer_pct / 100)
-                
-                qty     = f_qty(close, slPrice)
-                strategy.entry(id="X.E.F100.10", direction=strategy.long, qty=qty)
-                label.new(bar_index, low, "X.E.F100.10 Qty:" + str.tostring(qty),
-                          style=label.style_label_up, color=color.navy, textcolor=color.white)
-            else if reaction_ema == 20 and allow_X_E_F100_20 and strategy.opentrades == 0
-                slPrice     = baseEma * (1 - sl_buffer_pct / 100)
-                
-                qty     = f_qty(close, slPrice)
-                strategy.entry(id="X.E.F100.20", direction=strategy.long, qty=qty)
-                label.new(bar_index, low, "X.E.F100.20 Qty:" + str.tostring(qty),
-                          style=label.style_label_up, color=color.navy, textcolor=color.white)
-
-        // Offset = 200 EMA
+            if reaction_ema == 10 and allow_X_E_F100_10
+                ema_period = str.tonumber(sl_X_E_F100_10)
+                base_sl_val = f_base_sl(ema_period)
+                if not na(base_sl_val)
+                    stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                    if close > stop_level
+                        qty = f_positionSize(close, stop_level, riskAmount)
+                        if not na(qty)
+                            strategy.entry("X.E.F100.10", strategy.long, qty=qty)
+                            label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
+                                      style=label.style_label_up, color=color.navy,
+                                      textcolor=color.white, size=size.normal)
+            
+            else if reaction_ema == 20 and allow_X_E_F100_20
+                ema_period = str.tonumber(sl_X_E_F100_20)
+                base_sl_val = f_base_sl(ema_period)
+                if not na(base_sl_val)
+                    stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                    if close > stop_level
+                        qty = f_positionSize(close, stop_level, riskAmount)
+                        if not na(qty)
+                            strategy.entry("X.E.F100.20", strategy.long, qty=qty)
+                            label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
+                                      style=label.style_label_up, color=color.navy,
+                                      textcolor=color.white, size=size.normal)
+        
         else if emaOff == 200
-            baseEma = dtf_ema200
-            if reaction_ema == 10 and allow_X_E_F200_10 and strategy.opentrades == 0
-                slPrice     = baseEma * (1 - sl_buffer_pct / 100)
-                
-                qty     = f_qty(close, slPrice)
-                strategy.entry(id="X.E.F200.10", direction=strategy.long, qty=qty)
-                label.new(bar_index, low, "X.E.F200.10 Qty:" + str.tostring(qty),
-                          style=label.style_label_up, color=color.navy, textcolor=color.white)
-            else if reaction_ema == 20 and allow_X_E_F200_20 and strategy.opentrades == 0
-                slPrice     = baseEma * (1 - sl_buffer_pct / 100)
-                
-                qty     = f_qty(close, slPrice)
-                strategy.entry(id="X.E.F200.20", direction=strategy.long, qty=qty)
-                label.new(bar_index, low, "X.E.F200.20 Qty:" + str.tostring(qty),
-                          style=label.style_label_up, color=color.navy, textcolor=color.white)
-                          
+            if reaction_ema == 10 and allow_X_E_F200_10
+                ema_period = str.tonumber(sl_X_E_F200_10)
+                base_sl_val = f_base_sl(ema_period)
+                if not na(base_sl_val)
+                    stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                    if close > stop_level
+                        qty = f_positionSize(close, stop_level, riskAmount)
+                        if not na(qty)
+                            strategy.entry("X.E.F200.10", strategy.long, qty=qty)
+                            label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
+                                      style=label.style_label_up, color=color.navy,
+                                      textcolor=color.white, size=size.normal)
+            
+            else if reaction_ema == 20 and allow_X_E_F200_20
+                ema_period = str.tonumber(sl_X_E_F200_20)
+                base_sl_val = f_base_sl(ema_period)
+                if not na(base_sl_val)
+                    stop_level = base_sl_val * (1 - sl_buffer_pct/100)
+                    if close > stop_level
+                        qty = f_positionSize(close, stop_level, riskAmount)
+                        if not na(qty)
+                            strategy.entry("X.E.F200.20", strategy.long, qty=qty)
+                            label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
+                                      style=label.style_label_up, color=color.navy,
+                                      textcolor=color.white, size=size.normal)
+// ======== END: MODIFIED ENTRY LOGIC WITH POSITION SIZING ======== //
+
 // === Intraday Entry Labels ===
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
     label.new(bar_index, high, "Super Early Entry",
@@ -601,6 +703,7 @@ pa_line =
      active_id == "X.E.F50.20"   ? pa_X_E_F50_20 :
      active_id == "X.E.F100.20"  ? pa_X_E_F100_20 :
      active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
+
 // === Get price action line from selected trail_tf
 
 // === Final stop loss level: static until PA line is above entry, then trail — never trail lower
@@ -623,7 +726,6 @@ if not na(active_id) and not na(final_stop)
     strategy.exit(id="Exit", from_entry=active_id, stop=final_stop)
 // === Plot Final Stop on Chart
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
-
 // === Price Action Line Retrieval & Plot ===
 priceLineRaw = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 priceLine    = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
