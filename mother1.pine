@@ -8,22 +8,6 @@ useMonthlyBias = input.bool(true, "Use Monthly Bias Check?", group="Bias Filters
 useWeeklyBias  = input.bool(true, "Use Weekly Bias Check?",  group="Bias Filters")
 
 
-// ===== RISK MANAGEMENT INPUTS =====
-accountNumber           = input.string("7766821208277", title="Account Number", tooltip="Manually enter the account number (e.g., 12345678)")
-tickerSymbol            = input.string("EURNZD", title="Ticker Symbol", tooltip="Enter the ticker symbol for alerts")
-pipSize                 = input.float(0.0001, title="Pip Size", tooltip="Define pip size (0.0001 Forex, 1 Indices)")
-riskPercentage          = input.float(1.0, "Risk Percentage per Trade", minval=0.1, maxval=100, step=0.1)
-contractSize            = input.float(1.0, title="Contract Size", tooltip="Contract size from strategy input tabs")
-initial_stop_loss_percent = input.float(0.03, "Initial Stop Loss % Below EMA", minval=0.0, step=0.01)
-max_trades_per_window   = input.int(2, "Max Trades per Trading Window", minval=1)
-
-// ===== GET ACCOUNT EQUITY (simulate using strategy.equity) =====
-accountEquity = strategy.equity
-
-
-
-
-
 
 group_trading_window = "Trading Windows"
 s1_start_hr  = input.int(9, "Session 1 Start Hour", minval=0, maxval=23, group=group_trading_window)
@@ -48,31 +32,14 @@ allow_ret_b  = input.bool(true, "Retracement: Allow Setup B", group="Setup Filte
 allow_rea_a  = input.bool(true, "Reaction: Allow Setup A",    group="Setup Filters")
 allow_rea_b  = input.bool(true, "Reaction: Allow Setup B",    group="Setup Filters")
 
+// --- Trade Count Tracking ---
+var int  trade_count_in_window   = 0
+var bool prev_in_trading_window = false
 
-// ===== TRACK TRADES PER SESSION =====
-var int session_trade_count = 0
-new_session = ta.change(time("D")) or (not in_session[1] and in_session)  // reset when day changes or new session starts
-if new_session
-    session_trade_count := 0
-
-// increment if a trade is opened
-if strategy.opentrades > 0 and strategy.opentrades.entry_bar_index(0) == bar_index
-    session_trade_count += 1
-
-// ===== CONTROL FLAG: CAN OPEN NEW TRADE? =====
-can_open_trade = session_trade_count < max_trades_per_window and in_session
-
-// Position Sizing And Alert // 
-
-getPositionSizeAndAlert(_entry, _sl) =>
-    _sl_distance_pips = math.abs(_entry - _sl) / pipSize
-    _risk_amount = strategy.equity * (riskPercentage / 100)
-    _pip_value = pipSize * contractSize
-    _risk_per_contract = _sl_distance_pips * _pip_value
-    _pos_size = _risk_per_contract != 0 ? math.floor(_risk_amount / _risk_per_contract) : na
-    _alert_msg = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(_risk_amount, "#.##")
-    [_pos_size, _alert_msg]
-
+// Reset counter at start of session
+if in_session and not prev_in_trading_window
+    trade_count_in_window := 0
+prev_in_trading_window := in_session
 
 // === Global Stop Loss Buffer ===
 sl_buffer_pct = input.float(0.0, "Stop Loss Buffer (%)", minval=0.0, step=0.01, group="Global SL Settings")
@@ -144,6 +111,15 @@ group_X_E_F200_20 = "Reaction: Early F200 EMA20 (X.E.F200.20)"
 allow_X_E_F200_20 = input.bool(true, "Enable", group=group_X_E_F200_20)
 sl_X_E_F200_20    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F200_20)
 trail_X_E_F200_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F200_20)
+
+
+// --- Risk Management Inputs ---
+accountNumber = input.string("7766821208277", title="Account Number", tooltip="Manually enter the account number")
+tickerSymbol = input.string("EURNZD", title="Ticker Symbol", tooltip="Enter the ticker symbol for alerts (e.g., EURNZD, EURUSD, GBPUSD, SPX, XAUUSD)")
+pipSize = input.float(0.0001, title="Pip Size", tooltip="Set based on asset type (e.g., 0.0001 for Forex, 1 for Indices)")
+riskPercentage = input.float(1.0, title="Risk Percentage per Trade", minval=0.1, maxval=100, step=0.1)
+contractSize = input.float(1.0, title="Contract Size", tooltip="Set based on instrument and broker")
+max_trades_per_window = input.int(2, title="Max Trades per Trading Window", minval=1)
 
 
 // ——— Inputs for Price Action Management Tool ———
@@ -305,6 +281,7 @@ isEarlyEntry(ema50, ema100, ema200) =>
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
 early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 // === Momentum Condition ===
+
 is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum and in_session
 // === Helper Function for Off EMA Label ===
 getOffEMA(ema50, ema100, ema200) =>
@@ -313,225 +290,6 @@ getOffEMA(ema50, ema100, ema200) =>
     crossed200 = crossed(ema200)
     emaOff = crossed200 ? 200 : crossed100 ? 100 : crossed50 ? 50 : na
     emaOff
-// === Momentum Label & Entry Logic ===
-if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session and can_open_trade
-    label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
-
-    if super_early_entry_ok and allow_M_SE
-        sl_base = str.tonumber(sl_M_SE) == 50 ? dtf_ema50 :
-                  str.tonumber(sl_M_SE) == 100 ? dtf_ema100 :
-                  str.tonumber(sl_M_SE) == 200 ? dtf_ema200 :
-                  str.tonumber(sl_M_SE) == 350 ? dtf_ema350 : na
-        sl_price = sl_base * (1 - initial_stop_loss_percent / 100)
-        [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_price)
-        if not na(pos_size)
-            strategy.entry(id="M.SE", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-            label.new(bar_index, low, "M.SE\n" + label_text,
-                      style=label.style_label_up, color=color.green,
-                      textcolor=color.white, size=size.normal)
-
-    else if early_entry_ok
-        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
-
-        if emaOff == 50 and allow_M_E_F50
-            sl_base = dtf_ema50 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="M.E.F50", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "M.E.F50\n" + label_text,
-                          style=label.style_label_up, color=color.green,
-                          textcolor=color.white, size=size.normal)
-
-        else if emaOff == 100 and allow_M_E_F100
-            sl_base = dtf_ema100 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="M.E.F100", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "M.E.F100\n" + label_text,
-                          style=label.style_label_up, color=color.green,
-                          textcolor=color.white, size=size.normal)
-
-        else if emaOff == 200 and allow_M_E_F200
-            sl_base = dtf_ema200 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="M.E.F200", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "M.E.F200\n" + label_text,
-                          style=label.style_label_up, color=color.green,
-                          textcolor=color.white, size=size.normal)
-
-// === Retracement Condition ===
-is_retracement = daily_ema_ok and daily_bullish and (
-                     (low < dominant_saved_open and close > dominant_saved_open) or
-                     (low[1] < dominant_saved_open and close > dominant_saved_open)
-                 )
-// === State Tracking ===
-var bool retracement_active = false
-var bool reaction_active    = false
-var int  reaction_ema       = na
-is_new_day = ta.change(time("D"))
-if is_new_day
-    retracement_active := false
-    reaction_active    := false
-    reaction_ema       := na
-if not retracement_active and is_retracement and allow_retracement
-    retracement_active := true
-if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
-    retracement_active := false
-
-// === Retracement Label & Entry Logic ===
-show_retracement_label = retracement_active and close < dominant_saved_close
-
-if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and can_open_trade
-    label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
-
-    if super_early_entry_ok and allow_R_SE
-        sl_base = str.tonumber(sl_R_SE) == 50 ? dtf_ema50 :
-                  str.tonumber(sl_R_SE) == 100 ? dtf_ema100 :
-                  str.tonumber(sl_R_SE) == 200 ? dtf_ema200 :
-                  str.tonumber(sl_R_SE) == 350 ? dtf_ema350 : dtf_ema200
-        sl_price = sl_base * (1 - initial_stop_loss_percent / 100)
-        [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_price)
-        if not na(pos_size)
-            strategy.entry(id="R.SE", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-            label.new(bar_index, low, "R.SE\n" + label_text,
-                      style=label.style_label_upper_right, color=color.fuchsia,
-                      textcolor=color.white, size=size.normal)
-
-    else if early_entry_ok
-        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
-
-        // F50
-        if emaOff == 50 and allow_R_E_F50
-            sl_base = dtf_ema50 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="R.E.F50", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "R.E.F50\n" + label_text,
-                          style=label.style_label_upper_right, color=color.purple,
-                          textcolor=color.white, size=size.normal)
-
-        // F100
-        else if emaOff == 100 and allow_R_E_F100
-            sl_base = dtf_ema100 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="R.E.F100", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "R.E.F100\n" + label_text,
-                          style=label.style_label_upper_right, color=color.purple,
-                          textcolor=color.white, size=size.normal)
-
-        // F200
-        else if emaOff == 200 and allow_R_E_F200
-            sl_base = dtf_ema200 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="R.E.F200", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "R.E.F200\n" + label_text,
-                          style=label.style_label_upper_right, color=color.purple,
-                          textcolor=color.white, size=size.normal)
-
-// === Reaction Condition ===
-reaction_crossed_10 = ((open < live_ema10_snapshot and close > live_ema10_snapshot) or
-                       (open[1] < live_ema10_snapshot and close > live_ema10_snapshot))
-reaction_crossed_20 = ((open < live_ema20_snapshot and close > live_ema20_snapshot) or
-                       (open[1] < live_ema20_snapshot and close > live_ema20_snapshot))
-if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_crossed_20) and allow_reaction
-    reaction_active := true
-    reaction_ema    := reaction_crossed_10 ? 10 : 20
-// === Reaction Label & Entry Logic ===
-show_reaction_label = reaction_active and daily_ema_ok and  
-                      ((reaction_ema == 10 and close > live_ema10_snapshot) or 
-                       (reaction_ema == 20 and close > live_ema20_snapshot))
-
-if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and can_open_trade
-    crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
-                      reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
-
-    // === Super Early Reaction Entries ===
-    if super_early_entry_ok
-        if reaction_ema == 10 and allow_X_SE_10
-            sl_base = dtf_ema200 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="X.SE.EMA10", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
-                          style=label.style_label_up, color=color.teal,
-                          textcolor=color.white, size=size.normal)
-
-        else if reaction_ema == 20 and allow_X_SE_20
-            sl_base = dtf_ema200 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                strategy.entry(id="X.SE.EMA20", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
-                          style=label.style_label_up, color=color.teal,
-                          textcolor=color.white, size=size.normal)
-
-    // === Early Reaction Entries ===
-    else if early_entry_ok
-        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
-
-        // F50
-        if emaOff == 50
-            sl_base = dtf_ema50 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                if reaction_ema == 10 and allow_X_E_F50_10
-                    strategy.entry(id="X.E.F50.10", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                    label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
-                              style=label.style_label_up, color=color.navy,
-                              textcolor=color.white, size=size.normal)
-                else if reaction_ema == 20 and allow_X_E_F50_20
-                    strategy.entry(id="X.E.F50.20", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                    label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
-                              style=label.style_label_up, color=color.navy,
-                              textcolor=color.white, size=size.normal)
-
-        // F100
-        else if emaOff == 100
-            sl_base = dtf_ema100 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                if reaction_ema == 10 and allow_X_E_F100_10
-                    strategy.entry(id="X.E.F100.10", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                    label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
-                              style=label.style_label_up, color=color.navy,
-                              textcolor=color.white, size=size.normal)
-                else if reaction_ema == 20 and allow_X_E_F100_20
-                    strategy.entry(id="X.E.F100.20", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                    label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
-                              style=label.style_label_up, color=color.navy,
-                              textcolor=color.white, size=size.normal)
-
-        // F200
-        else if emaOff == 200
-            sl_base = dtf_ema200 * (1 - initial_stop_loss_percent / 100)
-            [pos_size, alert_msg] = getPositionSizeAndAlert(close, sl_base)
-            if not na(pos_size)
-                if reaction_ema == 10 and allow_X_E_F200_10
-                    strategy.entry(id="X.E.F200.10", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                    label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
-                              style=label.style_label_up, color=color.navy,
-                              textcolor=color.white, size=size.normal)
-                else if reaction_ema == 20 and allow_X_E_F200_20
-                    strategy.entry(id="X.E.F200.20", direction=strategy.long, qty=pos_size, alert_message=alert_msg)
-                    label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
-                              style=label.style_label_up, color=color.navy,
-                              textcolor=color.white, size=size.normal)
-
-                          
-// === Intraday Entry Labels ===
-if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
-    label.new(bar_index, high, "Super Early Entry",
-              style=label.style_label_up, color=color.yellow,
-              textcolor=color.black, size=size.tiny)
-if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
-    label.new(bar_index, high, "Early Entry",
-              style=label.style_label_up, color=color.orange,
-              textcolor=color.black, size=size.tiny)
-
-
 
 // === Track Active Entry ===
 var string active_id = na
@@ -542,6 +300,7 @@ if strategy.opentrades > 0
 else
     active_id := na
     entry_price := na
+
 // === Track SL once per trade + trail logic control ===
 var float sl_fixed = na
 var bool  trail_started = false
@@ -622,6 +381,347 @@ base_sl = sl_ema == 50 ? dtf_ema50 :
           sl_ema == 350 ? dtf_ema350 : na
 sl_level = na(base_sl) ? na : base_sl * (1 - sl_buffer_pct / 100)
 
+// === Momentum Label & Entry Logic ===
+if ((timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session)
+    label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
+    
+    if super_early_entry_ok and allow_M_SE
+        if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+            distanceToStopLoss = math.abs(close - sl_level)
+            distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+            riskAmount = 100000 * (riskPercentage / 100)
+            positionSize = riskAmount / distanceToStopLoss
+            volume = positionSize / contractSize
+            pipDistance = distanceToStopLoss / pipSize
+
+            entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+            strategy.entry(id="M.SE", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+            alert(entryAlertMessage, alert.freq_once_per_bar_close)
+            trade_count_in_window += 1
+            label.new(bar_index, low, "M.SE\n" + label_text,
+                      style=label.style_label_up, color=color.green,
+                      textcolor=color.white, size=size.normal)
+    
+    else if early_entry_ok
+        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        if emaOff == 50 and allow_M_E_F50
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="M.E.F50", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "M.E.F50\n" + label_text,
+                          style=label.style_label_up, color=color.green,
+                          textcolor=color.white, size=size.normal)
+        
+        else if emaOff == 100 and allow_M_E_F100
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="M.E.F100", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "M.E.F100\n" + label_text,
+                          style=label.style_label_up, color=color.green,
+                          textcolor=color.white, size=size.normal)
+        
+        else if emaOff == 200 and allow_M_E_F200
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="M.E.F200", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "M.E.F200\n" + label_text,
+                          style=label.style_label_up, color=color.green,
+                          textcolor=color.white, size=size.normal)
+// === Retracement Condition ===
+is_retracement = daily_ema_ok and daily_bullish and (
+                     (low < dominant_saved_open and close > dominant_saved_open) or
+                     (low[1] < dominant_saved_open and close > dominant_saved_open)
+                 )
+// === State Tracking ===
+var bool retracement_active = false
+var bool reaction_active    = false
+var int  reaction_ema       = na
+is_new_day = ta.change(time("D"))
+if is_new_day
+    retracement_active := false
+    reaction_active    := false
+    reaction_ema       := na
+if not retracement_active and is_retracement and allow_retracement
+    retracement_active := true
+if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
+    retracement_active := false
+// === Retracement Label & Entry Logic ===
+show_retracement_label = retracement_active and close < dominant_saved_close
+if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session
+    label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
+    
+    if super_early_entry_ok and allow_R_SE
+        if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+            distanceToStopLoss = math.abs(close - sl_level)
+            distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+            riskAmount = 100000 * (riskPercentage / 100)
+            positionSize = riskAmount / distanceToStopLoss
+            volume = positionSize / contractSize
+            pipDistance = distanceToStopLoss / pipSize
+
+            entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+            strategy.entry(id="R.SE", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+            alert(entryAlertMessage, alert.freq_once_per_bar_close)
+            trade_count_in_window += 1
+            label.new(bar_index, low, "R.SE\n" + label_text,
+                      style=label.style_label_upper_right, color=color.fuchsia,
+                      textcolor=color.white, size=size.normal)
+    
+    else if early_entry_ok
+        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        if emaOff == 50 and allow_R_E_F50
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="R.E.F50", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "R.E.F50\n" + label_text,
+                          style=label.style_label_upper_right, color=color.purple,
+                          textcolor=color.white, size=size.normal)
+        
+        else if emaOff == 100 and allow_R_E_F100
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="R.E.F100", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "R.E.F100\n" + label_text,
+                          style=label.style_label_upper_right, color=color.purple,
+                          textcolor=color.white, size=size.normal)
+        
+        else if emaOff == 200 and allow_R_E_F200
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="R.E.F200", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "R.E.F200\n" + label_text,
+                          style=label.style_label_upper_right, color=color.purple,
+                          textcolor=color.white, size=size.normal)
+// === Reaction Label & Entry Logic ===
+show_reaction_label = reaction_active and daily_ema_ok and  
+                     ((reaction_ema == 10 and close > live_ema10_snapshot) or 
+                      (reaction_ema == 20 and close > live_ema20_snapshot))
+if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and in_session
+    crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
+                     reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
+    
+    if super_early_entry_ok
+        if reaction_ema == 10 and allow_X_SE_10
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="X.SE.EMA10", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
+                          style=label.style_label_up, color=color.teal,
+                          textcolor=color.white, size=size.normal)
+        
+        else if reaction_ema == 20 and allow_X_SE_20
+            if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                distanceToStopLoss = math.abs(close - sl_level)
+                distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                riskAmount = 100000 * (riskPercentage / 100)
+                positionSize = riskAmount / distanceToStopLoss
+                volume = positionSize / contractSize
+                pipDistance = distanceToStopLoss / pipSize
+
+                entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                strategy.entry(id="X.SE.EMA20", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                trade_count_in_window += 1
+                label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
+                          style=label.style_label_up, color=color.teal,
+                          textcolor=color.white, size=size.normal)
+    
+    else if early_entry_ok
+        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
+        if emaOff == 50
+            if reaction_ema == 10 and allow_X_E_F50_10
+                if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                    distanceToStopLoss = math.abs(close - sl_level)
+                    distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                    riskAmount = 100000 * (riskPercentage / 100)
+                    positionSize = riskAmount / distanceToStopLoss
+                    volume = positionSize / contractSize
+                    pipDistance = distanceToStopLoss / pipSize
+
+                    entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                    strategy.entry(id="X.E.F50.10", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                    alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                    trade_count_in_window += 1
+                    label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
+                              style=label.style_label_up, color=color.navy,
+                              textcolor=color.white, size=size.normal)
+            
+            else if reaction_ema == 20 and allow_X_E_F50_20
+                if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                    distanceToStopLoss = math.abs(close - sl_level)
+                    distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                    riskAmount = 100000 * (riskPercentage / 100)
+                    positionSize = riskAmount / distanceToStopLoss
+                    volume = positionSize / contractSize
+                    pipDistance = distanceToStopLoss / pipSize
+
+                    entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                    strategy.entry(id="X.E.F50.20", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                    alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                    trade_count_in_window += 1
+                    label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
+                              style=label.style_label_up, color=color.navy,
+                              textcolor=color.white, size=size.normal)
+        
+        else if emaOff == 100
+            if reaction_ema == 10 and allow_X_E_F100_10
+                if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                    distanceToStopLoss = math.abs(close - sl_level)
+                    distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                    riskAmount = 100000 * (riskPercentage / 100)
+                    positionSize = riskAmount / distanceToStopLoss
+                    volume = positionSize / contractSize
+                    pipDistance = distanceToStopLoss / pipSize
+
+                    entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                    strategy.entry(id="X.E.F100.10", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                    alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                    trade_count_in_window += 1
+                    label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
+                              style=label.style_label_up, color=color.navy,
+                              textcolor=color.white, size=size.normal)
+            
+            else if reaction_ema == 20 and allow_X_E_F100_20
+                if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                    distanceToStopLoss = math.abs(close - sl_level)
+                    distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                    riskAmount = 100000 * (riskPercentage / 100)
+                    positionSize = riskAmount / distanceToStopLoss
+                    volume = positionSize / contractSize
+                    pipDistance = distanceToStopLoss / pipSize
+
+                    entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                    strategy.entry(id="X.E.F100.20", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                    alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                    trade_count_in_window += 1
+                    label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
+                              style=label.style_label_up, color=color.navy,
+                              textcolor=color.white, size=size.normal)
+        
+        else if emaOff == 200
+            if reaction_ema == 10 and allow_X_E_F200_10
+                if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                    distanceToStopLoss = math.abs(close - sl_level)
+                    distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                    riskAmount = 100000 * (riskPercentage / 100)
+                    positionSize = riskAmount / distanceToStopLoss
+                    volume = positionSize / contractSize
+                    pipDistance = distanceToStopLoss / pipSize
+
+                    entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                    strategy.entry(id="X.E.F200.10", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                    alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                    trade_count_in_window += 1
+                    label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
+                              style=label.style_label_up, color=color.navy,
+                              textcolor=color.white, size=size.normal)
+            
+            else if reaction_ema == 20 and allow_X_E_F200_20
+                if active_id == na and strategy.position_size <= 0 and in_session and trade_count_in_window < max_trades_per_window
+                    distanceToStopLoss = math.abs(close - sl_level)
+                    distanceToStopLoss := distanceToStopLoss > 0 ? distanceToStopLoss : 0.0001
+
+                    riskAmount = 100000 * (riskPercentage / 100)
+                    positionSize = riskAmount / distanceToStopLoss
+                    volume = positionSize / contractSize
+                    pipDistance = distanceToStopLoss / pipSize
+
+                    entryAlertMessage = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+                    strategy.entry(id="X.E.F200.20", direction=strategy.long, qty=positionSize, alert_message=entryAlertMessage)
+                    alert(entryAlertMessage, alert.freq_once_per_bar_close)
+                    trade_count_in_window += 1
+                    label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
+                              style=label.style_label_up, color=color.navy,
+                              textcolor=color.white, size=size.normal)
+                          
+// === Intraday Entry Labels ===
+if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
+    label.new(bar_index, high, "Super Early Entry",
+              style=label.style_label_up, color=color.yellow,
+              textcolor=color.black, size=size.tiny)
+if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
+    label.new(bar_index, high, "Early Entry",
+              style=label.style_label_up, color=color.orange,
+              textcolor=color.black, size=size.tiny)
+
 
 
 // === Precompute all PA line values to avoid conditional request.security() ===
@@ -673,24 +773,6 @@ if not na(sl_level) and not na(entry_price)
     in_profit = close > entry_price
     if not trail_started and in_profit and not na(pa_line_adjusted) and pa_line_adjusted > entry_price
         trail_started := true
-
-// ===== CALCULATE TRADE SIZE BASED ON RISK =====
-// You need to define this only when there is a new trade setup
-float sl_distance_pips = na
-float position_size    = na
-float stop_price       = na
-
-if not na(sl_level) and not na(entry_price)
-    sl_distance_pips := math.abs(entry_price - sl_level) / pipSize
-    risk_amount = accountEquity * (riskPercentage / 100)
-    pip_value_per_contract = pipSize * contractSize
-    total_pip_risk = sl_distance_pips * pip_value_per_contract
-    position_size := total_pip_risk != 0 ? risk_amount / total_pip_risk : na
-    position_size := math.floor(position_size)
-
-    // apply final stop price (already calculated in your original logic)
-    stop_price := final_stop
-
 
     // Always assign final_stop
     final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
