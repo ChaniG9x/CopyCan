@@ -1,5 +1,5 @@
 //@version=5
-strategy("Monthly & Weekly Bias )",
+strategy("CHANI Monthly & Weekly Bias )",
          overlay=true,
          default_qty_type=strategy.fixed,
          default_qty_value=1)
@@ -423,7 +423,8 @@ if not na(sl_level) and not na(entry_price)
     // Start trailing if PA line and price is above entry
 
     in_profit = close > entry_price
-    if not trail_started and in_profit and not na(pa_line_adjusted) and pa_line_adjusted > entry_price
+    safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
+    if not trail_started and in_profit and safe_pa_line
         trail_started := true
 
     // Always assign final_stop
