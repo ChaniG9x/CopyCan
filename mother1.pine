@@ -82,11 +82,6 @@ group_X_SE_20    = "Reaction: Super Early EMA20 (X.SE.EMA20)"
 allow_X_SE_20    = input.bool(true, "Enable", group=group_X_SE_20)
 sl_X_SE_20       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_20)
 trail_X_SE_20    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_20)
-// === Reaction: 4H Super Early ===
-group_X_4H_SE_10 = "Reaction: 4H Super Early EMA10 (X.4H.SE.EMA10)"
-allow_X_4H_SE_10 = input.bool(true, "Enable", group=group_X_4H_SE_10)
-group_X_4H_SE_20 = "Reaction: 4H Super Early EMA20 (X.4H.SE.EMA20)"
-allow_X_4H_SE_20 = input.bool(true, "Enable", group=group_X_4H_SE_20)
 // === Reaction: Early by EMA Cross
 group_X_E_F50_10 = "Reaction: Early F50 EMA10 (X.E.F50.10)"
 allow_X_E_F50_10 = input.bool(true, "Enable", group=group_X_E_F50_10)
@@ -153,9 +148,6 @@ daily_close      = f_completed_htf("D", close)
 daily_open       = f_completed_htf("D", open)
 daily_prev_close = f_completed_htf("D", close[1])
 daily_prev_open  = f_completed_htf("D", open[1])
-min_d = math.min(daily_prev_open, daily_prev_close)
-max_d = math.max(daily_prev_open, daily_prev_close)
-price_inside_daily = close >= min_d and close <= max_d
 daily_prev_green_open = daily_prev_close > daily_prev_open ? daily_prev_open : na
 daily_prev_red_open   = daily_prev_close < daily_prev_open ? daily_prev_open : na
 daily_bullish = (daily_close > daily_open and (na(daily_prev_red_open) or daily_close > daily_prev_red_open)) or  (daily_close >= daily_open and (na(daily_prev_red_open) or daily_close >= daily_prev_red_open))
@@ -176,9 +168,9 @@ else if weekly_close < weekly_open
     if na(recent_green_open_w) or weekly_close < recent_green_open_w
         weekly_status := "Bearish"
 // === Monthly & Weekly EMAs & Order Flags ===
-[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
+[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)],  lookahead=barmerge.lookahead_off)
 monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m) ? "Aligned" : "Not Aligned"
-[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
+[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
 weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w) ? "Aligned" : "Not Aligned"
 // Bias filter logic
 bool passMonthly = not useMonthlyBias or (monthly_status == "Bullish")
@@ -209,13 +201,6 @@ daily_ema20  = request.security(syminfo.tickerid, "D", ta.ema(close, 20), lookah
 daily_ema50  = request.security(syminfo.tickerid, "D", ta.ema(close, 50), lookahead=barmerge.lookahead_off)
 daily_ema100 = request.security(syminfo.tickerid, "D", ta.ema(close,100), lookahead=barmerge.lookahead_off)
 daily_ema200 = request.security(syminfo.tickerid, "D", ta.ema(close,200), lookahead=barmerge.lookahead_off)
-// === 4H EMA Snapshots ===
-fourh_ema10_snapshot = request.security(syminfo.tickerid, "240", ta.ema(close, 10), lookahead=barmerge.lookahead_on)
-fourh_ema20_snapshot = request.security(syminfo.tickerid, "240", ta.ema(close, 20), lookahead=barmerge.lookahead_on)
-// True 4H EMAs for alignment check
-fourh_ema10  = request.security(syminfo.tickerid, "240", ta.ema(close, 10), lookahead=barmerge.lookahead_off)
-fourh_ema20  = request.security(syminfo.tickerid, "240", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
-fourh_ema_ok = fourh_ema10 > fourh_ema20
 // === Higher-TF Trend Filter ===
 daily_ema_ok = daily_ema10  > daily_ema20 and
                daily_ema20  > daily_ema50 and
@@ -247,7 +232,7 @@ f_calc_qty(ema_int) =>
         risk_amt  = fixedAccount * (risk_pct / 100)
         raw_qty   = risk_amt / (dist * contract_size)
         math.floor(raw_qty)  // Integer contracts/shares
-
+        
 // === Dominant Daily Bar Logic ===
 f_get_dominant() =>
     var float dom_open = na
@@ -367,12 +352,6 @@ else if active_id == "X.SE.EMA10"
 else if active_id == "X.SE.EMA20"
     sl_ema := sl_X_SE_20_int
     trail_tf := trail_X_SE_20
-else if active_id == "X.4H.SE.EMA10"
-    sl_ema := 200
-    trail_tf := "15"
-else if active_id == "X.4H.SE.EMA20"
-    sl_ema := 200
-    trail_tf := "15"
 else if active_id == "X.E.F50.10"
     sl_ema := sl_X_E_F50_10_int
     trail_tf := trail_X_E_F50_10
@@ -408,8 +387,6 @@ pa_R_E_F100  = request.security(syminfo.tickerid, trail_R_E_F100, f_price_action
 pa_R_E_F200  = request.security(syminfo.tickerid, trail_R_E_F200, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_X_SE_10   = request.security(syminfo.tickerid, trail_X_SE_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_X_SE_20   = request.security(syminfo.tickerid, trail_X_SE_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-pa_X_4H_SE_10 = request.security(syminfo.tickerid, "15", f_price_action_htf(), lookahead=barmerge.lookahead_off)
-pa_X_4H_SE_20 = request.security(syminfo.tickerid, "15", f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_X_E_F50_10   = request.security(syminfo.tickerid, trail_X_E_F50_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_X_E_F100_10  = request.security(syminfo.tickerid, trail_X_E_F100_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 pa_X_E_F200_10  = request.security(syminfo.tickerid, trail_X_E_F200_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
@@ -428,8 +405,6 @@ pa_line =
      active_id == "R.E.F200"     ? pa_R_E_F200 :
      active_id == "X.SE.EMA10"   ? pa_X_SE_10 :
      active_id == "X.SE.EMA20"   ? pa_X_SE_20 :
-     active_id == "X.4H.SE.EMA10" ? pa_X_4H_SE_10 :
-     active_id == "X.4H.SE.EMA20" ? pa_X_4H_SE_20 :
      active_id == "X.E.F50.10"   ? pa_X_E_F50_10 :
      active_id == "X.E.F100.10"  ? pa_X_E_F100_10 :
      active_id == "X.E.F200.10"  ? pa_X_E_F200_10 :
@@ -438,7 +413,7 @@ pa_line =
      active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
 // === Get price action line from selected trail_tf
 
-// === Final stop loss level: static until PA line is above entry, then trail —never trail lower
+// === Final stop loss level: static until PA line is above entry, then trail — never trail lower
 pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
 float final_stop = na
 if not na(sl_level) and not na(entry_price)
@@ -516,15 +491,11 @@ is_retracement = daily_ema_ok and daily_bullish and (
 var bool retracement_active = false
 var bool reaction_active    = false
 var int  reaction_ema       = na
-var bool reaction_4h_active = false
-var int  reaction_4h_ema    = na
 is_new_day = ta.change(time("D"))
 if is_new_day
     retracement_active := false
     reaction_active    := false
     reaction_ema       := na
-    reaction_4h_active := false
-    reaction_4h_ema    := na
 if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
@@ -642,37 +613,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
 
-// === 4H Reaction Condition ===
-reaction_4h_crossed_10 = ((open < fourh_ema10_snapshot and close > fourh_ema10_snapshot) or
-                          (open[1] < fourh_ema10_snapshot and close > fourh_ema10_snapshot))
-reaction_4h_crossed_20 = ((open < fourh_ema20_snapshot and close > fourh_ema20_snapshot) or
-                          (open[1] < fourh_ema20_snapshot and close > fourh_ema20_snapshot))
-if not reaction_4h_active and daily_ema_ok and fourh_ema_ok and price_inside_daily and (reaction_4h_crossed_10 or reaction_4h_crossed_20) and allow_reaction
-    reaction_4h_active := true
-    reaction_4h_ema    := reaction_4h_crossed_10 ? 10 : 20
-// === 4H Reaction Label & Entry Logic ===
-show_reaction_4h_label = reaction_4h_active and daily_ema_ok and fourh_ema_ok and price_inside_daily and
-                         ((reaction_4h_ema == 10 and close > fourh_ema10_snapshot) or
-                          (reaction_4h_ema == 20 and close > fourh_ema20_snapshot))
-if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_4h_label and in_session
-    crossed_4h_text = reaction_4h_ema == 10 ? "Crossed 4H EMA10: " + str.tostring(fourh_ema10_snapshot, "#.##") :
-                      reaction_4h_ema == 20 ? "Crossed 4H EMA20: " + str.tostring(fourh_ema20_snapshot, "#.##") : ""
-    if super_early_entry_ok
-        if reaction_4h_ema == 10 and allow_X_4H_SE_10
-            q = f_calc_qty(200)
-            if not na(q)
-                strategy.entry(id="X.4H.SE.EMA10", direction=strategy.long, qty=q)
-            label.new(bar_index, low, "X.4H.SE.EMA10\n" + crossed_4h_text,
-                      style=label.style_label_up, color=color.aqua,
-                      textcolor=color.white, size=size.normal)
-        else if reaction_4h_ema == 20 and allow_X_4H_SE_20
-            q = f_calc_qty(200)
-            if not na(q)
-                strategy.entry(id="X.4H.SE.EMA20", direction=strategy.long, qty=q)
-            label.new(bar_index, low, "X.4H.SE.EMA20\n" + crossed_4h_text,
-                      style=label.style_label_up, color=color.aqua,
-                      textcolor=color.white, size=size.normal)
- // === Intraday Entry Labels ===
+// === Intraday Entry Labels ===
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
     label.new(bar_index, high, "Super Early Entry",
               style=label.style_label_up, color=color.yellow,
