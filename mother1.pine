@@ -422,11 +422,16 @@ pa_line =
      active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
 // === Get price action line from selected trail_tf
 
+\\ =-- Plot Price Action Line 
+priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
+plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
+
+
+
 // === Final stop loss level and visualization ===
 var float final_stop    = na
 var bool  wasInPosition = false
-var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 // Update trailing stop only when the active trail timeframe bar has closed
 bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
 if bar_tf_confirmed
@@ -458,7 +463,7 @@ if bar_tf_confirmed
    
 // === Plot Final Stop and Price Action Line ===
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
-plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
+
 
 
 // === Momentum Condition ===
