@@ -427,7 +427,10 @@ var float final_stop    = na
 var bool  wasInPosition = false
 var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
-if barstate.isconfirmed
+// Update trailing stop only when the active trail timeframe bar has closed
+bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
+if bar_tf_confirmed
+
     // Static until PA line is above entry, then trail — never trail lower
     pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
     if not na(sl_level) and not na(entry_price)
