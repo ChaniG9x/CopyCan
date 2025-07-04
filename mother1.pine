@@ -233,11 +233,11 @@ f_calc_qty(ema_int) =>
         sl_tmp    = base_val * (1 - sl_buffer_pct / 100)
         dist      = math.abs(close - sl_tmp)
         risk_amt  = fixedAccount * (risk_pct / 100)
-        raw_qty   = risk_amt / (dist * contract_size)
+        raw_qty   = risk_amt / dist
         math.floor(raw_qty)  // Integer contracts/shares
 
 f_send_entry(id, qty) =>
-    volume = qty / contract_size
+    volume = qty * contract_size
     msg = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
     strategy.entry(id=id, direction=strategy.long, qty=qty, alert_message=msg)
     alert(msg, alert.freq_once_per_bar_close)
@@ -453,7 +453,8 @@ if bar_tf_confirmed
         final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
     // === STOP-LOSS Exits (One per Unique Entry Type) ===
     if not na(active_id) and not na(final_stop)
-        exitMsg = accountNumber + ",closelong," + tickerSymbol
+        exitVolume = strategy.position_size * contract_size
+        exitMsg = accountNumber + ",closelong," + tickerSymbol + ",risk=" + str.tostring(exitVolume)
         strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
     stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
     if stop_triggered
