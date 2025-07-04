@@ -153,8 +153,8 @@ daily_close      = f_completed_htf("D", close)
 daily_open       = f_completed_htf("D", open)
 daily_prev_close = f_completed_htf("D", close[1])
 daily_prev_open  = f_completed_htf("D", open[1])
-min_d = math.min(daily_open, daily_close)
-max_d = math.max(daily_open, daily_close)
+min_d = math.min(daily_prev_open, daily_prev_close)
+max_d = math.max(daily_prev_open, daily_prev_close)
 price_inside_daily = close >= min_d and close <= max_d
 daily_prev_green_open = daily_prev_close > daily_prev_open ? daily_prev_open : na
 daily_prev_red_open   = daily_prev_close < daily_prev_open ? daily_prev_open : na
@@ -672,55 +672,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_4h_l
             label.new(bar_index, low, "X.4H.SE.EMA20\n" + crossed_4h_text,
                       style=label.style_label_up, color=color.aqua,
                       textcolor=color.white, size=size.normal)
-    else if early_entry_ok
-        emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
-        if emaOff == 50
-            if reaction_4h_ema == 10 and allow_X_E_F50_10
-                q = f_calc_qty(sl_X_E_F50_10_int)
-                if not na(q)
-                    strategy.entry(id="X.E.F50.10", direction=strategy.long, qty=q)
-                label.new(bar_index, low, "X.E.F50.10\n" + crossed_4h_text,
-                          style=label.style_label_up, color=color.navy,
-                          textcolor=color.white, size=size.normal)
-            else if reaction_4h_ema == 20 and allow_X_E_F50_20
-                q = f_calc_qty(sl_X_E_F50_20_int)
-                if not na(q)
-                    strategy.entry(id="X.E.F50.20", direction=strategy.long, qty=q)
-                label.new(bar_index, low, "X.E.F50.20\n" + crossed_4h_text,
-                          style=label.style_label_up, color=color.navy,
-                          textcolor=color.white, size=size.normal)
-        else if emaOff == 100
-            if reaction_4h_ema == 10 and allow_X_E_F100_10
-                q = f_calc_qty(sl_X_E_F100_10_int)
-                if not na(q)
-                    strategy.entry(id="X.E.F100.10", direction=strategy.long, qty=q)
-                label.new(bar_index, low, "X.E.F100.10\n" + crossed_4h_text,
-                          style=label.style_label_up, color=color.navy,
-                          textcolor=color.white, size=size.normal)
-            else if reaction_4h_ema == 20 and allow_X_E_F100_20
-                q = f_calc_qty(sl_X_E_F100_20_int)
-                if not na(q)
-                    strategy.entry(id="X.E.F100.20", direction=strategy.long, qty=q)
-                label.new(bar_index, low, "X.E.F100.20\n" + crossed_4h_text,
-                          style=label.style_label_up, color=color.navy,
-                          textcolor=color.white, size=size.normal)
-        else if emaOff == 200
-            if reaction_4h_ema == 10 and allow_X_E_F200_10
-                q = f_calc_qty(sl_X_E_F200_10_int)
-                if not na(q)
-                    strategy.entry(id="X.E.F200.10", direction=strategy.long, qty=q)
-                label.new(bar_index, low, "X.E.F200.10\n" + crossed_4h_text,
-                          style=label.style_label_up, color=color.navy,
-                          textcolor=color.white, size=size.normal)
-            else if reaction_4h_ema == 20 and allow_X_E_F200_20
-                q = f_calc_qty(sl_X_E_F200_20_int)
-                if not na(q)
-                    strategy.entry(id="X.E.F200.20", direction=strategy.long, qty=q)
-                label.new(bar_index, low, "X.E.F200.20\n" + crossed_4h_text,
-                          style=label.style_label_up, color=color.navy,
-                          textcolor=color.white, size=size.normal)
-
-// === Intraday Entry Labels ===
+ // === Intraday Entry Labels ===
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
     label.new(bar_index, high, "Super Early Entry",
               style=label.style_label_up, color=color.yellow,
