@@ -233,11 +233,11 @@ f_calc_qty(ema_int) =>
         sl_tmp    = base_val * (1 - sl_buffer_pct / 100)
         dist      = math.abs(close - sl_tmp)
         risk_amt  = fixedAccount * (risk_pct / 100)
-        raw_qty   = risk_amt / dist
+        raw_qty   = risk_amt / (dist * contract_size)
         math.floor(raw_qty)  // Integer contracts/shares
 
 f_send_entry(id, qty) =>
-    volume = qty * contract_size
+    volume = qty / contract_size
     msg = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
     strategy.entry(id=id, direction=strategy.long, qty=qty, alert_message=msg)
     alert(msg, alert.freq_once_per_bar_close)
@@ -422,16 +422,11 @@ pa_line =
      active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
 // === Get price action line from selected trail_tf
 
-// =-- Plot Price Action Line 
-priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
-plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
-
-
-
 // === Final stop loss level and visualization ===
 var float final_stop    = na
 var bool  wasInPosition = false
+var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 // Update trailing stop only when the active trail timeframe bar has closed
 bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
 if bar_tf_confirmed
@@ -453,8 +448,7 @@ if bar_tf_confirmed
         final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
     // === STOP-LOSS Exits (One per Unique Entry Type) ===
     if not na(active_id) and not na(final_stop)
-        exitVolume = strategy.position_size * contract_size
-        exitMsg = accountNumber + ",closelong," + tickerSymbol + ",risk=" + str.tostring(exitVolume)
+        exitMsg = accountNumber + ",closelong," + tickerSymbol
         strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
     stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
     if stop_triggered
@@ -464,7 +458,7 @@ if bar_tf_confirmed
    
 // === Plot Final Stop and Price Action Line ===
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
-
+plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
 
 
 // === Momentum Condition ===
