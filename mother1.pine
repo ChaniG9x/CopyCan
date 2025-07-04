@@ -425,8 +425,8 @@ pa_line =
 // === Final stop loss level and visualization ===
 var float final_stop    = na
 var bool  wasInPosition = false
-var float priceLineRaw  = na
-var float priceLine     = na
+var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 if barstate.isconfirmed
     // Static until PA line is above entry, then trail — never trail lower
     pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
@@ -452,10 +452,7 @@ if barstate.isconfirmed
         alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
     wasInPosition := strategy.opentrades > 0
 
-    // === Price Action Line Retrieval ===
-    priceLineRaw := request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-    priceLine    := na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
-    
+   
 // === Plot Final Stop and Price Action Line ===
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
 plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
