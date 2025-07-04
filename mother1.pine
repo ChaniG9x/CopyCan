@@ -422,7 +422,7 @@ pa_line =
      active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
 // === Get price action line from selected trail_tf
 
-\\ =-- Plot Price Action Line 
+// =-- Plot Price Action Line 
 priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
