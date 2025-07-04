@@ -39,6 +39,9 @@ contract_size = input.float(1.0, "Contract Size", group="Risk Management")
 pip_size      = input.float(0.0001, "Pip Size", group="Risk Management")
 fixedAccount = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000, group="Risk Management")
 
+// === Pine Connector Settings ===
+accountNumber = input.string("12345678", title="Account Number", group="Pine Connector")
+tickerSymbol = input.string("EURNZD", title="Ticker Symbol", tooltip="Enter the ticker symbol for alerts (e.g., EURNZD, EURUSD, GBPUSD, SPX, XAUUSD)")
 // === Momentum Entries ===
 group_M_SE       = "Momentum: Super Early (M.SE)"
 allow_M_SE       = input.bool(true, "Enable", group=group_M_SE)
@@ -168,9 +171,9 @@ else if weekly_close < weekly_open
     if na(recent_green_open_w) or weekly_close < recent_green_open_w
         weekly_status := "Bearish"
 // === Monthly & Weekly EMAs & Order Flags ===
-[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)],  lookahead=barmerge.lookahead_off)
+[ema10_m, ema20_m, ema50_m, ema100_m] = request.security(syminfo.tickerid, "M", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
 monthly_ema_flag = (ema10_m > ema20_m and ema20_m > ema50_m and ema50_m > ema100_m) ? "Aligned" : "Not Aligned"
-[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W",  [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
+[ema10_w, ema20_w, ema50_w, ema100_w] = request.security(syminfo.tickerid, "W", [ta.ema(close, 10), ta.ema(close, 20), ta.ema(close, 50), ta.ema(close, 100)], lookahead=barmerge.lookahead_off)
 weekly_ema_flag = (ema10_w > ema20_w and ema20_w > ema50_w and ema50_w > ema100_w) ? "Aligned" : "Not Aligned"
 // Bias filter logic
 bool passMonthly = not useMonthlyBias or (monthly_status == "Bullish")
@@ -232,7 +235,13 @@ f_calc_qty(ema_int) =>
         risk_amt  = fixedAccount * (risk_pct / 100)
         raw_qty   = risk_amt / (dist * contract_size)
         math.floor(raw_qty)  // Integer contracts/shares
-        
+
+f_send_entry(id, qty) =>
+    volume = qty / contract_size
+    msg = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
+    strategy.entry(id=id, direction=strategy.long, qty=qty, alert_message=msg)
+    alert(msg, alert.freq_once_per_bar_close)
+
 // === Dominant Daily Bar Logic ===
 f_get_dominant() =>
     var float dom_open = na
@@ -413,30 +422,42 @@ pa_line =
      active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
 // === Get price action line from selected trail_tf
 
-// === Final stop loss level: static until PA line is above entry, then trail — never trail lower
-pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
-float final_stop = na
-if not na(sl_level) and not na(entry_price)
-    // Lock in SL once per trade
-    if na(sl_fixed)
-        sl_fixed := sl_level
-    // Start trailing if PA line and price is above entry
+// === Final stop loss level and visualization ===
+var float final_stop    = na
+var bool  wasInPosition = false
+var float priceLineRaw  = na
+var float priceLine     = na
+if barstate.isconfirmed
+    // Static until PA line is above entry, then trail — never trail lower
+    pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
+    if not na(sl_level) and not na(entry_price)
+        // Lock in SL once per trade
+        if na(sl_fixed)
+            sl_fixed := sl_level
+        // Start trailing if PA line and price is above entry
 
-    in_profit = close > entry_price
-    safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
-    if not trail_started and in_profit and safe_pa_line
-        trail_started := true
+        in_profit = close > entry_price
+        safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
+        if not trail_started and in_profit and safe_pa_line
+            trail_started := true
 
-    // Always assign final_stop
-    final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
-// === STOP-LOSS Exits (One per Unique Entry Type) ===
-if not na(active_id) and not na(final_stop)
-    strategy.exit(id="Exit", from_entry=active_id, stop=final_stop)
-// === Plot Final Stop on Chart
+        // Always assign final_stop
+        final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
+    // === STOP-LOSS Exits (One per Unique Entry Type) ===
+    if not na(active_id) and not na(final_stop)
+        exitMsg = accountNumber + ",closelong," + tickerSymbol
+        strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
+    stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
+    if stop_triggered
+        alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
+    wasInPosition := strategy.opentrades > 0
+
+    // === Price Action Line Retrieval ===
+    priceLineRaw := request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+    priceLine    := na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
+    
+// === Plot Final Stop and Price Action Line ===
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
-// === Price Action Line Retrieval & Plot ===
-priceLineRaw = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-priceLine    = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
 
 
@@ -455,7 +476,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
     if super_early_entry_ok and allow_M_SE
         q = f_calc_qty(sl_M_SE_int)
         if not na(q)
-            strategy.entry(id="M.SE", direction=strategy.long, qty=q)
+            f_send_entry("M.SE", q)
         label.new(bar_index, low, "M.SE\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
@@ -464,21 +485,21 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
         if emaOff == 50 and allow_M_E_F50
             q = f_calc_qty(sl_M_E_F50_int)
             if not na(q)
-                strategy.entry(id="M.E.F50", direction=strategy.long, qty=q)
+                f_send_entry("M.E.F50", q)
             label.new(bar_index, low, "M.E.F50\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 100 and allow_M_E_F100
             q = f_calc_qty(sl_M_E_F100_int)
             if not na(q)
-                strategy.entry(id="M.E.F100", direction=strategy.long, qty=q)
+                f_send_entry("M.E.F100", q)
             label.new(bar_index, low, "M.E.F100\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 200 and allow_M_E_F200
             q = f_calc_qty(sl_M_E_F200_int)
             if not na(q)
-                strategy.entry(id="M.E.F200", direction=strategy.long, qty=q)
+                f_send_entry("M.E.F200", q)
             label.new(bar_index, low, "M.E.F200\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
@@ -507,7 +528,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
     if super_early_entry_ok and allow_R_SE
         q = f_calc_qty(sl_R_SE_int)
         if not na(q)
-            strategy.entry(id="R.SE", direction=strategy.long, qty=q)
+            f_send_entry("R.SE", q)
         label.new(bar_index, low, "R.SE\n" + label_text,
                   style=label.style_label_upper_right, color=color.fuchsia,
                   textcolor=color.white, size=size.normal)
@@ -516,21 +537,21 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
         if emaOff == 50 and allow_R_E_F50
             q = f_calc_qty(sl_R_E_F50_int)
             if not na(q)
-                strategy.entry(id="R.E.F50", direction=strategy.long, qty=q)
+                f_send_entry("R.E.F50", q)
             label.new(bar_index, low, "R.E.F50\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 100 and allow_R_E_F100
             q = f_calc_qty(sl_R_E_F100_int)
             if not na(q)
-                strategy.entry(id="R.E.F100", direction=strategy.long, qty=q)
+                f_send_entry("R.E.F100", q)
             label.new(bar_index, low, "R.E.F100\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 200 and allow_R_E_F200
             q = f_calc_qty(sl_R_E_F200_int)
             if not na(q)
-                strategy.entry(id="R.E.F200", direction=strategy.long, qty=q)
+                f_send_entry("R.E.F200", q)
             label.new(bar_index, low, "R.E.F200\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
@@ -554,14 +575,14 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
         if reaction_ema == 10 and allow_X_SE_10
             q = f_calc_qty(sl_X_SE_10_int)
             if not na(q)
-                strategy.entry(id="X.SE.EMA10", direction=strategy.long, qty=q)
+                f_send_entry("X.SE.EMA10", q)
             label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
         else if reaction_ema == 20 and allow_X_SE_20
             q = f_calc_qty(sl_X_SE_20_int)
             if not na(q)
-                strategy.entry(id="X.SE.EMA20", direction=strategy.long, qty=q)
+                f_send_entry("X.SE.EMA20", q)
             label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
@@ -571,14 +592,14 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
             if reaction_ema == 10 and allow_X_E_F50_10
                 q = f_calc_qty(sl_X_E_F50_10_int)
                 if not na(q)
-                    strategy.entry(id="X.E.F50.10", direction=strategy.long, qty=q)
+                    f_send_entry("X.E.F50.10", q)
                 label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
             else if reaction_ema == 20 and allow_X_E_F50_20
                 q = f_calc_qty(sl_X_E_F50_20_int)
                 if not na(q)
-                    strategy.entry(id="X.E.F50.20", direction=strategy.long, qty=q)
+                    f_send_entry("X.E.F50.20", q)
                 label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -586,14 +607,14 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
             if reaction_ema == 10 and allow_X_E_F100_10
                 q = f_calc_qty(sl_X_E_F100_10_int)
                 if not na(q)
-                    strategy.entry(id="X.E.F100.10", direction=strategy.long, qty=q)
+                    f_send_entry("X.E.F100.10", q)
                 label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
             else if reaction_ema == 20 and allow_X_E_F100_20
                 q = f_calc_qty(sl_X_E_F100_20_int)
                 if not na(q)
-                    strategy.entry(id="X.E.F100.20", direction=strategy.long, qty=q)
+                    f_send_entry("X.E.F100.20", q)
                 label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -601,14 +622,14 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
             if reaction_ema == 10 and allow_X_E_F200_10
                 q = f_calc_qty(sl_X_E_F200_10_int)
                 if not na(q)
-                    strategy.entry(id="X.E.F200.10", direction=strategy.long, qty=q)
+                    f_send_entry("X.E.F200.10", q)
                 label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
             else if reaction_ema == 20 and allow_X_E_F200_20
                 q = f_calc_qty(sl_X_E_F200_20_int)
                 if not na(q)
-                    strategy.entry(id="X.E.F200.20", direction=strategy.long, qty=q)
+                    f_send_entry("X.E.F200.20", q)
                 label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
