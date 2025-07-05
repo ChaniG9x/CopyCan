@@ -24,6 +24,13 @@ s2_end   = timestamp("GMT+0", year, month, dayofmonth, s2_end_hr, s2_end_min)
 in_session_1 = time >= s1_start and time <= s1_end
 in_session_2 = time >= s2_start and time <= s2_end
 in_session   = in_session_1 or in_session_2
+maxTrades_s1 = input.int(1, "Session 1 Max Trades", minval=0, group=group_trading_window)
+maxTrades_s2 = input.int(1, "Session 2 Max Trades", minval=0, group=group_trading_window)
+is_new_day   = ta.change(time("D"))
+var int trade_count_s1 = 0
+var int trade_count_s2 = 0
+can_trade() =>
+    (in_session_1 and trade_count_s1 < maxTrades_s1) or (in_session_2 and trade_count_s2 < maxTrades_s2)
 allow_mom_a  = input.bool(true, "Momentum: Allow Setup A",    group="Setup Filters")
 allow_mom_b  = input.bool(true, "Momentum: Allow Setup B",    group="Setup Filters")
 allow_ret_a  = input.bool(true, "Retracement: Allow Setup A", group="Setup Filters")
@@ -49,7 +56,7 @@ sl_M_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "10
 trail_M_SE       = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_SE)
 group_M_E_F50    = "Momentum: Early F50 (M.E.F50)"
 allow_M_E_F50    = input.bool(true, "Enable", group=group_M_E_F50)
-sl_M_E_F50       = input.string("50", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F50)
+sl_M_E_F50       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F50)
 trail_M_E_F50    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F50)
 group_M_E_F100   = "Momentum: Early F100 (M.E.F100)"
 allow_M_E_F100   = input.bool(true, "Enable", group=group_M_E_F100)
@@ -110,7 +117,6 @@ group_X_E_F200_20 = "Reaction: Early F200 EMA20 (X.E.F200.20)"
 allow_X_E_F200_20 = input.bool(true, "Enable", group=group_X_E_F200_20)
 sl_X_E_F200_20    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F200_20)
 trail_X_E_F200_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F200_20)
-
 // ——— Inputs for Price Action Management Tool ———
 selectedTimeframe_PA = input.timeframe("15",
      title="Select Timeframe for Price Action",
@@ -427,28 +433,25 @@ var float final_stop    = na
 var bool  wasInPosition = false
 var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
-
-// Static until PA line is above entry, then trail — never trail lower
-pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
-if not na(sl_level) and not na(entry_price)
-        // Lock in SL once per trade
-    if na(sl_fixed)
-        sl_fixed := sl_level
-
 // Update trailing stop only when the active trail timeframe bar has closed
 bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
 if bar_tf_confirmed
 
-
+    // Static until PA line is above entry, then trail — never trail lower
+    pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
+    if not na(sl_level) and not na(entry_price)
+        // Lock in SL once per trade
+        if na(sl_fixed)
+            sl_fixed := sl_level
         // Start trailing if PA line and price is above entry
 
-    in_profit = close > entry_price
-    safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
-    if not trail_started and in_profit and safe_pa_line
-        trail_started := true
+        in_profit = close > entry_price
+        safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
+        if not trail_started and in_profit and safe_pa_line
+            trail_started := true
 
         // Always assign final_stop
-    final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
+        final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
     // === STOP-LOSS Exits (One per Unique Entry Type) ===
     if not na(active_id) and not na(final_stop)
         exitMsg = accountNumber + ",closelong," + tickerSymbol
@@ -458,7 +461,7 @@ if bar_tf_confirmed
         alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
     wasInPosition := strategy.opentrades > 0
 
-   
+
 // === Plot Final Stop and Price Action Line ===
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
 plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
@@ -474,12 +477,16 @@ getOffEMA(ema50, ema100, ema200) =>
     emaOff = crossed200 ? 200 : crossed100 ? 100 : crossed50 ? 50 : na
     emaOff
 // === Momentum Label & Entry Logic ===
-if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session
+if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session and can_trade()
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
     if super_early_entry_ok and allow_M_SE
         q = f_calc_qty(sl_M_SE_int)
         if not na(q)
             f_send_entry("M.SE", q)
+            if in_session_1
+                trade_count_s1 += 1
+            else if in_session_2
+                trade_count_s2 += 1
         label.new(bar_index, low, "M.SE\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
@@ -489,6 +496,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
             q = f_calc_qty(sl_M_E_F50_int)
             if not na(q)
                 f_send_entry("M.E.F50", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "M.E.F50\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
@@ -496,6 +507,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
             q = f_calc_qty(sl_M_E_F100_int)
             if not na(q)
                 f_send_entry("M.E.F100", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "M.E.F100\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
@@ -503,6 +518,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
             q = f_calc_qty(sl_M_E_F200_int)
             if not na(q)
                 f_send_entry("M.E.F200", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "M.E.F200\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
@@ -515,23 +534,28 @@ is_retracement = daily_ema_ok and daily_bullish and (
 var bool retracement_active = false
 var bool reaction_active    = false
 var int  reaction_ema       = na
-is_new_day = ta.change(time("D"))
 if is_new_day
     retracement_active := false
     reaction_active    := false
     reaction_ema       := na
+    trade_count_s1 := 0
+    trade_count_s2 := 0
 if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
     retracement_active := false
 // === Retracement Label & Entry Logic ===
 show_retracement_label = retracement_active and close < dominant_saved_close
-if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session
+if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session and can_trade()
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
     if super_early_entry_ok and allow_R_SE
         q = f_calc_qty(sl_R_SE_int)
         if not na(q)
             f_send_entry("R.SE", q)
+            if in_session_1
+                trade_count_s1 += 1
+            else if in_session_2
+                trade_count_s2 += 1
         label.new(bar_index, low, "R.SE\n" + label_text,
                   style=label.style_label_upper_right, color=color.fuchsia,
                   textcolor=color.white, size=size.normal)
@@ -541,6 +565,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
             q = f_calc_qty(sl_R_E_F50_int)
             if not na(q)
                 f_send_entry("R.E.F50", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "R.E.F50\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
@@ -548,6 +576,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
             q = f_calc_qty(sl_R_E_F100_int)
             if not na(q)
                 f_send_entry("R.E.F100", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "R.E.F100\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
@@ -555,6 +587,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
             q = f_calc_qty(sl_R_E_F200_int)
             if not na(q)
                 f_send_entry("R.E.F200", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "R.E.F200\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
@@ -570,7 +606,7 @@ if not reaction_active and daily_ema_ok and (reaction_crossed_10 or reaction_cro
 show_reaction_label = reaction_active and daily_ema_ok and
                       ((reaction_ema == 10 and close > live_ema10_snapshot) or
                        (reaction_ema == 20 and close > live_ema20_snapshot))
-if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and in_session
+if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_label and in_session and can_trade()
     crossed_ema_text = reaction_ema == 10 ? "Crossed EMA10: " + str.tostring(live_ema10_snapshot, "#.##") :
                    reaction_ema == 20 ? "Crossed EMA20: " + str.tostring(live_ema20_snapshot, "#.##") : ""
 
@@ -579,6 +615,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
             q = f_calc_qty(sl_X_SE_10_int)
             if not na(q)
                 f_send_entry("X.SE.EMA10", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
@@ -586,6 +626,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
             q = f_calc_qty(sl_X_SE_20_int)
             if not na(q)
                 f_send_entry("X.SE.EMA20", q)
+                if in_session_1
+                    trade_count_s1 += 1
+                else if in_session_2
+                    trade_count_s2 += 1
             label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
@@ -596,6 +640,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F50_10_int)
                 if not na(q)
                     f_send_entry("X.E.F50.10", q)
+                    if in_session_1
+                        trade_count_s1 += 1
+                    else if in_session_2
+                        trade_count_s2 += 1
                 label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -603,6 +651,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F50_20_int)
                 if not na(q)
                     f_send_entry("X.E.F50.20", q)
+                    if in_session_1
+                        trade_count_s1 += 1
+                    else if in_session_2
+                        trade_count_s2 += 1
                 label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -611,6 +663,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F100_10_int)
                 if not na(q)
                     f_send_entry("X.E.F100.10", q)
+                    if in_session_1
+                        trade_count_s1 += 1
+                    else if in_session_2
+                        trade_count_s2 += 1
                 label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -618,6 +674,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F100_20_int)
                 if not na(q)
                     f_send_entry("X.E.F100.20", q)
+                    if in_session_1
+                        trade_count_s1 += 1
+                    else if in_session_2
+                        trade_count_s2 += 1
                 label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -626,6 +686,10 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F200_10_int)
                 if not na(q)
                     f_send_entry("X.E.F200.10", q)
+                    if in_session_1
+                        trade_count_s1 += 1
+                    else if in_session_2
+                        trade_count_s2 += 1
                 label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -633,10 +697,13 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F200_20_int)
                 if not na(q)
                     f_send_entry("X.E.F200.20", q)
+                    if in_session_1
+                        trade_count_s1 += 1
+                    else if in_session_2
+                        trade_count_s2 += 1
                 label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
-
 // === Intraday Entry Labels ===
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
     label.new(bar_index, high, "Super Early Entry",
