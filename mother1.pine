@@ -176,7 +176,7 @@ is_setup_a = overall_condition == "Setup A"
 is_setup_b = overall_condition == "Setup B"
 // === Setup Flags for Conditions ===
 allow_momentum    = (is_setup_a and allow_mom_a) or (is_setup_b and allow_mom_b)
-allow_retracement = (is_setup_a and allow_ret_a) or (is_setup_b and allow_ret_b)
+allow_reaction    = (is_setup_a and allow_rea_a) or (is_setup_b and allow_rea_b)
 // === Plot Daily EMAs (reference) ===
 plot(ta.ema(close, 10),  title="EMA 10",  color=color.blue,   linewidth=2)
 plot(ta.ema(close, 20),  title="EMA 20",  color=color.red,    linewidth=2)
@@ -571,19 +571,19 @@ show_reaction_4h_label = reaction_4h_active and daily_ema_ok and fourh_ema_ok an
                           (reaction_4h_ema == 20 and close > fourh_ema20_snapshot))
 if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_4h_label and in_session
     crossed4h_text = reaction_4h_ema == 10 ? "Crossed 4H EMA10: " + str.tostring(fourh_ema10_snapshot, "#.##") :
-                    reaction_4h_ema == 20 ? "Crossed 4H EMA20: " + str.tostring(fourh_ema20_snapshot, "#.##") : ""
+                     reaction_4h_ema == 20 ? "Crossed 4H EMA20: " + str.tostring(fourh_ema20_snapshot, "#.##") : ""
     if super_early_entry_ok
         if reaction_4h_ema == 10 and allow_X_4H_SE_10
             q = f_calc_qty(sl_X_4H_SE_10_int)
             if not na(q)
-                f_send_entry("X.4H.SE.EMA10", q)
+                strategy.entry(id="X.4H.SE.EMA20", direction=strategy.long, qty=q)
             label.new(bar_index, low, "X.4H.SE.EMA10\n" + crossed4h_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
         else if reaction_4h_ema == 20 and allow_X_4H_SE_20
             q = f_calc_qty(sl_X_4H_SE_20_int)
             if not na(q)
-                f_send_entry("X.4H.SE.EMA20", q)
+                strategy.entry(id="X.4H.SE.EMA20", direction=strategy.long, qty=q)
             label.new(bar_index, low, "X.4H.SE.EMA20\n" + crossed4h_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
