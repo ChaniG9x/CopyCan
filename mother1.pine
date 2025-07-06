@@ -241,14 +241,15 @@ f_get_base_sl(ema_int) =>
 f_calc_qty(ema_int) =>
     use_ema  = intraday_emas_aligned ? override_sl_ema : ema_int
     base_val = f_get_base_sl(use_ema)
-    if na(base_val)
-        na
-    else
+    qty      = na
+    if not na(base_val)
         sl_tmp   = base_val * (1 - sl_buffer_pct / 100)
         dist     = math.abs(close - sl_tmp)
         risk_amt = fixedAccount * (risk_pct / 100)
         raw_qty  = risk_amt / (dist * contract_size)
-        math.floor(raw_qty)  // Integer contracts/shares
+        qty      := math.floor(raw_qty)  // Integer contracts/shares
+    [qty, use_ema]
+
 
 // Issues a buy order and returns true if a new position is opened
 f_send_entry(id, qty) =>
@@ -321,6 +322,7 @@ early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 // === Track Active Entry ===
 var string active_id = na
 var float entry_price = na
+var int   entry_sl_ema = na
 if strategy.opentrades > 0
     active_id := strategy.opentrades.entry_id(0)
     entry_price := strategy.opentrades.entry_price(0)
@@ -333,6 +335,7 @@ var bool  trail_started = false
 if strategy.opentrades == 0
     sl_fixed := na
     trail_started := false
+    entry_sl_ema := na
 // === Resolve SL EMA and Trail Timeframe Based on Entry ID ===
 float sl_ema = na
 string trail_tf = na
@@ -405,7 +408,10 @@ base_sl_default = sl_ema == 50 ? dtf_ema50 :
                  sl_ema == 100 ? dtf_ema100 :
                  sl_ema == 200 ? dtf_ema200 :
                  sl_ema == 350 ? dtf_ema350 : na
-base_sl = intraday_emas_aligned ? f_get_base_sl(override_sl_ema) : base_sl_default
+float use_sl_ema = intraday_emas_aligned ? override_sl_ema : sl_ema
+if strategy.opentrades > 0 and na(sl_fixed) and not na(entry_sl_ema)
+    use_sl_ema := entry_sl_ema
+base_sl = f_get_base_sl(use_sl_ema)
 sl_level = na(base_sl) ? na : base_sl * (1 - sl_buffer_pct / 100)
 
 // === Precompute all PA line values to avoid conditional request.security() ===
@@ -502,8 +508,9 @@ getOffEMA(ema50, ema100, ema200) =>
 if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in_session
     label_text = "Dom Close: " + str.tostring(dominant_saved_close, "#.##")
     if super_early_entry_ok and allow_M_SE  and in_session  and can_trade() and strategy.opentrades == 0
-        q = f_calc_qty(sl_M_SE_int)
+        [q, used_ema] = f_calc_qty(sl_M_SE_int)
         if not na(q)
+            entry_sl_ema := used_ema
             f_send_entry("M.SE", q)
             trade_count_window += 1
         label.new(bar_index, low, "M.SE\n" + label_text,
@@ -512,24 +519,27 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
         if emaOff == 50 and allow_M_E_F50 and strategy.opentrades == 0 and can_trade()
-            q = f_calc_qty(sl_M_E_F50_int)
+            [q, used_ema] = f_calc_qty(sl_M_E_F50_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("M.E.F50", q)
                 trade_count_window += 1
             label.new(bar_index, low, "M.E.F50\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 100 and allow_M_E_F100 and strategy.opentrades == 0 and can_trade()
-            q = f_calc_qty(sl_M_E_F100_int)
+            [q, used_ema] = f_calc_qty(sl_M_E_F100_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("M.E.F100", q)
                 trade_count_window += 1
             label.new(bar_index, low, "M.E.F100\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 200 and allow_M_E_F200 and strategy.opentrades == 0 and can_trade()
-            q = f_calc_qty(sl_M_E_F200_int)
+            [q, used_ema] = f_calc_qty(sl_M_E_F200_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("M.E.F200", q)
                 trade_count_window += 1
             label.new(bar_index, low, "M.E.F200\n" + label_text,
@@ -558,8 +568,9 @@ show_retracement_label = retracement_active and close < dominant_saved_close
 if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_label and in_session
     label_text = "Dom Open: " + str.tostring(dominant_saved_open, "#.##")
     if super_early_entry_ok and allow_R_SE  and in_session and can_trade() and strategy.opentrades == 0 and can_trade()
-        q = f_calc_qty(sl_R_SE_int)
+        [q, used_ema] = f_calc_qty(sl_R_SE_int)
         if not na(q)
+            entry_sl_ema := used_ema
             f_send_entry("R.SE", q)
             trade_count_window += 1
         label.new(bar_index, low, "R.SE\n" + label_text,
@@ -568,24 +579,27 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
     else if early_entry_ok
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
         if emaOff == 50 and allow_R_E_F50 and strategy.opentrades == 0 and can_trade()
-            q = f_calc_qty(sl_R_E_F50_int)
+            [q, used_ema] = f_calc_qty(sl_R_E_F50_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("R.E.F50", q)
                 trade_count_window += 1
             label.new(bar_index, low, "R.E.F50\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 100 and allow_R_E_F100 and strategy.opentrades == 0 and can_trade()
-            q = f_calc_qty(sl_R_E_F100_int)
+            [q, used_ema] = f_calc_qty(sl_R_E_F100_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("R.E.F100", q)
                 trade_count_window += 1
             label.new(bar_index, low, "R.E.F100\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
         else if emaOff == 200 and allow_R_E_F200 and strategy.opentrades == 0 and can_trade()
-            q = f_calc_qty(sl_R_E_F200_int)
+            [q, used_ema] = f_calc_qty(sl_R_E_F200_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("R.E.F200", q)
                 trade_count_window += 1
             label.new(bar_index, low, "R.E.F200\n" + label_text,
@@ -609,16 +623,18 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
 
     if super_early_entry_ok  and in_session and can_trade() and strategy.opentrades == 0 and can_trade()
         if reaction_ema == 10 and allow_X_SE_10
-            q = f_calc_qty(sl_X_SE_10_int)
+            [q, used_ema] = f_calc_qty(sl_X_SE_10_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("X.SE.EMA10", q)
                 trade_count_window += 1
             label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
         else if reaction_ema == 20 and allow_X_SE_20
-            q = f_calc_qty(sl_X_SE_20_int)
+            [q, used_ema] = f_calc_qty(sl_X_SE_20_int)
             if not na(q)
+                entry_sl_ema := used_ema
                 f_send_entry("X.SE.EMA20", q)
                 trade_count_window += 1
             label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
@@ -628,16 +644,18 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
         emaOff = getOffEMA(dtf_ema50, dtf_ema100, dtf_ema200)
         if emaOff == 50 and strategy.opentrades == 0 and can_trade()
             if reaction_ema == 10 and allow_X_E_F50_10
-                q = f_calc_qty(sl_X_E_F50_10_int)
+                [q, used_ema] = f_calc_qty(sl_X_E_F50_10_int)
                 if not na(q)
+                    entry_sl_ema := used_ema
                     f_send_entry("X.E.F50.10", q)
                     trade_count_window += 1
                 label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
             else if reaction_ema == 20 and allow_X_E_F50_20
-                q = f_calc_qty(sl_X_E_F50_20_int)
+                [q, used_ema] = f_calc_qty(sl_X_E_F50_20_int)
                 if not na(q)
+                    entry_sl_ema := used_ema
                     f_send_entry("X.E.F50.20", q)
                     trade_count_window += 1
                 label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
@@ -645,16 +663,18 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                           textcolor=color.white, size=size.normal)
         else if emaOff == 100 and strategy.opentrades == 0 and can_trade()
             if reaction_ema == 10 and allow_X_E_F100_10
-                q = f_calc_qty(sl_X_E_F100_10_int)
+                [q, used_ema] = f_calc_qty(sl_X_E_F100_10_int)
                 if not na(q)
+                    entry_sl_ema := used_ema
                     f_send_entry("X.E.F100.10", q)
                     trade_count_window += 1
                 label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
             else if reaction_ema == 20 and allow_X_E_F100_20
-                q = f_calc_qty(sl_X_E_F100_20_int)
+                [q, used_ema] = f_calc_qty(sl_X_E_F100_20_int)
                 if not na(q)
+                    entry_sl_ema := used_ema
                     f_send_entry("X.E.F100.20", q)
                     trade_count_window += 1
                 label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
@@ -662,16 +682,18 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                           textcolor=color.white, size=size.normal)
         else if emaOff == 200 and strategy.opentrades == 0 and can_trade()
             if reaction_ema == 10 and allow_X_E_F200_10
-                q = f_calc_qty(sl_X_E_F200_10_int)
+                [q, used_ema] = f_calc_qty(sl_X_E_F200_10_int)
                 if not na(q)
+                    entry_sl_ema := used_ema
                     f_send_entry("X.E.F200.10", q)
                     trade_count_window += 1
                 label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
             else if reaction_ema == 20 and allow_X_E_F200_20
-                q = f_calc_qty(sl_X_E_F200_20_int)
+                [q, used_ema] = f_calc_qty(sl_X_E_F200_20_int)
                 if not na(q)
+                    entry_sl_ema := used_ema
                     f_send_entry("X.E.F200.20", q)
                     trade_count_window += 1
                 label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
