@@ -24,13 +24,15 @@ s2_end   = timestamp("GMT+0", year, month, dayofmonth, s2_end_hr, s2_end_min)
 in_session_1 = time >= s1_start and time <= s1_end
 in_session_2 = time >= s2_start and time <= s2_end
 in_session   = in_session_1 or in_session_2
-maxTrades_s1 = input.int(1, "Session 1 Max Trades", minval=0, group=group_trading_window)
-maxTrades_s2 = input.int(1, "Session 2 Max Trades", minval=0, group=group_trading_window)
+maxTrades_window = input.int(1, "Max Trades per Window", minval=0, group=group_trading_window)
 is_new_day   = ta.change(time("D"))
-var int trade_count_s1 = 0
-var int trade_count_s2 = 0
+var int  trade_count_window = 0
+var bool prev_in_session    = false
 can_trade() =>
-    (in_session_1 and trade_count_s1 < maxTrades_s1) or (in_session_2 and trade_count_s2 < maxTrades_s2)
+    trade_count_window < maxTrades_window
+if in_session and not prev_in_session
+    trade_count_window := 0
+prev_in_session := in_session
 allow_mom_a  = input.bool(true, "Momentum: Allow Setup A",    group="Setup Filters")
 allow_mom_b  = input.bool(true, "Momentum: Allow Setup B",    group="Setup Filters")
 allow_ret_a  = input.bool(true, "Retracement: Allow Setup A", group="Setup Filters")
@@ -497,10 +499,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
         q = f_calc_qty(sl_M_SE_int)
         if not na(q)
             f_send_entry("M.SE", q)
-            if in_session_1
-                trade_count_s1 += 1
-            else if in_session_2
-                trade_count_s2 += 1
+            trade_count_window += 1
         label.new(bar_index, low, "M.SE\n" + label_text,
                   style=label.style_label_up, color=color.green,
                   textcolor=color.white, size=size.normal)
@@ -510,10 +509,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
             q = f_calc_qty(sl_M_E_F50_int)
             if not na(q)
                 f_send_entry("M.E.F50", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "M.E.F50\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
@@ -521,10 +517,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
             q = f_calc_qty(sl_M_E_F100_int)
             if not na(q)
                 f_send_entry("M.E.F100", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "M.E.F100\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
@@ -532,10 +525,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and is_momentum and in
             q = f_calc_qty(sl_M_E_F200_int)
             if not na(q)
                 f_send_entry("M.E.F200", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "M.E.F200\n" + label_text,
                       style=label.style_label_up, color=color.green,
                       textcolor=color.white, size=size.normal)
@@ -552,8 +542,7 @@ if is_new_day
     retracement_active := false
     reaction_active    := false
     reaction_ema       := na
-    trade_count_s1 := 0
-    trade_count_s2 := 0
+    trade_count_window := 0
 if not retracement_active and is_retracement and allow_retracement
     retracement_active := true
 if retracement_active and (close > dominant_saved_close or low < dominant_saved_open)
@@ -566,10 +555,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
         q = f_calc_qty(sl_R_SE_int)
         if not na(q)
             f_send_entry("R.SE", q)
-            if in_session_1
-                trade_count_s1 += 1
-            else if in_session_2
-                trade_count_s2 += 1
+            trade_count_window += 1
         label.new(bar_index, low, "R.SE\n" + label_text,
                   style=label.style_label_upper_right, color=color.fuchsia,
                   textcolor=color.white, size=size.normal)
@@ -579,10 +565,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
             q = f_calc_qty(sl_R_E_F50_int)
             if not na(q)
                 f_send_entry("R.E.F50", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "R.E.F50\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
@@ -590,10 +573,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
             q = f_calc_qty(sl_R_E_F100_int)
             if not na(q)
                 f_send_entry("R.E.F100", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "R.E.F100\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
@@ -601,10 +581,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_retracement_l
             q = f_calc_qty(sl_R_E_F200_int)
             if not na(q)
                 f_send_entry("R.E.F200", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "R.E.F200\n" + label_text,
                       style=label.style_label_upper_right, color=color.purple,
                       textcolor=color.white, size=size.normal)
@@ -629,10 +606,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
             q = f_calc_qty(sl_X_SE_10_int)
             if not na(q)
                 f_send_entry("X.SE.EMA10", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "X.SE.EMA10\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
@@ -640,10 +614,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
             q = f_calc_qty(sl_X_SE_20_int)
             if not na(q)
                 f_send_entry("X.SE.EMA20", q)
-                if in_session_1
-                    trade_count_s1 += 1
-                else if in_session_2
-                    trade_count_s2 += 1
+                trade_count_window += 1
             label.new(bar_index, low, "X.SE.EMA20\n" + crossed_ema_text,
                       style=label.style_label_up, color=color.teal,
                       textcolor=color.white, size=size.normal)
@@ -654,10 +625,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F50_10_int)
                 if not na(q)
                     f_send_entry("X.E.F50.10", q)
-                    if in_session_1
-                        trade_count_s1 += 1
-                    else if in_session_2
-                        trade_count_s2 += 1
+                    trade_count_window += 1
                 label.new(bar_index, low, "X.E.F50.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -665,10 +633,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F50_20_int)
                 if not na(q)
                     f_send_entry("X.E.F50.20", q)
-                    if in_session_1
-                        trade_count_s1 += 1
-                    else if in_session_2
-                        trade_count_s2 += 1
+                    trade_count_window += 1
                 label.new(bar_index, low, "X.E.F50.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -677,10 +642,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F100_10_int)
                 if not na(q)
                     f_send_entry("X.E.F100.10", q)
-                    if in_session_1
-                        trade_count_s1 += 1
-                    else if in_session_2
-                        trade_count_s2 += 1
+                    trade_count_window += 1
                 label.new(bar_index, low, "X.E.F100.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -688,10 +650,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F100_20_int)
                 if not na(q)
                     f_send_entry("X.E.F100.20", q)
-                    if in_session_1
-                        trade_count_s1 += 1
-                    else if in_session_2
-                        trade_count_s2 += 1
+                    trade_count_window += 1
                 label.new(bar_index, low, "X.E.F100.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -700,10 +659,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F200_10_int)
                 if not na(q)
                     f_send_entry("X.E.F200.10", q)
-                    if in_session_1
-                        trade_count_s1 += 1
-                    else if in_session_2
-                        trade_count_s2 += 1
+                    trade_count_window += 1
                 label.new(bar_index, low, "X.E.F200.10\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
@@ -711,10 +667,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                 q = f_calc_qty(sl_X_E_F200_20_int)
                 if not na(q)
                     f_send_entry("X.E.F200.20", q)
-                    if in_session_1
-                        trade_count_s1 += 1
-                    else if in_session_2
-                        trade_count_s2 += 1
+                    trade_count_window += 1
                 label.new(bar_index, low, "X.E.F200.20\n" + crossed_ema_text,
                           style=label.style_label_up, color=color.navy,
                           textcolor=color.white, size=size.normal)
