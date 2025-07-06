@@ -451,15 +451,19 @@ var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_P
 var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
 // Update trailing stop only when the active trail timeframe bar has closed
 bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
-if bar_tf_confirmed
+// --- Initialize stop loss immediately when a position opens ---
+if strategy.opentrades > 0 and na(sl_fixed) and not na(sl_level)
+    sl_fixed := sl_level
+    final_stop := sl_fixed
 
+if bar_tf_confirmed and not na(sl_fixed)
     // Static until PA line is above entry, then trail — never trail lower
     pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
     if not na(sl_level) and not na(entry_price)
         // Lock in SL once per trade
         if na(sl_fixed)
             sl_fixed := sl_level
-            
+
         // Start trailing if PA line and price is above entry
 
         in_profit = close > entry_price
@@ -469,14 +473,14 @@ if bar_tf_confirmed
 
         // Always assign final_stop
         final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
-    // === STOP-LOSS Exits (One per Unique Entry Type) ===
-    if not na(active_id) and not na(final_stop)
-        exitMsg = accountNumber + ",closelong," + tickerSymbol
-        strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
-    stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
-    if stop_triggered
-        alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
-    wasInPosition := strategy.opentrades > 0
+// === STOP-LOSS Exits (One per Unique Entry Type) ===
+if not na(active_id) and not na(final_stop)
+    exitMsg = accountNumber + ",closelong," + tickerSymbol
+    strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
+stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
+if stop_triggered
+    alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
+wasInPosition := strategy.opentrades > 0
 
 
 // === Plot Final Stop and Price Action Line ===
