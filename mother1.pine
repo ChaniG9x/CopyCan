@@ -239,14 +239,15 @@ f_get_base_sl(ema_int) =>
    ema_int == 350 ? dtf_ema350 : na
 
 f_calc_qty(ema_int) =>
-    base_val  = f_get_base_sl(ema_int)
+    use_ema  = intraday_emas_aligned ? override_sl_ema : ema_int
+    base_val = f_get_base_sl(use_ema)
     if na(base_val)
         na
     else
-        sl_tmp    = base_val * (1 - sl_buffer_pct / 100)
-        dist      = math.abs(close - sl_tmp)
-        risk_amt  = fixedAccount * (risk_pct / 100)
-        raw_qty   = risk_amt / (dist * contract_size)
+        sl_tmp   = base_val * (1 - sl_buffer_pct / 100)
+        dist     = math.abs(close - sl_tmp)
+        risk_amt = fixedAccount * (risk_pct / 100)
+        raw_qty  = risk_amt / (dist * contract_size)
         math.floor(raw_qty)  // Integer contracts/shares
 
 // Issues a buy order and returns true if a new position is opened
