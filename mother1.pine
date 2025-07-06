@@ -241,7 +241,7 @@ f_get_base_sl(ema_int) =>
 f_calc_qty(ema_int) =>
     use_ema  = intraday_emas_aligned ? override_sl_ema : ema_int
     base_val = f_get_base_sl(use_ema)
-    qty      = na
+    int qty      = na
     if not na(base_val)
         sl_tmp   = base_val * (1 - sl_buffer_pct / 100)
         dist     = math.abs(close - sl_tmp)
@@ -322,7 +322,7 @@ early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 // === Track Active Entry ===
 var string active_id = na
 var float entry_price = na
-var int   entry_sl_ema = na
+var float   entry_sl_ema = na
 if strategy.opentrades > 0
     active_id := strategy.opentrades.entry_id(0)
     entry_price := strategy.opentrades.entry_price(0)
