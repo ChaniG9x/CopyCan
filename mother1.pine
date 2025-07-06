@@ -1,3 +1,4 @@
+
 //@version=5
 strategy(" Monthly & Weekly Bias )",
          overlay=true,
@@ -50,7 +51,7 @@ fixedAccount = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000
 accountNumber = input.string("12345678", title="Account Number", group="Pine Connector")
 tickerSymbol = input.string("EURNZD", title="Ticker Symbol", tooltip="Enter the ticker symbol for alerts (e.g., EURNZD, EURUSD, GBPUSD, SPX, XAUUSD)")
 // === Momentum Entries ===
-group_M_SE       = "Momentum: Super Early (M.SE)"
+group_M_SE       = "Momentum: Super Early/Long (M.SE)"
 allow_M_SE       = input.bool(true, "Enable", group=group_M_SE)
 sl_M_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_SE)
 trail_M_SE       = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_SE)
@@ -67,7 +68,7 @@ allow_M_E_F200   = input.bool(true, "Enable", group=group_M_E_F200)
 sl_M_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F200)
 trail_M_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F200)
 // === Retracement Entries ===
-group_R_SE       = "Retracement: Super Early (R.SE)"
+group_R_SE       = "Retracement: Super Early/Long (R.SE)"
 allow_R_SE       = input.bool(true, "Enable", group=group_R_SE)
 sl_R_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_SE)
 trail_R_SE       = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_SE)
@@ -83,12 +84,12 @@ group_R_E_F200   = "Retracement: Early F200 (R.E.F200)"
 allow_R_E_F200   = input.bool(true, "Enable", group=group_R_E_F200)
 sl_R_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F200)
 trail_R_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F200)
-// === Reaction: Super Early ===
-group_X_SE_10    = "Reaction: Super Early EMA10 (X.SE.EMA10)"
+// === Reaction: Super Early/Long ===
+group_X_SE_10    = "Reaction: Super Early/Long EMA10 (X.SE.EMA10)"
 allow_X_SE_10    = input.bool(true, "Enable", group=group_X_SE_10)
 sl_X_SE_10       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_10)
 trail_X_SE_10    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_10)
-group_X_SE_20    = "Reaction: Super Early EMA20 (X.SE.EMA20)"
+group_X_SE_20    = "Reaction: Super Early/Long EMA20 (X.SE.EMA20)"
 allow_X_SE_20    = input.bool(true, "Enable", group=group_X_SE_20)
 sl_X_SE_20       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_20)
 trail_X_SE_20    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_20)
@@ -295,12 +296,14 @@ if not na(dom_open_d) and timeframe.period == "D"
 crossed(ema) =>
     (low < ema and high > ema) or (low[1] < ema and high[1] > ema)
 isSuperEarlyEntry(ema10, ema20, ema50, ema100, ema200) =>
-    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and (math.abs(close - open) > math.abs(close[1] - open[1]))
-isEarlyEntry(ema10, ema50, ema20, ema100, ema200) =>
-    (ema10 > ema20 and ema20 > ema200 and  open[1] > ema20[1] and close[1] > ema20[1] and close > open and close > ema10) or ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and close > open and close[1] < open[1] and (crossed(ema50) or (crossed(ema100) or crossed(ema200)) and close > ema200 and math.abs(close - open) > math.abs(close[1] - open[1]))                   
+   ema10 > ema20 and ema20 > ema200 and
+   open[1] > ema20[1] and close[1] > ema20[1] and
+   close > open and close > ema10 and (crossed(ema10))
+isEarlyEntry(ema10, ema20, ema200) =>
+    ema10 > ema20 and ema20 > ema200 and  open[1] > ema20[1] and close[1] > ema20[1] and close > open and close > ema10                  
 // === Entry Flags ===
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
-early_entry_ok       = isEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
+early_entry_ok       = isEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema200)
 
 // === Track Active Entry ===
 var string active_id = na
@@ -706,7 +709,7 @@ if (timeframe.period == "1" or timeframe.period == "10S") and show_reaction_labe
                           textcolor=color.white, size=size.normal)
 // === Intraday Entry Labels ===
 if (timeframe.period == "1" or timeframe.period == "10S") and super_early_entry_ok
-    label.new(bar_index, high, "Super Early Entry",
+    label.new(bar_index, low, "Super Early/Long Entry",
               style=label.style_label_up, color=color.yellow,
               textcolor=color.black, size=size.tiny)
 if (timeframe.period == "1" or timeframe.period == "10S") and early_entry_ok
