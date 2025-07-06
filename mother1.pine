@@ -449,26 +449,23 @@ var float final_stop    = na
 var bool  wasInPosition = false
 var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
 var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
-
-    // Static until PA line is above entry, then trail — never trail lower
-pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
-if not na(sl_level) and not na(entry_price)
-        // Lock in SL once per trade
-    if na(sl_fixed)
-        sl_fixed := sl_level
-
-
 // Update trailing stop only when the active trail timeframe bar has closed
 bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
 if bar_tf_confirmed
 
-
+    // Static until PA line is above entry, then trail — never trail lower
+    pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
+    if not na(sl_level) and not na(entry_price)
+        // Lock in SL once per trade
+        if na(sl_fixed)
+            sl_fixed := sl_level
+            
         // Start trailing if PA line and price is above entry
 
-    in_profit = close > entry_price
-    safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
-    if not trail_started and in_profit and safe_pa_line
-        trail_started := true
+        in_profit = close > entry_price
+        safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
+        if not trail_started and in_profit and safe_pa_line
+            trail_started := true
 
         // Always assign final_stop
         final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
