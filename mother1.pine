@@ -298,17 +298,15 @@ if not na(dom_open_d) and timeframe.period == "D"
       style=label.style_label_down, textcolor=color.white,
       size=size.normal, color=color.green)
 // === Entry Pattern Functions ===
+isSuperEarlyEntry(ema10, ema20, ema50, ema100, ema200) =>
+    ema10 > ema20 and ema20 > ema200 and ema50 < ema200 and ema100 < ema200 and close > open and close[1] < open[1] and close > ema10 and ((low < ema10 or low < ema20) or (low[1] < ema10 or low[1] < ema20)) and ((high > ema10 or high > ema20) or (high[1] > ema10 or high[1] > ema20)) and (math.abs(close - open) > math.abs(close[1] - open[1]))
 crossed(ema) =>
     (low < ema and high > ema) or (low[1] < ema and high[1] > ema)
-isSuperEarlyEntry(ema10, ema20, ema50, ema100, ema200) =>
-   ema10 > ema20 and ema20 > ema200 and
-   open[1] > ema20[1] and close[1] > ema20[1] and
-   close > open and close > ema10 and (crossed(ema10))
 isEarlyEntry(ema50, ema100, ema200) =>
-    ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and close > open and close[1] < open[1] and (crossed(ema50) or crossed(ema100) or crossed(ema200)) and close > ema200 and math.abs(close - open) > math.abs(close[1] - open[1])                  
+    ema50 > ema200 and ema100 > ema200 and ta.ema(close, 10) > ema200 and close > open and close[1] < open[1] and (crossed(ema50) or crossed(ema100) or crossed(ema200)) and close > ema200 and math.abs(close - open) > math.abs(close[1] - open[1])
 // === Entry Flags ===
 super_early_entry_ok = isSuperEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema50, dtf_ema100, dtf_ema200)
-early_entry_ok       = isEarlyEntry(dtf_ema10, dtf_ema20, dtf_ema200)
+early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 
 // === Track Active Entry ===
 var string active_id = na
