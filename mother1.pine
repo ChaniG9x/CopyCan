@@ -48,6 +48,9 @@ risk_pct      = input.float(1.0, "Risk % Per Trade", minval=0.0, step=0.1, group
 contract_size = input.float(1.0, "Contract Size", group="Risk Management")
 pip_size      = input.float(0.0001, "Pip Size", group="Risk Management")
 fixedAccount = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000, group="Risk Management")
+// === Trailing SL ===
+trail_start_profit_dollars = input.float(1000, "Start Trailing After Profit ($)", group="Trailing SL")
+trail_sl_pct = input.float(50.0, "Trailing SL (% of max profit)", minval=0.0, maxval=100.0, step=1.0, group="Trailing SL")
 
 // === Pine Connector Settings ===
 accountNumber = input.string("12345678", title="Account Number", group="Pine Connector")
@@ -362,21 +365,39 @@ sl_level = na(base_sl) ? na : base_sl * (1 - sl_buffer_pct / 100)
 
 var float final_stop    = na
 var bool  wasInPosition = false
-
+var float max_unrealized_profit = 0.0
+var float trail_price = na
 if strategy.opentrades > 0 and na(sl_fixed) and not na(sl_level)
     sl_fixed := sl_level
     final_stop := sl_fixed
+
+// Track unrealized profit and trailing stop
+unrealized_profit = (close - entry_price) * strategy.position_size * contract_size / pip_size
+if strategy.opentrades > 0
+    max_unrealized_profit := math.max(max_unrealized_profit, unrealized_profit)
+else
+    max_unrealized_profit := 0.0
+
+trail_sl_dollars = max_unrealized_profit * (trail_sl_pct / 100)
+trail_price := na
+if strategy.opentrades > 0 and max_unrealized_profit >= trail_start_profit_dollars
+    trail_price := entry_price + (close > entry_price ? trail_sl_dollars * pip_size / (strategy.position_size * contract_size) : 0)
+
+final_sl_to_use = na
+if strategy.opentrades > 0
+    final_sl_to_use := na(trail_price) or trail_price < final_stop ? final_stop : trail_price
+
 // === STOP-LOSS Exits (One per Unique Entry Type) ===
-if not na(active_id) and not na(final_stop)
+if not na(active_id) and not na(final_sl_to_use)
     exitMsg = accountNumber + ",closelong," + tickerSymbol
-    strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
-stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
+    strategy.exit(id="Exit", from_entry=active_id, stop=final_sl_to_use, alert_message=exitMsg)
+stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_sl_to_use)
 if stop_triggered
     alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
 wasInPosition := strategy.opentrades > 0
 
 
-plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
+plot(final_sl_to_use, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
 
 
 // === Momentum Condition ===
