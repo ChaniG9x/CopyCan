@@ -51,6 +51,8 @@ fixedAccount = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000
 // === Trailing SL ===
 trail_start_profit_dollars = input.float(1000, "Start Trailing After Profit ($)", group="Trailing SL")
 trail_sl_pct = input.float(50.0, "Trailing SL (% of max profit)", minval=0.0, maxval=100.0, step=1.0, group="Trailing SL")
+second_tier_threshold_dollars = input.float(10000, "Second Tier Start ($)", group="Trailing SL")
+second_tier_sl_pct = input.float(80.0, "Second Tier SL (% of max profit)", minval=0.0, maxval=100.0, step=1.0, group="Trailing SL")
 
 // === Pine Connector Settings ===
 accountNumber = input.string("12345678", title="Account Number", group="Pine Connector")
@@ -378,7 +380,8 @@ if strategy.opentrades > 0
 else
     max_unrealized_profit := 0.0
 
-trail_sl_dollars = max_unrealized_profit * (trail_sl_pct / 100)
+current_trail_pct = max_unrealized_profit >= second_tier_threshold_dollars ? second_tier_sl_pct : trail_sl_pct
+trail_sl_dollars = max_unrealized_profit * (current_trail_pct / 100)
 trail_price := na
 if strategy.opentrades > 0 and max_unrealized_profit >= trail_start_profit_dollars
     trail_price := entry_price + (close > entry_price ? trail_sl_dollars * pip_size / (strategy.position_size * contract_size) : 0)
