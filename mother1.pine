@@ -1,5 +1,5 @@
 //@version=5
-strategy(" Monthly & Weekly Bias )",
+strategy(" MTRAILING_PERCENT)",
          overlay=true,
          default_qty_type=strategy.fixed,
          default_qty_value=1)
@@ -383,7 +383,7 @@ trail_price := na
 if strategy.opentrades > 0 and max_unrealized_profit >= trail_start_profit_dollars
     trail_price := entry_price + (close > entry_price ? trail_sl_dollars * pip_size / (strategy.position_size * contract_size) : 0)
 
-final_sl_to_use = na
+float final_sl_to_use = na
 if strategy.opentrades > 0
     final_sl_to_use := na(trail_price) or trail_price < final_stop ? final_stop : trail_price
 
