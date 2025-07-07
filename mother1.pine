@@ -47,7 +47,11 @@ override_sl_ema     = str.tonumber(override_sl_ema_str)
 risk_pct      = input.float(1.0, "Risk % Per Trade", minval=0.0, step=0.1, group="Risk Management")
 contract_size = input.float(1.0, "Contract Size", group="Risk Management")
 pip_size      = input.float(0.0001, "Pip Size", group="Risk Management")
-fixedAccount = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000, group="Risk Management")
+fixedAccount  = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000, group="Risk Management")
+// ADD NEW INPUTS FOR TRAILING STOP
+runup_activation_threshold = input.float(1000, "Trail Activation Threshold ($)", minval=0, step=100, group="Risk Management")
+trailing_percent = input.float(50, "Trailing Percent (%)", minval=0, maxval=100, step=5, group="Risk Management")
+
 
 // === Pine Connector Settings ===
 accountNumber = input.string("12345678", title="Account Number", group="Pine Connector")
@@ -323,12 +327,17 @@ early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 var string active_id = na
 var float entry_price = na
 var float   entry_sl_ema = na
+var float max_runup = 0.0
+
 if strategy.opentrades > 0
     active_id := strategy.opentrades.entry_id(0)
     entry_price := strategy.opentrades.entry_price(0)
+    current_runup = high - entry_price
+    max_runup := math.max(max_runup, current_runup)
 else
     active_id := na
     entry_price := na
+    max_runup := 0.0 
 // === Track SL once per trade + trail logic control ===
 var float sl_fixed = na
 var bool  trail_started = false
@@ -454,36 +463,25 @@ pa_line =
 // === Final stop loss level and visualization ===
 var float final_stop    = na
 var bool  wasInPosition = false
-var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
-var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
-// Update trailing stop only when the active trail timeframe bar has closed
-bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
+
 // --- Initialize stop loss immediately when a position opens ---
 if strategy.opentrades > 0 and na(sl_fixed) and not na(sl_level)
     sl_fixed := sl_level
     final_stop := sl_fixed
 
-if bar_tf_confirmed and not na(sl_fixed)
-    // Static until PA line is above entry, then trail — never trail lower
-    pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
-    if not na(sl_level) and not na(entry_price)
-        // Lock in SL once per trade
-        if na(sl_fixed)
-            sl_fixed := sl_level
+// Update trailing stop while in trade
+if strategy.opentrades > 0 and not na(sl_fixed)
+    // Calculate new trailing stop if threshold is reached
+    if max_runup >= runup_activation_threshold
+        new_trailing_stop = entry_price + (max_runup * trailing_percent / 100)
+        // Ensure stop only moves up and never below initial SL
+        final_stop := math.max(sl_fixed, new_trailing_stop, nz(final_stop, sl_fixed))
 
-        // Start trailing if PA line and price is above entry
-
-        in_profit = close > entry_price
-        safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
-        if not trail_started and in_profit and safe_pa_line
-            trail_started := true
-
-        // Always assign final_stop
-        final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
-// === STOP-LOSS Exits (One per Unique Entry Type) ===
+// === STOP-LOSS Exits ===
 if not na(active_id) and not na(final_stop)
     exitMsg = accountNumber + ",closelong," + tickerSymbol
     strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
+
 stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
 if stop_triggered
     alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
@@ -492,8 +490,6 @@ wasInPosition := strategy.opentrades > 0
 
 // === Plot Final Stop and Price Action Line ===
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
-plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
-
 
 // === Momentum Condition ===
 is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum and in_session
