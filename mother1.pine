@@ -48,11 +48,103 @@ risk_pct      = input.float(1.0, "Risk % Per Trade", minval=0.0, step=0.1, group
 contract_size = input.float(1.0, "Contract Size", group="Risk Management")
 pip_size      = input.float(0.0001, "Pip Size", group="Risk Management")
 fixedAccount = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000, group="Risk Management")
-// === Trailing SL ===
-trail_start_profit_dollars = input.float(1000, "Start Trailing After Profit ($)", group="Trailing SL")
-trail_sl_pct = input.float(50.0, "Trailing SL (% of max profit)", minval=0.0, maxval=100.0, step=1.0, group="Trailing SL")
-second_tier_threshold_dollars = input.float(10000, "Second Tier Start ($)", group="Trailing SL")
-second_tier_sl_pct = input.float(80.0, "Second Tier SL (% of max profit)", minval=0.0, maxval=100.0, step=1.0, group="Trailing SL")
+
+// === Trailing SL Parameters (Per Entry Type) ===
+group_trail_M_SE      = "Trailing: M.SE"
+trail_start_M_SE      = input.float(1000, "Start Trailing ($)", group=group_trail_M_SE)
+trail_pct_M_SE        = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_SE)
+tier2_start_M_SE      = input.float(10000, "Second Tier Start ($)", group=group_trail_M_SE)
+tier2_pct_M_SE        = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_SE)
+
+group_trail_M_E_F50   = "Trailing: M.E.F50"
+trail_start_M_E_F50   = input.float(1000, "Start Trailing ($)", group=group_trail_M_E_F50)
+trail_pct_M_E_F50     = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_E_F50)
+tier2_start_M_E_F50   = input.float(10000, "Second Tier Start ($)", group=group_trail_M_E_F50)
+tier2_pct_M_E_F50     = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_E_F50)
+
+group_trail_M_E_F100  = "Trailing: M.E.F100"
+trail_start_M_E_F100  = input.float(1000, "Start Trailing ($)", group=group_trail_M_E_F100)
+trail_pct_M_E_F100    = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_E_F100)
+tier2_start_M_E_F100  = input.float(10000, "Second Tier Start ($)", group=group_trail_M_E_F100)
+tier2_pct_M_E_F100    = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_E_F100)
+
+group_trail_M_E_F200  = "Trailing: M.E.F200"
+trail_start_M_E_F200  = input.float(1000, "Start Trailing ($)", group=group_trail_M_E_F200)
+trail_pct_M_E_F200    = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_E_F200)
+tier2_start_M_E_F200  = input.float(10000, "Second Tier Start ($)", group=group_trail_M_E_F200)
+tier2_pct_M_E_F200    = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_M_E_F200)
+
+group_trail_R_SE      = "Trailing: R.SE"
+trail_start_R_SE      = input.float(1000, "Start Trailing ($)", group=group_trail_R_SE)
+trail_pct_R_SE        = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_SE)
+tier2_start_R_SE      = input.float(10000, "Second Tier Start ($)", group=group_trail_R_SE)
+tier2_pct_R_SE        = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_SE)
+
+group_trail_R_E_F50   = "Trailing: R.E.F50"
+trail_start_R_E_F50   = input.float(1000, "Start Trailing ($)", group=group_trail_R_E_F50)
+trail_pct_R_E_F50     = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_E_F50)
+tier2_start_R_E_F50   = input.float(10000, "Second Tier Start ($)", group=group_trail_R_E_F50)
+tier2_pct_R_E_F50     = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_E_F50)
+
+group_trail_R_E_F100  = "Trailing: R.E.F100"
+trail_start_R_E_F100  = input.float(1000, "Start Trailing ($)", group=group_trail_R_E_F100)
+trail_pct_R_E_F100    = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_E_F100)
+tier2_start_R_E_F100  = input.float(10000, "Second Tier Start ($)", group=group_trail_R_E_F100)
+tier2_pct_R_E_F100    = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_E_F100)
+
+group_trail_R_E_F200  = "Trailing: R.E.F200"
+trail_start_R_E_F200  = input.float(1000, "Start Trailing ($)", group=group_trail_R_E_F200)
+trail_pct_R_E_F200    = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_E_F200)
+tier2_start_R_E_F200  = input.float(10000, "Second Tier Start ($)", group=group_trail_R_E_F200)
+tier2_pct_R_E_F200    = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_R_E_F200)
+
+group_trail_X_SE_10   = "Trailing: X.SE.EMA10"
+trail_start_X_SE_10   = input.float(1000, "Start Trailing ($)", group=group_trail_X_SE_10)
+trail_pct_X_SE_10     = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_SE_10)
+tier2_start_X_SE_10   = input.float(10000, "Second Tier Start ($)", group=group_trail_X_SE_10)
+tier2_pct_X_SE_10     = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_SE_10)
+
+group_trail_X_SE_20   = "Trailing: X.SE.EMA20"
+trail_start_X_SE_20   = input.float(1000, "Start Trailing ($)", group=group_trail_X_SE_20)
+trail_pct_X_SE_20     = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_SE_20)
+tier2_start_X_SE_20   = input.float(10000, "Second Tier Start ($)", group=group_trail_X_SE_20)
+tier2_pct_X_SE_20     = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_SE_20)
+
+group_trail_X_E_F50_10 = "Trailing: X.E.F50.10"
+trail_start_X_E_F50_10 = input.float(1000, "Start Trailing ($)", group=group_trail_X_E_F50_10)
+trail_pct_X_E_F50_10   = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F50_10)
+tier2_start_X_E_F50_10 = input.float(10000, "Second Tier Start ($)", group=group_trail_X_E_F50_10)
+tier2_pct_X_E_F50_10   = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F50_10)
+
+group_trail_X_E_F100_10 = "Trailing: X.E.F100.10"
+trail_start_X_E_F100_10 = input.float(1000, "Start Trailing ($)", group=group_trail_X_E_F100_10)
+trail_pct_X_E_F100_10   = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F100_10)
+tier2_start_X_E_F100_10 = input.float(10000, "Second Tier Start ($)", group=group_trail_X_E_F100_10)
+tier2_pct_X_E_F100_10   = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F100_10)
+
+group_trail_X_E_F200_10 = "Trailing: X.E.F200.10"
+trail_start_X_E_F200_10 = input.float(1000, "Start Trailing ($)", group=group_trail_X_E_F200_10)
+trail_pct_X_E_F200_10   = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F200_10)
+tier2_start_X_E_F200_10 = input.float(10000, "Second Tier Start ($)", group=group_trail_X_E_F200_10)
+tier2_pct_X_E_F200_10   = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F200_10)
+
+group_trail_X_E_F50_20 = "Trailing: X.E.F50.20"
+trail_start_X_E_F50_20 = input.float(1000, "Start Trailing ($)", group=group_trail_X_E_F50_20)
+trail_pct_X_E_F50_20   = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F50_20)
+tier2_start_X_E_F50_20 = input.float(10000, "Second Tier Start ($)", group=group_trail_X_E_F50_20)
+tier2_pct_X_E_F50_20   = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F50_20)
+
+group_trail_X_E_F100_20 = "Trailing: X.E.F100.20"
+trail_start_X_E_F100_20 = input.float(1000, "Start Trailing ($)", group=group_trail_X_E_F100_20)
+trail_pct_X_E_F100_20   = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F100_20)
+tier2_start_X_E_F100_20 = input.float(10000, "Second Tier Start ($)", group=group_trail_X_E_F100_20)
+tier2_pct_X_E_F100_20   = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F100_20)
+
+group_trail_X_E_F200_20 = "Trailing: X.E.F200.20"
+trail_start_X_E_F200_20 = input.float(1000, "Start Trailing ($)", group=group_trail_X_E_F200_20)
+trail_pct_X_E_F200_20   = input.float(50.0, "First Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F200_20)
+tier2_start_X_E_F200_20 = input.float(10000, "Second Tier Start ($)", group=group_trail_X_E_F200_20)
+tier2_pct_X_E_F200_20   = input.float(80.0, "Second Tier %", minval=0.0, maxval=100.0, step=1.0, group=group_trail_X_E_F200_20)
 
 // === Pine Connector Settings ===
 accountNumber = input.string("12345678", title="Account Number", group="Pine Connector")
@@ -365,6 +457,92 @@ if strategy.opentrades > 0 and na(sl_fixed) and not na(entry_sl_ema)
 base_sl = f_get_base_sl(use_sl_ema)
 sl_level = na(base_sl) ? na : base_sl * (1 - sl_buffer_pct / 100)
 
+// === Select Trailing Parameters for Active Entry ===
+var float active_trail_start = trail_start_M_SE
+var float active_trail_pct   = trail_pct_M_SE
+var float active_tier2_start = tier2_start_M_SE
+var float active_tier2_pct   = tier2_pct_M_SE
+if active_id == "M.SE"
+    active_trail_start := trail_start_M_SE
+    active_trail_pct   := trail_pct_M_SE
+    active_tier2_start := tier2_start_M_SE
+    active_tier2_pct   := tier2_pct_M_SE
+else if active_id == "M.E.F50"
+    active_trail_start := trail_start_M_E_F50
+    active_trail_pct   := trail_pct_M_E_F50
+    active_tier2_start := tier2_start_M_E_F50
+    active_tier2_pct   := tier2_pct_M_E_F50
+else if active_id == "M.E.F100"
+    active_trail_start := trail_start_M_E_F100
+    active_trail_pct   := trail_pct_M_E_F100
+    active_tier2_start := tier2_start_M_E_F100
+    active_tier2_pct   := tier2_pct_M_E_F100
+else if active_id == "M.E.F200"
+    active_trail_start := trail_start_M_E_F200
+    active_trail_pct   := trail_pct_M_E_F200
+    active_tier2_start := tier2_start_M_E_F200
+    active_tier2_pct   := tier2_pct_M_E_F200
+else if active_id == "R.SE"
+    active_trail_start := trail_start_R_SE
+    active_trail_pct   := trail_pct_R_SE
+    active_tier2_start := tier2_start_R_SE
+    active_tier2_pct   := tier2_pct_R_SE
+else if active_id == "R.E.F50"
+    active_trail_start := trail_start_R_E_F50
+    active_trail_pct   := trail_pct_R_E_F50
+    active_tier2_start := tier2_start_R_E_F50
+    active_tier2_pct   := tier2_pct_R_E_F50
+else if active_id == "R.E.F100"
+    active_trail_start := trail_start_R_E_F100
+    active_trail_pct   := trail_pct_R_E_F100
+    active_tier2_start := tier2_start_R_E_F100
+    active_tier2_pct   := tier2_pct_R_E_F100
+else if active_id == "R.E.F200"
+    active_trail_start := trail_start_R_E_F200
+    active_trail_pct   := trail_pct_R_E_F200
+    active_tier2_start := tier2_start_R_E_F200
+    active_tier2_pct   := tier2_pct_R_E_F200
+else if active_id == "X.SE.EMA10"
+    active_trail_start := trail_start_X_SE_10
+    active_trail_pct   := trail_pct_X_SE_10
+    active_tier2_start := tier2_start_X_SE_10
+    active_tier2_pct   := tier2_pct_X_SE_10
+else if active_id == "X.SE.EMA20"
+    active_trail_start := trail_start_X_SE_20
+    active_trail_pct   := trail_pct_X_SE_20
+    active_tier2_start := tier2_start_X_SE_20
+    active_tier2_pct   := tier2_pct_X_SE_20
+else if active_id == "X.E.F50.10"
+    active_trail_start := trail_start_X_E_F50_10
+    active_trail_pct   := trail_pct_X_E_F50_10
+    active_tier2_start := tier2_start_X_E_F50_10
+    active_tier2_pct   := tier2_pct_X_E_F50_10
+else if active_id == "X.E.F100.10"
+    active_trail_start := trail_start_X_E_F100_10
+    active_trail_pct   := trail_pct_X_E_F100_10
+    active_tier2_start := tier2_start_X_E_F100_10
+    active_tier2_pct   := tier2_pct_X_E_F100_10
+else if active_id == "X.E.F200.10"
+    active_trail_start := trail_start_X_E_F200_10
+    active_trail_pct   := trail_pct_X_E_F200_10
+    active_tier2_start := tier2_start_X_E_F200_10
+    active_tier2_pct   := tier2_pct_X_E_F200_10
+else if active_id == "X.E.F50.20"
+    active_trail_start := trail_start_X_E_F50_20
+    active_trail_pct   := trail_pct_X_E_F50_20
+    active_tier2_start := tier2_start_X_E_F50_20
+    active_tier2_pct   := tier2_pct_X_E_F50_20
+else if active_id == "X.E.F100.20"
+    active_trail_start := trail_start_X_E_F100_20
+    active_trail_pct   := trail_pct_X_E_F100_20
+    active_tier2_start := tier2_start_X_E_F100_20
+    active_tier2_pct   := tier2_pct_X_E_F100_20
+else if active_id == "X.E.F200.20"
+    active_trail_start := trail_start_X_E_F200_20
+    active_trail_pct   := trail_pct_X_E_F200_20
+    active_tier2_start := tier2_start_X_E_F200_20
+    active_tier2_pct   := tier2_pct_X_E_F200_20
+
 var float final_stop    = na
 var bool  wasInPosition = false
 var float max_unrealized_profit = 0.0
@@ -380,10 +558,10 @@ if strategy.opentrades > 0
 else
     max_unrealized_profit := 0.0
 
-current_trail_pct = max_unrealized_profit >= second_tier_threshold_dollars ? second_tier_sl_pct : trail_sl_pct
+current_trail_pct = max_unrealized_profit >= active_tier2_start ? active_tier2_pct : active_trail_pct
 trail_sl_dollars = max_unrealized_profit * (current_trail_pct / 100)
 trail_price := na
-if strategy.opentrades > 0 and max_unrealized_profit >= trail_start_profit_dollars
+if strategy.opentrades > 0 and max_unrealized_profit >= active_trail_start
     trail_price := entry_price + (close > entry_price ? trail_sl_dollars * pip_size / (strategy.position_size * contract_size) : 0)
 
 float final_sl_to_use = na
