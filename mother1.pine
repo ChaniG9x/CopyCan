@@ -47,11 +47,7 @@ override_sl_ema     = str.tonumber(override_sl_ema_str)
 risk_pct      = input.float(1.0, "Risk % Per Trade", minval=0.0, step=0.1, group="Risk Management")
 contract_size = input.float(1.0, "Contract Size", group="Risk Management")
 pip_size      = input.float(0.0001, "Pip Size", group="Risk Management")
-fixedAccount  = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000, group="Risk Management")
-// ADD NEW INPUTS FOR TRAILING STOP
-runup_activation_threshold = input.float(1000, "Trail Activation Threshold ($)", minval=0, step=100, group="Risk Management")
-trailing_percent = input.float(50, "Trailing Percent (%)", minval=0, maxval=100, step=5, group="Risk Management")
-
+fixedAccount = input.float(100000, "Fixed Account Size ($)", minval=1, step=1000, group="Risk Management")
 
 // === Pine Connector Settings ===
 accountNumber = input.string("12345678", title="Account Number", group="Pine Connector")
@@ -60,70 +56,70 @@ tickerSymbol = input.string("EURNZD", title="Ticker Symbol", tooltip="Enter the 
 group_M_SE       = "Momentum: Super Early/Long (M.SE)"
 allow_M_SE       = input.bool(true, "Enable", group=group_M_SE)
 sl_M_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_SE)
-trail_M_SE       = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_SE)
+trail_M_SE       = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_M_SE)
 group_M_E_F50    = "Momentum: Early F50 (M.E.F50)"
 allow_M_E_F50    = input.bool(true, "Enable", group=group_M_E_F50)
 sl_M_E_F50       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F50)
-trail_M_E_F50    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F50)
+trail_M_E_F50    = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_M_E_F50)
 group_M_E_F100   = "Momentum: Early F100 (M.E.F100)"
 allow_M_E_F100   = input.bool(true, "Enable", group=group_M_E_F100)
 sl_M_E_F100      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F100)
-trail_M_E_F100   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F100)
+trail_M_E_F100   = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_M_E_F100)
 group_M_E_F200   = "Momentum: Early F200 (M.E.F200)"
 allow_M_E_F200   = input.bool(true, "Enable", group=group_M_E_F200)
 sl_M_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_M_E_F200)
-trail_M_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_M_E_F200)
+trail_M_E_F200   = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_M_E_F200)
 // === Retracement Entries ===
 group_R_SE       = "Retracement: Super Early/Long (R.SE)"
 allow_R_SE       = input.bool(true, "Enable", group=group_R_SE)
 sl_R_SE          = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_SE)
-trail_R_SE       = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_SE)
+trail_R_SE       = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_R_SE)
 group_R_E_F50    = "Retracement: Early F50 (R.E.F50)"
 allow_R_E_F50    = input.bool(true, "Enable", group=group_R_E_F50)
 sl_R_E_F50       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F50)
-trail_R_E_F50    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F50)
+trail_R_E_F50    = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_R_E_F50)
 group_R_E_F100   = "Retracement: Early F100 (R.E.F100)"
 allow_R_E_F100   = input.bool(true, "Enable", group=group_R_E_F100)
 sl_R_E_F100      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F100)
-trail_R_E_F100   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F100)
+trail_R_E_F100   = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_R_E_F100)
 group_R_E_F200   = "Retracement: Early F200 (R.E.F200)"
 allow_R_E_F200   = input.bool(true, "Enable", group=group_R_E_F200)
 sl_R_E_F200      = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_R_E_F200)
-trail_R_E_F200   = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_R_E_F200)
+trail_R_E_F200   = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_R_E_F200)
 // === Reaction: Super Early/Long ===
 group_X_SE_10    = "Reaction: Super Early/Long EMA10 (X.SE.EMA10)"
 allow_X_SE_10    = input.bool(true, "Enable", group=group_X_SE_10)
 sl_X_SE_10       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_10)
-trail_X_SE_10    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_10)
+trail_X_SE_10    = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_SE_10)
 group_X_SE_20    = "Reaction: Super Early/Long EMA20 (X.SE.EMA20)"
 allow_X_SE_20    = input.bool(true, "Enable", group=group_X_SE_20)
 sl_X_SE_20       = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_SE_20)
-trail_X_SE_20    = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_SE_20)
+trail_X_SE_20    = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_SE_20)
 // === Reaction: Early by EMA Cross
 group_X_E_F50_10 = "Reaction: Early F50 EMA10 (X.E.F50.10)"
 allow_X_E_F50_10 = input.bool(true, "Enable", group=group_X_E_F50_10)
 sl_X_E_F50_10    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F50_10)
-trail_X_E_F50_10 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F50_10)
+trail_X_E_F50_10 = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_E_F50_10)
 group_X_E_F100_10 = "Reaction: Early F100 EMA10 (X.E.F100.10)"
 allow_X_E_F100_10 = input.bool(true, "Enable", group=group_X_E_F100_10)
 sl_X_E_F100_10    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F100_10)
-trail_X_E_F100_10 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F100_10)
+trail_X_E_F100_10 = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_E_F100_10)
 group_X_E_F200_10 = "Reaction: Early F200 EMA10 (X.E.F200.10)"
 allow_X_E_F200_10 = input.bool(true, "Enable", group=group_X_E_F200_10)
 sl_X_E_F200_10    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F200_10)
-trail_X_E_F200_10 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F200_10)
+trail_X_E_F200_10 = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_E_F200_10)
 group_X_E_F50_20 = "Reaction: Early F50 EMA20 (X.E.F50.20)"
 allow_X_E_F50_20 = input.bool(true, "Enable", group=group_X_E_F50_20)
 sl_X_E_F50_20    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F50_20)
-trail_X_E_F50_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F50_20)
+trail_X_E_F50_20 = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_E_F50_20)
 group_X_E_F100_20 = "Reaction: Early F100 EMA20 (X.E.F100.20)"
 allow_X_E_F100_20 = input.bool(true, "Enable", group=group_X_E_F100_20)
 sl_X_E_F100_20    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F100_20)
-trail_X_E_F100_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F100_20)
+trail_X_E_F100_20 = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_E_F100_20)
 group_X_E_F200_20 = "Reaction: Early F200 EMA20 (X.E.F200.20)"
 allow_X_E_F200_20 = input.bool(true, "Enable", group=group_X_E_F200_20)
 sl_X_E_F200_20    = input.string("200", "Stop Loss EMA", options=["20", "50", "100", "200", "350"], group=group_X_E_F200_20)
-trail_X_E_F200_20 = input.timeframe("15", "Trail Timeframe", options=["5", "15", "30", "60", "240", "D"], group=group_X_E_F200_20)
+trail_X_E_F200_20 = input.timeframe("15", "Trail Timeframe", options=["1" ,"5", "15", "30", "60", "240", "D"], group=group_X_E_F200_20)
 // ——— Inputs for Price Action Management Tool ———
 selectedTimeframe_PA = input.timeframe("15",
      title="Select Timeframe for Price Action",
@@ -261,6 +257,7 @@ f_send_entry(id, positionSize) =>
     msg = accountNumber + ",buy," + tickerSymbol + ",risk=" + str.tostring(volume)
     strategy.entry(id=id, direction=strategy.long, qty=positionSize, alert_message=msg)
     alert(msg, alert.freq_once_per_bar_close)
+    label.new(bar_index,high, "ENTRY\n" + msg, style=label.style_label_down,color=color.green,textcolor=color.white,size=size.small)
 
 // === Dominant Daily Bar Logic ===
 f_get_dominant() =>
@@ -327,17 +324,12 @@ early_entry_ok       = isEarlyEntry(dtf_ema50, dtf_ema100, dtf_ema200)
 var string active_id = na
 var float entry_price = na
 var float   entry_sl_ema = na
-var float max_runup = 0.0
-
 if strategy.opentrades > 0
     active_id := strategy.opentrades.entry_id(0)
     entry_price := strategy.opentrades.entry_price(0)
-    current_runup = high - entry_price
-    max_runup := math.max(max_runup, current_runup)
 else
     active_id := na
     entry_price := na
-    max_runup := 0.0 
 // === Track SL once per trade + trail logic control ===
 var float sl_fixed = na
 var bool  trail_started = false
@@ -423,29 +415,76 @@ if strategy.opentrades > 0 and na(sl_fixed) and not na(entry_sl_ema)
 base_sl = f_get_base_sl(use_sl_ema)
 sl_level = na(base_sl) ? na : base_sl * (1 - sl_buffer_pct / 100)
 
+// === Precompute all PA line values to avoid conditional request.security() ===
+pa_M_SE      = request.security(syminfo.tickerid, trail_M_SE, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_M_E_F50   = request.security(syminfo.tickerid, trail_M_E_F50, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_M_E_F100  = request.security(syminfo.tickerid, trail_M_E_F100, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_M_E_F200  = request.security(syminfo.tickerid, trail_M_E_F200, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_SE      = request.security(syminfo.tickerid, trail_R_SE, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_E_F50   = request.security(syminfo.tickerid, trail_R_E_F50, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_E_F100  = request.security(syminfo.tickerid, trail_R_E_F100, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_R_E_F200  = request.security(syminfo.tickerid, trail_R_E_F200, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_SE_10   = request.security(syminfo.tickerid, trail_X_SE_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_SE_20   = request.security(syminfo.tickerid, trail_X_SE_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F50_10   = request.security(syminfo.tickerid, trail_X_E_F50_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F100_10  = request.security(syminfo.tickerid, trail_X_E_F100_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F200_10  = request.security(syminfo.tickerid, trail_X_E_F200_10, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F50_20   = request.security(syminfo.tickerid, trail_X_E_F50_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F100_20  = request.security(syminfo.tickerid, trail_X_E_F100_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+pa_X_E_F200_20  = request.security(syminfo.tickerid, trail_X_E_F200_20, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+// === Pick correct precomputed PA line
+pa_line =
+     active_id == "M.SE"         ? pa_M_SE :
+     active_id == "M.E.F50"      ? pa_M_E_F50 :
+     active_id == "M.E.F100"     ? pa_M_E_F100 :
+     active_id == "M.E.F200"     ? pa_M_E_F200 :
+     active_id == "R.SE"         ? pa_R_SE :
+     active_id == "R.E.F50"      ? pa_R_E_F50 :
+     active_id == "R.E.F100"     ? pa_R_E_F100 :
+     active_id == "R.E.F200"     ? pa_R_E_F200 :
+     active_id == "X.SE.EMA10"   ? pa_X_SE_10 :
+     active_id == "X.SE.EMA20"   ? pa_X_SE_20 :
+     active_id == "X.E.F50.10"   ? pa_X_E_F50_10 :
+     active_id == "X.E.F100.10"  ? pa_X_E_F100_10 :
+     active_id == "X.E.F200.10"  ? pa_X_E_F200_10 :
+     active_id == "X.E.F50.20"   ? pa_X_E_F50_20 :
+     active_id == "X.E.F100.20"  ? pa_X_E_F100_20 :
+     active_id == "X.E.F200.20"  ? pa_X_E_F200_20 : na
+// === Get price action line from selected trail_tf
 
 // === Final stop loss level and visualization ===
 var float final_stop    = na
 var bool  wasInPosition = false
-
+var float priceLineRaw  = request.security(syminfo.tickerid, selectedTimeframe_PA, f_price_action_htf(), lookahead=barmerge.lookahead_off)
+var float priceLine     = na(priceLineRaw) ? na : priceLineRaw * (1 + adjust_pct / 100)
+// Update trailing stop only when the active trail timeframe bar has closed
+bool bar_tf_confirmed = not na(trail_tf) and ta.change(time(trail_tf))
 // --- Initialize stop loss immediately when a position opens ---
 if strategy.opentrades > 0 and na(sl_fixed) and not na(sl_level)
     sl_fixed := sl_level
     final_stop := sl_fixed
 
-// Update trailing stop while in trade
-if strategy.opentrades > 0 and not na(sl_fixed)
-    // Calculate new trailing stop if threshold is reached
-    if max_runup >= runup_activation_threshold
-        new_trailing_stop = entry_price + (max_runup * trailing_percent / 100)
-        // Ensure stop only moves up and never below initial SL
-        final_stop := math.max(sl_fixed, new_trailing_stop, nz(final_stop, sl_fixed))
+if bar_tf_confirmed and not na(sl_fixed)
+    // Static until PA line is above entry, then trail — never trail lower
+    pa_line_adjusted = na(pa_line) ? na : pa_line * (1 + adjust_pct / 100)
+    if not na(sl_level) and not na(entry_price)
+        // Lock in SL once per trade
+        if na(sl_fixed)
+            sl_fixed := sl_level
 
-// === STOP-LOSS Exits ===
+        // Start trailing if PA line and price is above entry
+
+        in_profit = close > entry_price
+        safe_pa_line = not na(pa_line_adjusted) and pa_line_adjusted > entry_price and pa_line_adjusted < close
+        if not trail_started and in_profit and safe_pa_line
+            trail_started := true
+
+        // Always assign final_stop
+        final_stop := trail_started ? math.max(sl_fixed, pa_line_adjusted) : sl_fixed
+// === STOP-LOSS Exits (One per Unique Entry Type) ===
 if not na(active_id) and not na(final_stop)
     exitMsg = accountNumber + ",closelong," + tickerSymbol
     strategy.exit(id="Exit", from_entry=active_id, stop=final_stop, alert_message=exitMsg)
-
 stop_triggered = wasInPosition and (strategy.opentrades == 0) and (close <= final_stop)
 if stop_triggered
     alert("Stop loss triggered for " + tickerSymbol, alert.freq_once_per_bar_close)
@@ -454,6 +493,8 @@ wasInPosition := strategy.opentrades > 0
 
 // === Plot Final Stop and Price Action Line ===
 plot(final_stop, title="Active Stop Loss", color=color.red, style=plot.style_linebr, linewidth=2)
+plot(priceLine, color=color.green, title="Price Action Line", linewidth=2)
+
 
 // === Momentum Condition ===
 is_momentum = close > dominant_saved_close and daily_ema_ok and allow_momentum and in_session
