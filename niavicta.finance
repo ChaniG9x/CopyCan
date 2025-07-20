@@ -1,0 +1,661 @@
+\documentclass[a4paper,11pt]{article}
+
+% Encoding and fonts
+\usepackage[utf8]{inputenc}
+\renewcommand{\familydefault}{\sfdefault}
+
+% Page layout
+\usepackage{geometry}
+\geometry{a4paper, top=2cm, bottom=2cm, left=2cm, right=2cm}
+\usepackage{setspace}
+\setstretch{1.5}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+
+% Graphics and colour
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage[table]{xcolor}
+
+% Tables
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{float}
+\usepackage{booktabs,tabularx,geometry,enumitem}
+\geometry{margin=2cm}
+\usepackage{tabularx,booktabs} 
+\usepackage{amsmath} % in your preamble
+\usepackage[T1]{fontenc}   % ensure proper font encoding
+\usepackage{textcomp}      % gives you \texteuro
+\usepackage[official]{eurosym}  % or just \usepackage{eurosym}
+\usepackage{pgfgantt}
+
+
+
+% Section titles
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+% Lists and indentation
+\usepackage{enumitem}
+\usepackage{indentfirst}
+
+% Header/footer
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+
+% Bibliography
+\usepackage[backend=biber]{biblatex}
+\addbibresource{refs.bib}
+
+% Hyperlinks (load last)
+\usepackage{hyperref}
+
+% Custom header macro
+\newcommand{\myheader}{\underline{\textit{A Bedside Documentation Device for South African Nurses}}}
+\lhead{\myheader}
+
+\begin{document}
+
+% Title Page
+\begin{titlepage}
+  \centering
+  \vspace*{1cm}
+  {\scshape\LARGE A Bedside Documentation Device for South African Nurses\par}
+  \vspace{1cm}
+  {\scshape\Large Feasibility Study\par}
+  \vfill
+  {\Large\itshape C.\ Galgut and P.\ J.\ H.\ van der Westhuizen\par}
+  \vspace{2cm}
+  {\large \today\par}
+\end{titlepage}
+
+% Abstract
+\newpage
+\begin{abstract}
+  % Your abstract here
+\end{abstract}
+
+\textbf{Keywords:} nursing, documentation, LMIC, bedside device
+
+\pagenumbering{roman}
+\newpage
+\tableofcontents
+\listoftables
+\listoffigures
+
+\newpage
+\pagenumbering{arabic}
+
+\section{Executive Summary}
+\begin{itemize}
+  \item Overview of the problem (need)
+    Nurses report spending the majority of their shifts on paperwork rather than direct patient care. One review found that “recording completed nursing procedures requires an average of 1 253 minutes of a 24‑hour nursing day (20 hours and 50 minutes; 87\%)” \cite{olivierRecordKeepingSelfreported2010}.
+  \item Opportunity and market context
+  \item Proposed solution at a glance
+  \item High‑level funding ask and expected impact
+\end{itemize}
+
+\section{Introduction}
+\begin{itemize}
+  \item Background and motivation
+
+Accurate and complete patient records are the bedrock of high-quality care, serving both as a legal document and a communication tool among clinicians. In South African public hospitals, however, nurses often find themselves overwhelmed by large patient loads and frequent shortages of stationery, which makes timely and thorough record-keeping a persistent challenge \cite{mutshatshiRecordkeepingChallengesExperienced2018}
+  
+  \item Importance of real-time bedside documentation
+
+When data entry is delayed,typically because nurses first jot notes on paper and later transcribe them into electronic systems, critical information can be lost or corrupted, and opportunities for immediate clinical decision-support are missed. Point-of-care digital tools, by enabling direct entry of vitals, medication orders, and observations at the bedside, can eliminate this two-step process, reducing transcription errors and ensuring that up-to-date information is instantly available to the entire care team. \cite{PDFMobileApplication}
+  
+  \item Scope and purpose of this document
+This document synthesizes evidence of the burdens and risks associated with current bedside documentation practices in South Africa’s public hospitals, articulates the unmet needs of nurses and health systems, and defines the functional and business requirements for a dedicated, workflow-aligned bedside documentation device. It maps the market opportunity, outlines key technical and operational specifications, and presents an actionable roadmap,from user needs assessment through prototyping, pilot testing, and go-to-market strategy,to guide stakeholders, funders, and implementation partners in realizing this solution.
+  
+\end{itemize}
+
+\section{Problem Statement}
+\subsection{Current Workflow Challenges}
+\begin{itemize}
+  \item Paper‐first processes and transcription delays
+
+In many South African public wards, nurses first jot down patient information on paper and only later transcribe it into electronic charts. This two-step process introduces delays and heightens the chance of transcription errors. This manual method of patient data capture is a global occurance. As observed in a Geneva teaching-hospital study:
+
+“Documentation at the bedside is still often initiated by nurses on paper before being entered in electronic charts. This 2-step process is time-consuming, a potential source of error, and hinders the use of real-time information.”\cite{PDFMobileApplication}
+
+  \item Infrastructure and resource constraints
+  
+  Compounding this, nurses in Limpopo Province report frequent shortages of stationery, forcing them to choose which data to record:
+
+“Another participant told that: ‘Yes we are having problems like shortage of stationery which we are coming across. Sometimes you find it difficult to record everything on different forms because of shortage of stationery. Sometimes we collect our own money to buy papers for photocopying because there is no stationery in the wards. Other things we end not completing the recording and the audit people blames us.’ \cite{mutshatshiRecordkeepingChallengesExperienced2018}
+
+In a related descriptive study, 95\% of respondents indicated they lacked sufficient time for record-keeping, and clinical observations were recorded only 37–38\% of the time due to these constraints. \cite{olivierRecordKeepingSelfreported2010}
+
+Outside South Africa, time-motion analyses show nurses devote 26–41\% of their shift to documentation and only 37\% of their time to direct patient care, with documentation alone accounting for 35\% of the workday in some settings.\cite{yenNursesTimeAllocation2018}
+
+In addition to reliable technology, improving documentation quality also depends on regular, standardized training and ongoing support for nursing staff. Studies show that formal instruction in documentation procedures helps nurses become familiar with best practices, adopt a positive attitude toward record‑keeping and add real value to patient charts. \cite{PDFStructuralProcess} For example, in Ethiopia, trained nurses were ten times more likely to record daily care activities than untrained nurses.\cite{PDFNursingDocumentation} In South Africa, gaps in skills, infrastructure and policy led to misplaced files, slower services and harm to institutional reputation.\cite{maruthaRoleMedicalRecords2017}. Cape Town hospitals, frontline nurses ranked “lack of ongoing in-service training,” “uncertainty about the nursing process,” and “not knowing what to record” as top barriers to effective documentation. \cite{olivierRecordKeepingSelfreported2010}
+
+
+\begin{table}[ht]
+  \centering
+  \caption{Barriers to Effective Record Keeping}
+  \label{tab:barriers}
+  \begin{tabular}{rlp{10cm}r}
+    \toprule
+    \textbf{Rank} & & \textbf{Barrier description} & \textbf{Mean score\textsuperscript{*}} \\
+    \midrule
+    1  & & Interruptions. & 3.74 \\
+    2  & & Having too little time to write down everything that must be recorded. & 4.47 \\
+    3  & & Lack of confidence by nursing personnel regarding their ability to keep accurate records. & 5.17 \\
+    4  & & Having to record the same information over and over. & 5.33 \\
+    5  & & Too many forms to complete or use. & 5.53 \\
+    6  & & Not knowing what is expected with regards to record keeping. & 5.60 \\
+    7  & & Lack of sufficient (on-going) in-service training. & 5.63 \\
+    8  & & Not understanding the Nursing Process. & 5.87 \\
+    9  & & Not knowing what to record. & 6.19 \\
+    10 & & The inaccessibility of documentation. & 7.18 \\
+    \bottomrule
+    \multicolumn{4}{l}{\textsuperscript{*}The closer the mean score is to 1, the greater its influence; 10 is the least.}
+  \end{tabular}
+\end{table}
+
+
+
+These findings make it clear that any bedside device implementation must be accompanied by straightforward documentation protocols, frequent hands‑on training and strong supervisory support to ensure high‑quality nursing records. 
+
+  
+\end{itemize}
+\subsection{Clinical and Operational Risks}
+
+Delayed or incomplete documentation can lead to missed vital signs, medication errors, and gaps in follow-up care, jeopardizing patient safety. In the United States, documentation errors contribute directly to 100,000 deaths and 1.3 million injuries annually.\cite{gilletteSAIVAAIOptimize2022}
+
+A South African literature synthesis reports that recording nursing procedures consumes an average of 1 253 minutes of a 24-hour nursing day (20 hours 53 minutes; 80\%), \cite{cheevakasemsookStudyNursingDocumentation2006} with other studies finding nurses spend 12\% (2 hours 53 minutes) to 15\% (3 hours 39 minutes) of their time on documentation \cite{olivierRecordKeepingSelfreported2010}
+
+Locally, these lapses carry enormous legal and financial repercussions. Between January 2020 and December 2023, South African public facilities paid out R23.6 billion in medico-legal claims, plus R1.3 billion in legal costs. \cite{R236BillionPaid}
+
+A review of 513 charts at Jinja Regional Referral Hospital (Eastern Uganda) found that incomplete documentation by both nurses and doctors led to fragmented care, with no visible integration of patient management across disciplines. As the authors conclude, “documentation of care is poor (e.g., omissions and incomplete records) and integration of patient care is not visible,” undermining coordinated treatment plans and ultimately care outcomes \cite{NursingDocumentationDilemma}
+
+An audit of 137 nursing records across three districts in KwaZulu-Natal revealed a mean compliance score of just 11\% against basic record-keeping criteria,confirming that the “quality of nursing records is generally poor,” a deficit explicitly identified among the top thirteen quality-of-care failures in both public and private hospitals. \cite{olivierRecordKeepingSelfreported2010}
+
+Poor documentation disrupts continuity, contributes to incorrect treatment decisions, and is directly implicated in adverse events. A global overview notes that “poor documentation practice affects patient management, continuity of patient care and medicolegal issues,” and can “lead to adverse patient outcomes, medication errors and patient deaths”. \cite{demsashHealthProfessionalsRoutine2023}
+
+\begin{itemize}
+  \item Incomplete or delayed documentation
+  \item Patient safety and quality‐of‐care implications
+  \item Legal and financial repercussions
+
+
+  
+\end{itemize}
+\subsection{Quantified Impact}
+\begin{itemize}
+  \item Time lost per nurse shift
+  \item Estimated costs of errors and claims
+\end{itemize}
+
+\section{Market \& Strategic Opportunity}
+
+\section{Total Addressable Market (TAM) – Methodology and Assumptions}
+
+This analysis estimates the global demand for the bedside documentation device,separate from any EHR software,by proceeding in five clear steps:  
+(1) calculate the global Total Addressable Market (TAM) in device-slots;  
+(2) adjust for EHR penetration;  
+(3) distinguish greenfield versus replacement opportunities;  
+(4) apply realistic capture rates; and  
+(5) perform a sensitivity analysis.  
+Explanatory notes accompany each calculation so that any reader can follow the logic.
+
+\subsection*{1. Total Addressable Market (TAM) in Device-Slots}
+
+A “device-slot” is defined as one device per eight beds. We compute:
+
+\begin{enumerate}
+  \item \emph{Projected hospitals by 2026} \cite{NumberHospitalsWorldwide}:
+    \[
+      H_{2026} = 215{,}977
+      \quad
+    \]
+    Statista forecasts \(H_{2026}=215{,}977\) hospitals worldwide \cite{HospitalBeds1000,nationsWorldPopulationDay}.
+  \item \emph{Average beds per hospital}:
+    \[
+      \text{Beds}_{2021} = 2.29\;\tfrac{\text{beds}}{1\,000\ \text{people}}
+      \times 7.95\times10^{9}\;\text{people}
+      \approx 18.21\times10^{6}\;\text{beds}
+      \quad
+    \]
+    Dividing by 165\,000 hospitals gives \(\bar b\approx110\) beds per hospital \cite{85HospitalStatistics}.
+  \item \emph{Total bed capacity in 2026}:
+    \[
+      B_{2026}
+      = 110 \times 215{,}977
+      = 23.84\times10^{6}\;\text{beds}
+      \quad\text{(mean estimate)}
+    \]
+  \item \emph{Device-to-bed ratio}:
+    \[
+      r = \frac{1\ \text{device}}{8\ \text{beds}} = 0.125\;\tfrac{\text{devices}}{\text{bed}}
+    \]
+    Based on clinician workflow, one device can serve up to eight beds.
+  \item \emph{TAM in device-slots}:
+    \[
+      \mathrm{TAM}_{\mathrm{slots}}
+      = B_{2026} \times r
+      = 23.84\times10^{6} \times 0.125
+      = 2.98\times10^{6}
+      \;\approx2{,}980{,}000\ \text{devices}
+    \]
+
+\end{enumerate}
+
+\subsection*{2. Adjusting for EHR Penetration}
+
+Not all hospitals have EHR systems or are willing to integrate new devices. Adoption rates vary:
+
+\begin{itemize}
+  \item \emph{United States}: 96\% of non-federal acute care hospitals had certified EHRs by 2021 \cite{DiscoverMostCommon,desrochesElectronicHealthRecords2008}.
+  \item \emph{LMICs}: only about 26\% of institutions use any EHR, with many still on paper \cite{ProgressImplementingUsing2023}.
+\end{itemize}
+
+Applying a conservative 50\% “EHR-ready” factor:
+\[
+  2.98\times10^{6} \times 0.50
+  = 1.49\times10^{6}
+  \;\approx1{,}490{,}000\ \text{devices}
+\]
+
+\subsection{Serviceable Available Market (SAM): South Africa Public Acute-Care Hospitals}
+
+Narrowing the global TAM to a realistic SAM requires focusing on those hospitals in South Africa that can immediately adopt the device.  We target public, acute-care facilities where bedside documentation hardware is most needed.
+
+\paragraph{Key inputs}  
+\begin{itemize}
+  \item \emph{Number of public hospitals} (\(H_{\mathrm{SA}}\)):  
+    A 2024 industry report cites 470 public hospitals in South Africa. \cite{BridgingGapSouth}
+    
+  \item \emph{Total public-sector beds} (\(B_{\mathrm{SA}}\)):  
+    The 17th District Health Barometer (March 2024) reports 85,119 usable beds in public hospitals \cite{PDFDistrictHealth2025}.  
+    
+  \item \emph{Average beds per hospital} (\(\bar b_{\mathrm{SA}}\)):  
+    \[
+      \bar b_{\mathrm{SA}}
+      = \frac{B_{\mathrm{SA}}}{H_{\mathrm{SA}}}
+      = \frac{85\,119}{470}
+      \approx 181\ \text{beds per hospital}.
+    \]
+  \item \emph{Device-to-bed ratio} (\(r\)):  
+    One device per eight beds (\(r=1/8=0.125\) devices/bed).
+\end{itemize}
+
+\paragraph{SAM calculation}  
+\[
+  \mathrm{SAM}_{\mathrm{beds}}
+  = B_{\mathrm{SA}}
+  = 85\,119\ \text{beds},
+\]
+\[
+  \mathrm{SAM}_{\mathrm{slots}}
+  = B_{\mathrm{SA}} \times r
+  = 85\,119 \times 0.125
+  = 10\,640\ \text{device-slots}
+  \quad\approx10\,640\ \text{devices}.
+\]
+
+ Adjusting for EHR-ready facilities, only about 26\% of these institutions currently use or are ready to integrate an EHR system \cite{ProgressImplementingUsing2023}. Applying this “EHR-ready” factor:
+\[
+  \mathrm{SAM}_{\mathrm{slots}}^{\mathrm{EHR}}
+  = \mathrm{SAM}_{\mathrm{slots}} \times 0.26
+  = 10\,640 \times 0.26
+  \approx 2\,766
+  \quad\text{device-slots.}
+\]
+Thus, the realistically addressable market immediately post-launch  (South Africa) is approximately \(\mathbf{2\,766}\) bedside devices.
+
+The National Department of Health’s 2025/26 budget allocates R64 807 200 000 to public healthcare. Its three main objectives are “...To lay a strong foundation in preparation for improvement of the public health system of our country, in preparation for the National Health Insurance (NHI). To lay a strong foundation and to embark on the journey towards the elimination of certain diseases, especially Communicable diseases, but not leaving non-Communicable diseases behind. To implement serious reforms in the private health sector \cite{MinisterAaronMotsoaledi}.  National Health Insurance (NHI) rollout, with a mandate that 90 \% of public hospitals adopt fully interoperable EHRs by 2025 \cite{DoH_NHI_plan}. If EHR penetration grows from 26 \% today to an estimated 50 \% by 2026, the adjusted SAM would double to roughly
+
+\[
+  10\,640 \times 0.50 = 5\,320
+  \quad\text{device-slots.}
+\]
+
+
+\subsection{Serviceable Obtainable Market (SOM)}
+
+Since South African public acute‐care hospitals lack any existing bedside documentation hardware, every device‐slot within the SAM represents a \emph{greenfield} sale.  However, the first 2 years are required for device development, pilot approval, and ISO 13485/27001 certification.  We therefore define:
+
+\begin{itemize}
+  \item \textbf{Year 0–2 (Development \& Certification)}: No device sales; 2 years allocated to design verification, user‐needs pilot, and regulatory approval.
+  \item \textbf{Post-Launch Year 1}: first 12 months after certification.
+  \item \textbf{Post-Launch Year 2}: second 12 months after certification.
+  \item \textbf{Post-Launch Year 3}: third 12 months after certification.
+\end{itemize}
+
+\subsection{Target Roll-Out by End of Year 5}
+
+\paragraph{Average Hospital Size \& Devices Required}%
+South African public acute-care hospitals average
+\[
+  \bar b_{\mathrm{SA}}
+  = \frac{85\,119\ \text{beds}}{470\ \text{hospitals}}
+  \approx181\ \text{beds per hospital}.
+\]
+At one device per eight beds, each hospital requires
+\[
+  \frac{181}{8}
+  \approx22.6
+  \;\approx23\ \text{devices}.
+\]
+
+\paragraph{Two-Hospital Integration Goal}%
+By the end of Year 5, our objective is to have two fully integrated hospitals.  This equates to
+\[
+  3 \times 23 = 69\ \text{devices deployed}.
+\]
+
+\paragraph{Penetration of Serviceable Addressable Market}%
+Relative to our SAM of \(5\,320\) device-slots,
+\[
+  \frac{69}{5\,320}\times100\%
+  \approx1.30\%
+\]
+of the South African acute-care device-slot market will be covered by three hospitals.  
+
+
+
+\subsection{Competitor analysis and evidence of concept validation}
+\begin{itemize} 
+
+  \item Evidence of concept validation
+
+Strong proof that this approach succeeds comes from Netcare, a top private healthcare provider in South Africa. Over a three-year rollout, Netcare deployed its CareOn electronic medical records system across 45 hospitals, equipping more than 13,000 nurses and doctors with mobile devices. At this year’s International Quality Awards in London, CareOn earned the Digital Innovation Award for replacing paper charts with a fully mobile solution, rapidly building staff digital skills, and cutting up to 60\% of prescribing errors,all while achieving an expected 21\% annual return on its investment\cite{News}
+
+ \item What gives this device its edge
+
+Rather than offering software alone, this solution pairs a user-need specific, low-tech hardware device,provided at no upfront cost,with a subscription that covers updates, maintenance, and replacements. Subscriptions include hands-on integration support and ongoing training facilitation, ensuring hospital staff receive tailored coaching instead of one-time onboarding. That continual, user-focused guidance drives faster adoption, overcomes resistance to change, and aligns the technology with real-world clinical workflows in resource-limited settings.
+
+\end{itemize}
+
+\section{Proposed Solution}
+\subsection{Device Concept \& Features}
+\begin{itemize}
+  \item Patient ID linkage (barcode/RFID)
+  \item Glove‐friendly UI for vitals, meds, notes
+  \item Secure, real‐time EHR integration
+  \item Zero local storage and auto‐logout
+\end{itemize}
+\subsection{Technical Architecture}
+\begin{itemize}
+  \item Hardware platform and connectivity
+  \item Software stack and interoperability (FHIR/API)
+  \item Security and data‐privacy design
+\end{itemize}
+\subsection{Workflow Integration}
+\begin{itemize}
+  \item Replacement of paper pre‐stage
+  \item Role‐based interfaces and minimal training
+\end{itemize}
+
+\section{Implementation Plan}
+\subsection{Pilot and Co‐Development}
+
+\section*{Overview}
+A five-year plan split into four sequential phases:
+\begin{itemize}
+  \item \textbf{Phase A (M1–M6)}: User‐needs research in South Africa
+  \item \textbf{Phase B (M7–M24)}: Design \& development in the Netherlands
+  \item \textbf{Phase C (M25–M36)}: Pilot rollout (1–8 devices) \& ISO certification
+  \item \textbf{Phase D (M37–M60)}: Commercial scale‐up (8→100+ devices) \& facilitators
+\end{itemize}
+
+\section*{1. Staffing \& Costs}
+
+\begin{tabularx}{\textwidth}{Xrrrr}
+\toprule
+\textbf{Role} & \textbf{Location} & \textbf{Months} & \textbf{Headcount} & \textbf{Total Cost} \\
+\midrule
+\multicolumn{5}{l}{\emph{Phase A}}\\
+SA Clinical Research Lead & South Africa & 1--6 & 1 & ZAR 150\,000\\
+SA Field Nurse Partner    & South Africa & 1--6 & 1 & ZAR 120\,000 \\
+\addlinespace
+\multicolumn{5}{l}{\emph{Phase B}}\\
+Embedded SW Engineer      & Netherlands  & 7--24 & 1 & €108\,000 \\
+Embedded HW Engineer      & Netherlands  & 7--24 & 1 & €108\,000 \\
+QA \& Reg.\ Officer       & Netherlands  & 7--24 & 1 & €90\,000  \\
+ISO 27001 Specialist      & Netherlands  & 15--24& 1 & €44\,000  \\
+\addlinespace
+\multicolumn{5}{l}{\emph{Phase C}}\\
+SA Pilot Manager          & South Africa & 25--36& 1 & ZAR 360\,000\\
+QA Support (visits)       & NL→SA        & 25--36& 1 & €12\,000  \\
+\addlinespace
+\multicolumn{5}{l}{\emph{Phase D}}\\
+Regional Facilitators\footnote{2 per 8 devices, day+night rotations} & South Africa & 37--60 & 18 & ZAR 5\,400\,000 \\
+Sales \& Support Lead     & South Africa & 37--60 & 1  & ZAR 3\,600\,000 \\
+\bottomrule
+\end{tabularx}
+
+
+\begin{tabularx}{\textwidth}{Xrrrrr}
+\toprule
+\textbf{Component}           & \textbf{Unit (€)} & \textbf{Qty C} & \textbf{Cost C (€)} & \textbf{Qty D} & \textbf{Cost D (€)} \\
+\midrule
+Mainboard \& CPU             & 200               & 8              & 1\,600               & 69             & 13\,800              \\
+LCD Touch Module             & 100               & 8              &   800                & 69             &  6\,900              \\
+Battery \& Power Circuit     &  50               & 8              &   400                & 69             &  3\,450              \\
+Housing \& Enclosure         &  75               & 8              &   600                & 69             &  5\,175              \\
+Barcode/RFID Reader          &  50               & 8              &   400                & 69             &  3\,450              \\
+Connectivity (Wi-Fi/4G)      &  40               & 8              &   320                & 69             &  2\,760              \\
+Assembly \& Test Overhead    &  85               & 8              &   680                & 69             &  5\,865              \\
+\midrule
+\textbf{Unit cost (per device)} &           &                & \textbf{600}         &                & \textbf{—}          \\
+\textbf{Phase C total}       &                   &                & \textbf{4\,800}      &                & —                    \\
+\textbf{Phase D total}       &                   &                & —                    &                & \textbf{41\,400}     \\
+\bottomrule
+\end{tabularx}
+
+\section*{3. Facilitator Cost Model (Phase D)}
+\begin{tabularx}{\textwidth}{Xrrrr}
+\toprule
+\textbf{Period} & \textbf{\#Facilitators} & \textbf{Mo.\ Rate ea.} & \textbf{Months} & \textbf{Subtotal} \\
+\midrule
+M37--42 (100\% FTE) & 18 & ZAR~20\,000 & 6  & ZAR~2\,160\,000 \\
+M43--60 (50\% FTE)  & 18 & ZAR~10\,000 & 18 & ZAR~3\,240\,000 \\
+\midrule
+\textbf{Total}     &    &             &    & \textbf{ZAR~5\,400\,000} \\
+\bottomrule
+\end{tabularx}
+
+\section*{4. Travel \& Overheads}
+\begin{tabularx}{\textwidth}{Xrrr}
+\toprule
+\textbf{Item} & \textbf{Cost/trip} & \textbf{\# trips} & \textbf{Total} \\
+\midrule
+NL→SA QA & €3\,000 & 8  & €24\,000 \\
+SA site visits & ZAR~15\,000 & 12 & ZAR~180\,000 \\
+\bottomrule
+\end{tabularx}
+
+\section*{5. Five-Year Summary Budget}
+
+\begin{tabularx}{\textwidth}{Xrr}
+\toprule
+\textbf{Category}                      & \textbf{ZAR (R)} & \textbf{EUR (€)} \\
+\midrule
+Staffing (SA research \& pilot)        &   630\,000        & --               \\
+Staffing (NL dev \& QA)                & --                & 362\,000         \\
+Facilitators (Phase D)                 & 5\,400\,000       & --               \\
+Devices (Phase C \& D)                 & --                & 46\,200          \\
+Travel \& Overheads                    &   180\,000        & 24\,000          \\
+\midrule
+\textbf{TOTALS}                        & \textbf{6\,210\,000} & \textbf{432\,200} \\
+\midrule
+\textbf{GRAND TOTAL}                        & \textbf{} & \textbf{732\,471} \\
+\bottomrule
+\bottomrule
+\end{tabularx}
+
+\newpage
+
+\section{Milestones \& Deliverables}
+
+\subsection{Milestones}
+
+\begin{figure}[ht]
+\centering
+\begin{ganttchart}[
+    x unit=0.6cm,             % make it wider
+    y unit title=0.6cm,
+    y unit chart=1cm,
+    hgrid, vgrid,
+    title height=1,
+    bar/.style={fill=blue!90},
+    group/.style={draw=black, fill=gray!20},
+    title/.style={draw=none, fill=none},
+    title label font=\bfseries\footnotesize,
+    bar label font=\normalsize,
+  ]{1}{20}
+  % Year headers
+  \gantttitle{Year 1}{4}
+  \gantttitle{Year 2}{4}
+  \gantttitle{Year 3}{4}
+  \gantttitle{Year 4}{4}
+  \gantttitle{Year 5}{4} \\
+  % Quarter repeats
+  \gantttitle{1}{1}
+  \gantttitle{2}{1}
+  \gantttitle{3}{1}
+  \gantttitle{4}{1}
+  \gantttitle{1}{1}
+  \gantttitle{2}{1}
+  \gantttitle{3}{1}
+  \gantttitle{4}{1}
+  \gantttitle{1}{1}
+  \gantttitle{2}{1}
+  \gantttitle{3}{1}
+  \gantttitle{4}{1}
+  \gantttitle{1}{1}
+  \gantttitle{2}{1}
+  \gantttitle{3}{1}
+  \gantttitle{4}{1}
+  \gantttitle{1}{1}
+  \gantttitle{2}{1}
+  \gantttitle{3}{1}
+  \gantttitle{4}{1} \\
+
+  % The phases & bars
+  \ganttgroup{Phase A}{1}{2} \\
+  \ganttbar{SA Clin.\ Research Lead}{1}{2} \\
+  \ganttbar{SA Field Nurse Partner}{1}{2} \\
+
+  \ganttgroup{Phase B}{3}{6} \\
+  \ganttbar{Embedded SW Engineer}{3}{6} \\
+  \ganttbar{Embedded HW Engineer}{3}{6} \\
+  \ganttbar{QA \& Reg.\ Officer}{3}{6} \\
+  \ganttbar{ISO 27001 Specialist}{5}{6} \\
+
+  \ganttgroup{Phase C}{7}{9} \\
+  \ganttbar{SA Pilot Manager}{7}{9} \\
+  \ganttbar{QA Support (visits)}{7}{9} \\
+
+  \ganttgroup{Phase D}{10}{20} \\
+  \ganttbar{Regional Facilitators}{10}{20} \\
+  \ganttbar{Sales \& Support Lead}{10}{20}
+\end{ganttchart}
+\caption{Staffing timeline in quarters (1–4) for Years 1–5.}
+\end{figure}
+
+
+\subsection{Deliverables (Years \& Quarters)}
+\begin{description}[leftmargin=2cm]
+  \item[Year 1 Q2:] User‐needs research report (SA)
+  \item[Year 1 Q4:] Requirements freeze; NL concept design complete
+  \item[Year 2 Q2:] Alpha prototype complete (1:1 bench demo)
+  \item[Year 2 Q4:] Beta prototype \& QMS ready; pilot prep
+  \item[Year 3 Q4:] 8 devices live; ISO 13485 \& 27001 certified
+  \item[Year 4 Q4:] Manufacturing line qualified; initial sales
+  \item[Year 5 Q4:] 3 hospitals integrated (69 devices deployed); facilitator network active
+\end{description}
+
+\section{Partner Selection Criteria}
+
+Hospital partners should be selected primarily on the basis of patient volume: only facilities with at least 100 active beds in the relevant wards (for example medical-surgical or paediatric) will be considered.  The site must maintain dependable power and network connectivity in clinical areas, with a secure space for device charging and data transfer. Third, each hospital must identify a clinical lead (for example, the head nurse of the unit) and an IT liaison able to coordinate device installation, staff and local approvals. Fourth, leadership must sign a simple agreement guaranteeing allocated staff time for study activities, access to de-identified workflow documentation for baseline comparison, and formal inclusion of the bedside device into standard charting procedures during Phase C.
+
+\section {Pilot success metrics}
+
+\subsection{Strategic Partners}
+\begin{itemize}
+  \item Hospital groups and ministries
+  \item NGOs and academic collaborators
+\end{itemize}
+
+\section{Go‐to‐Market Strategy}
+\subsection{Sales Channels}
+
+
+
+\section{Business Model \& Financials}
+\subsection{Unit Economics}
+\begin{itemize}
+  \item Bill of materials and manufacturing costs
+  \item Pricing and recurring‐fee structure
+\end{itemize}
+\subsection{Revenue Projections}
+\begin{itemize}
+  \item Pilot‐to‐scale device sales forecast
+  \item Service and support revenue streams
+\end{itemize}
+\subsection{Break‐Even Analysis}
+\begin{itemize}
+  \item Timeline to profitability
+  \item Key financial milestones
+\end{itemize}
+
+\section{Risk Analysis \& Mitigation}
+\begin{tabular}{p{0.3\textwidth} p{0.6\textwidth}}
+\textbf{Risk} & \textbf{Mitigation Strategy} \\ \hline
+Connectivity issues & Local data caching for offline use \\
+User adoption delays & Co‐design workshops; super‐user champions \\
+Regulatory approval & Early engagement with authorities \\
+\end{tabular}
+
+\section{Impact Metrics \& Key Performance Indicators}
+\begin{itemize}
+  \item Documentation time saved (\% reduction)
+  \item Transcription error rate decrease
+  \item Legal claims and cost avoidance
+  \item Nurse satisfaction scores
+\end{itemize}
+
+\section{Funding Ask \& Use of Funds}
+\begin{itemize}
+  \item Total funding required and runway
+  \item Allocation by development, pilot, team, compliance
+  \item Milestone‐based disbursement plan
+\end{itemize}
+
+\section{Conclusion \& Next Steps}
+\begin{itemize}
+  \item Recap of need, solution, and impact
+  \item Immediate actions and decision points
+\end{itemize}
+
+% References
+\newpage
+
+\addcontentsline{toc}{section}{References}
+
+\printbibliography
+
+\appendix
+\section{Appendices}
+\subsection{Detailed Pilot Protocol}
+\subsection{Technical System Diagrams}
+\subsection{Team Bios}
+\subsection{Supporting Data Tables}
+
+\end{document}
+
