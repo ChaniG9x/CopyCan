@@ -733,16 +733,40 @@ Year & Devices in service & Annual revenue (\texteuro{}) \\
 \end{tabularx}
 \end{table}
 
-Revenue is calculated at \(90\,\text{€}\) per device per month and assumed to remain constant once all hospitals are live.
+Revenue is calculated at \(90\,\text{€}\) per device per month. From Year~6 onward, three additional hospitals (about 69 devices) are onboarded each year, so revenue grows annually.
 
-Assuming an initial investment of \(430\,000\,\text{€}\), Table~\ref{tab:breakeven} projects cumulative cash flow based on the subscription revenue in Table~\ref{tab:revenue}. Cash flow becomes positive in Year~9.
+Assuming an initial investment of \(430\,000\,\text{€}\), Table~\ref{tab:breakeven} projects cumulative cash flow based on the subscription revenue in Table~\ref{tab:revenue}. Cash flow becomes positive in Year~7.
+
+\begin{table}[H]
+\centering
+\caption{Cumulative cash flow projection}
+\label{tab:breakeven}
+\begin{tabularx}{\linewidth}{c r}
+\toprule
+Year & Cumulative cash flow (\texteuro{}) \\
+\midrule
+0 & -430\,000 \\
+1 & -421\,360 \\
+2 & -412\,720 \\
+3 & -404\,080 \\
+4 & -354\,400 \\
+5 & -279\,880 \\
+6 & -130\,840 \\
+7 & 92\,720 \\
+8 & 390\,800 \\
+9 & 763\,400 \\
+10 & 1\,210\,520 \\
+\end{tabularx}
+\end{table}
+
 
 
 \subsection{Break‐Even Analysis}
 \begin{itemize}
   \item Timeline to profitability. 
   
-  Cumulative investment through Phase~C is about \(430\,000\,\text{€}\). With subscriptions scaling to \(74\,520\,\text{€}\) per year, cash flow turns positive around Year~8.
+  Cumulative investment through Phase~C is about \(430\,000\,\text{€}\). With three hospitals added each year from Year~6 (about 69 additional devices annually), subscription revenue grows from \(149\,040\,\text{€}\) in Year~6 to \(447\,120\,\text{€}\) by Year~10. Cash flow turns positive around Year~7.
+  
   \item Key financial milestones. 
   
   Achieving 100 paying devices yields about \(108\,000\,\text{€}\) in annual revenue; at that level fixed operating costs are fully covered and further growth funds expansion.
@@ -770,6 +794,25 @@ Regulatory approval & Early engagement with authorities \\
   \item Allocation by development, pilot, team, compliance. About \(350\,000\,\text{€}\) funds hardware engineering and quality assurance in the Netherlands, \(39\,000\,\text{€}\) supports South African staffing, \(5\,000\,\text{€}\) covers pilot hardware, \(24\,000\,\text{€}\) is budgeted for travel and \(12\,000\,\text{€}\) for regulatory support.
   \item Milestone\-based disbursement plan. Tranches release after hardware design completion (M24), pilot readiness (M30) and final pilot report (M36).
 \end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Initial investment for Phases~A--C}
+\label{tab:init-investment}
+\begin{tabularx}{\linewidth}{X r}
+\toprule
+\textbf{Category} & \textbf{Amount (\texteuro{})} \\
+\midrule
+Hardware engineering \& QA (NL) & 350\,000 \\
+South African staffing & 39\,000 \\
+Pilot hardware & 5\,000 \\
+Travel & 24\,000 \\
+Regulatory support & 12\,000 \\
+\midrule
+\textbf{Total} & \textbf{430\,000} \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \section{Conclusion \& Next Steps}
 \begin{itemize}
