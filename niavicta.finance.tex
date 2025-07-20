@@ -72,7 +72,7 @@
   \vspace*{1cm}
   {\scshape\LARGE A Bedside Documentation Device for South African Nurses\par}
   \vspace{1cm}
-  {\scshape\Large Feasibility Study\par}
+  {\scshape\Large NIAVICTA BUSINESS PLAN\par}
   \vfill
   {\Large\itshape C.\ Galgut \par}
   \vspace{2cm}
@@ -194,20 +194,26 @@ Poor documentation disrupts continuity, contributes to incorrect treatment decis
 \end{itemize}
 
 \section{Proposed Solution}
-\subsection{Device Concept \& Features}
+\subsection{Proposed Solution Overview}
+We will deliver a purpose-built, low‑tech patient monitoring device alongside a comprehensive training and facilitation package to ensure rapid uptake and reliable operation in low‑resource hospital settings.
+
+\subsection{Device Concept & Features}
 \begin{itemize}
-  \item Patient ID linkage (barcode/RFID)
-  \item Glove‐friendly UI for vitals, meds, notes
-  \item Secure, real‐time EHR integration
-  \item Zero local storage and auto‐logout
-\end{itemize}
-\subsection{Technical Architecture}
-\begin{itemize}
-  \item Hardware platform and connectivity
-  \item Software stack and interoperability (FHIR/API)
-  \item Security and data‐privacy design
+\item \textbf{Patient ID linkage} via barcode or RFID wristband reader, to eliminate manual entry errors
+\item \textbf{Glove‑friendly touch interface} with large icons for vitals recording, medication logs and free‑text notes
+\item \textbf{Real‑time EHR integration} over secure API (FHIR‑compatible) to push observations directly into hospital records
+\item \textbf{Minimal local storage} (last 24 hours cache only) and \textbf{auto‑logout} after 30 seconds of inactivity for data security
+\item \textbf{Robust chassis} with sealed ports and rubber bumpers, designed for routine cleaning with standard hospital disinfectants
+\item \textbf{Battery hot‑swap} module to allow 24/7 operation without downtime
 \end{itemize}
 
+\subsection{Training & Facilitation Package}
+\begin{itemize}
+\item \textbf{On‑site train‑the‑trainer workshops} led by our pilot manager and field facilitator to certify local “super‑users”
+\item \textbf{Printed quick‑start guides} in English and local language, with pictograms for key workflows
+\item \textbf{Ongoing coaching visits} every month for the first three months, then quarterly, to troubleshoot, collect feedback and update training materials
+\item \textbf{Remote support line} (WhatsApp/voice) staffed by our QA and R&D team during business hours
+\end{itemize}
 \subsection{Proposed Patient Admission \& Data Collection Workflow}
 
 The following workflow is the initial proposal for patient admission and bedside data capture.  It will be iteratively refined based on insights from the user-needs research:
@@ -254,14 +260,6 @@ The following workflow is the initial proposal for patient admission and bedside
 \section{Market \& Strategic Opportunity}
 
 \section{Total Addressable Market (TAM) – Methodology and Assumptions}
-
-This analysis estimates the global demand for the bedside documentation device,separate from any EHR software,by proceeding in five clear steps:  
-(1) calculate the global Total Addressable Market (TAM) in device-slots;  
-(2) adjust for EHR penetration;  
-(3) distinguish greenfield versus replacement opportunities;  
-(4) apply realistic capture rates; and  
-(5) perform a sensitivity analysis.  
-Explanatory notes accompany each calculation so that any reader can follow the logic.
 
 \subsection*{1. Total Addressable Market (TAM) in Device-Slots}
 
@@ -456,45 +454,107 @@ The first few facilitators will be highly skilled professionals with both clinic
 \end{itemize}
 
 
-
+\newpage
 \section{Implementation Plan}
 \subsection{Pilot and Co‐Development}
 
 \section*{Overview}
 A five-year plan split into four sequential phases:
-\begin{itemize}
-  \item \textbf{Phase A (M1–M6)}: User‐needs research in South Africa
-  \item \textbf{Phase B (M7–M24)}: Design \& development in the Netherlands
-  \item \textbf{Phase C (M25–M36)}: Pilot rollout (1–8 devices) \& ISO certification
-  \item \textbf{Phase D (M37–M60)}: Commercial scale‐up (8→100+ devices) \& facilitators
+\begin{table}[!htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|l|p{5cm}|p{4cm}|}
+\hline
+\textbf{Phase} & \textbf{Duration} & \textbf{Timeframe} & \textbf{Key activities} & \textbf{FTEs / roles} \\
+\hline
+A & 2 quarters (6 months) & Year 1 Q1–Q2 & 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item User‑needs research in public hospital (South Africa)
 \end{itemize}
+& 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item 1× Clinical Research Lead (also pilot manager)
+\end{itemize}
+\\
+\hline
+B & 4 quarters (12 months) & Year 1 Q3–Year 2 Q2 & 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item Recruit software engineer, hardware engineer  
+  \item Hire QA/regulatory officer (ISO 13485) and ISO 27001 specialist  
+  \item Design \& development of MVP  
+  \item Build out quality‑management foundations  
+\end{itemize}
+& 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item 1× Pilot manager  
+  \item 1× Software engineer  
+  \item 1× Hardware engineer  
+  \item 1× QA/regulatory officer  
+  \item 1× ISO 27001 specialist  
+\end{itemize}
+\\
+\hline
+C & 3 quarters (9 months) & Year 2 Q3–Year 3 Q1 & 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item Use first prototype to refine requirements  
+  \item Redesign device  
+  \item Ramp up production to 8 units  
+  \item QA/support visits between NL and ZA for redesign feedback  
+\end{itemize}
+& 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item 1× Pilot manager (in‑country)  
+  \item 1× Field facilitator  
+\end{itemize}
+\\
+\hline
+D & 11 quarters (33 months) & Year 3 Q2–Year 5 Q4 & 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item Establish manufacturing line \& partners  
+  \item Roll out to 3 hospitals (69 devices)  
+  \item Ongoing facilitator support per site (day \& night)  
+\end{itemize}
+& 
+\begin{itemize}\setlength\itemsep{0pt}
+  \item 2× facilitators per 8 devices (scaling to 18× total)  
+\end{itemize}
+\\
+\hline
+\end{tabular}%
+}
+\caption{Four‑phase project plan}
+\label{tab:project-plan}
+\end{table}
 
-\section*{1. Staffing \& Costs}
+\newpage
+
+\section{Staffing \& Costs}
 
 \begin{tabularx}{\textwidth}{Xrrrr}
 \toprule
-\textbf{Role} & \textbf{Location} & \textbf{Months} & \textbf{Headcount} & \textbf{Total Cost} \\
+\textbf{Role} & \textbf{Location} & \textbf{Months} & \textbf{Headcount} & \textbf{Total Cost (€)} \\
 \midrule
-\multicolumn{5}{l}{\emph{Phase A}}\\
-SA Clinical Research Lead & South Africa & 1--6 & 1 & ZAR 150\,000\\
-SA Field Nurse Partner    & South Africa & 1--6 & 1 & ZAR 120\,000 \\
+\multicolumn{5}{l}{\emph{\textit{Phase A}}}\\
+SA Clinical Research Lead & South Africa & 1--6  & 1  & €7\,253  \\
+SA Field Nurse Partner    & South Africa & 1--6  & 1  & €5\,803  \\
 \addlinespace
-\multicolumn{5}{l}{\emph{Phase B}}\\
-Embedded SW Engineer      & Netherlands  & 7--24 & 1 & €108\,000 \\
-Embedded HW Engineer      & Netherlands  & 7--24 & 1 & €108\,000 \\
-QA \& Reg.\ Officer       & Netherlands  & 7--24 & 1 & €90\,000  \\
-ISO 27001 Specialist      & Netherlands  & 15--24& 1 & €44\,000  \\
+\multicolumn{5}{l}{\emph{\textit{Phase B}}}\\
+Embedded SW Engineer      & Netherlands  & 7--24 & 1  & €108\,000 \\
+Embedded HW Engineer      & Netherlands  & 7--24 & 1  & €108\,000 \\
+QA \& Regulatory Officer  & Netherlands  & 7--24 & 1  & €90\,000  \\
+ISO 27001 Specialist      & Netherlands  & 15--24& 1  & €44\,000  \\
 \addlinespace
-\multicolumn{5}{l}{\emph{Phase C}}\\
-SA Pilot Manager          & South Africa & 25--36& 1 & ZAR 360\,000\\
-QA Support (visits)       & NL→SA        & 25--36& 1 & €12\,000  \\
+\multicolumn{5}{l}{\emph{\textit{Phase C}}}\\
+SA Pilot Manager          & South Africa & 25--36& 1  & €17\,408  \\
+QA Support (visits)       & NL→SA        & 25--36& 1  & €12\,000  \\
 \addlinespace
-\multicolumn{5}{l}{\emph{Phase D}}\\
-Regional Facilitators\footnote{2 per 8 devices, day+night rotations} & South Africa & 37--60 & 18 & ZAR 5\,400\,000 \\
-Sales \& Support Lead     & South Africa & 37--60 & 1  & ZAR 3\,600\,000 \\
+\multicolumn{5}{l}{\emph{\textit{Phase D}}}\\
+Regional Facilitators\footnote{2 per 8 devices, day+night rotations} 
+                          & South Africa & 37--60& 18 & €261\,122 \\
 \bottomrule
 \end{tabularx}
 
+\section{Bill of Materials}
 
 \begin{tabularx}{\textwidth}{Xrrrrr}
 \toprule
@@ -515,28 +575,6 @@ Docking/charging station     &  90               & 8              &   720       
 \bottomrule
 \end{tabularx}
 
-\section*{3. Facilitator Cost Model (Phase D)}
-\begin{tabularx}{\textwidth}{Xrrrr}
-\toprule
-\textbf{Period} & \textbf{\#Facilitators} & \textbf{Mo.\ Rate ea.} & \textbf{Months} & \textbf{Subtotal} \\
-\midrule
-M37--42 (100\% FTE) & 18 & ZAR~20\,000 & 6  & ZAR~2\,160\,000 \\
-M43--60 (50\% FTE)  & 18 & ZAR~10\,000 & 18 & ZAR~3\,240\,000 \\
-\midrule
-\textbf{Total}     &    &             &    & \textbf{ZAR~5\,400\,000} \\
-\bottomrule
-\end{tabularx}
-
-\section*{4. Travel \& Overheads}
-\begin{tabularx}{\textwidth}{Xrrr}
-\toprule
-\textbf{Item} & \textbf{Cost/trip} & \textbf{\# trips} & \textbf{Total} \\
-\midrule
-NL→SA QA & €3\,000 & 8  & €24\,000 \\
-SA site visits & ZAR~15\,000 & 12 & ZAR~180\,000 \\
-\bottomrule
-\end{tabularx}
-
 \section*{Software \& Certification Costs}
 \begin{tabularx}{\textwidth}{Xr}
 \toprule
@@ -552,26 +590,27 @@ ISO 13485 certification & 15\,000 \\
 \end{tabularx}
 
 
-\section*{5. Five-Year Summary Budget}
+\section{ Five-Year Summary Budget}
 
-\begin{tabularx}{\textwidth}{Xrr}
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrr}
 \toprule
-\textbf{Category}                      & \textbf{ZAR (R)} & \textbf{EUR (€)} \\
+\textbf{Phase} & \textbf{Staffing (€)} & \textbf{BOM (€)} & \textbf{Software \& cert (€)} & \textbf{Total (€)} \\
 \midrule
-Staffing (SA research \& pilot)        &   630\,000        & --               \\
-Staffing (NL dev \& QA)                & --                & 362\,000         \\
-Software \& certifications             & --                & 33\,200          \\
-Facilitators (Phase D)                 & 5\,400\,000       & --               \\
-Sales \& Support Lead                 & 3\,600\,000       & --               \\
-Devices (Phase C \& D)                 & --                & 46\,200          \\
-Travel \& Overheads                    &   180\,000        & 24\,000          \\
+Phase A & 13\,056  & –      & –      & 13\,056  \\
+Phase B & 350\,000 & –      & 33\,200 & 383\,200 \\
+Phase C & 29\,408  & 5\,520 & –      & 34\,928  \\
+Phase D & 261\,122 & 47\,610& –      & 308\,732 \\
 \midrule
-\textbf{TOTALS}                        & \textbf{9\,810\,000} & \textbf{472\,330} \\
-\midrule
-\textbf{GRAND TOTAL}                        & \textbf{} & \textbf{946\,701}\footnote{ZAR amounts converted to EUR at R20.68 per \texteuro{1}}  \\
+\textbf{Total} & \textbf{653\,586} & \textbf{53\,130} & \textbf{33\,200} & \textbf{739\,916} \\
 \bottomrule
-\bottomrule
-\end{tabularx}
+\end{tabular}
+\caption{Summary budget by phase (all figures in €)}
+\label{tab:budget-by-phase}
+\end{table}
+
+
 
 \newpage
 
@@ -582,16 +621,16 @@ Travel \& Overheads                    &   180\,000        & 24\,000          \\
 \begin{figure}[ht]
 \centering
 \begin{ganttchart}[
-    x unit=0.6cm,             % make it wider
+    x unit=0.6cm,
     y unit title=0.6cm,
-    y unit chart=1cm,
+    y unit chart=0.8cm,
     hgrid, vgrid,
     title height=1,
-    bar/.style={fill=blue!90},
+    bar/.style={fill=blue!70},
     group/.style={draw=black, fill=gray!20},
     title/.style={draw=none, fill=none},
     title label font=\bfseries\footnotesize,
-    bar label font=\normalsize,
+    bar label font=\footnotesize,
   ]{1}{20}
   % Year headers
   \gantttitle{Year 1}{4}
@@ -599,61 +638,48 @@ Travel \& Overheads                    &   180\,000        & 24\,000          \\
   \gantttitle{Year 3}{4}
   \gantttitle{Year 4}{4}
   \gantttitle{Year 5}{4} \\
-  % Quarter repeats
-  \gantttitle{1}{1}
-  \gantttitle{2}{1}
-  \gantttitle{3}{1}
-  \gantttitle{4}{1}
-  \gantttitle{1}{1}
-  \gantttitle{2}{1}
-  \gantttitle{3}{1}
-  \gantttitle{4}{1}
-  \gantttitle{1}{1}
-  \gantttitle{2}{1}
-  \gantttitle{3}{1}
-  \gantttitle{4}{1}
-  \gantttitle{1}{1}
-  \gantttitle{2}{1}
-  \gantttitle{3}{1}
-  \gantttitle{4}{1}
-  \gantttitle{1}{1}
-  \gantttitle{2}{1}
-  \gantttitle{3}{1}
-  \gantttitle{4}{1} \\
+  % Quarter numbers
+  \gantttitlelist{1,2,3,4,1,2,3,4,1,2,3,4,1,2,3,4,1,2,3,4}{1} \\
 
-  % The phases & bars
-  \ganttgroup{Phase A}{1}{2} \\
-  \ganttbar{SA Clin.\ Research Lead}{1}{2} \\
-  \ganttbar{SA Field Nurse Partner}{1}{2} \\
+  % Phase A
+  \ganttgroup{Phase A (Q1–Q2 Yr 1)}{1}{2} \\
+  \ganttbar{SA Clinical Research Lead}{1}{2} \\
 
-  \ganttgroup{Phase B}{3}{6} \\
-  \ganttbar{Embedded SW Engineer}{3}{6} \\
-  \ganttbar{Embedded HW Engineer}{3}{6} \\
-  \ganttbar{QA \& Reg.\ Officer}{3}{6} \\
-  \ganttbar{ISO 27001 Specialist}{5}{6} \\
+  % Phase B
+  \ganttgroup{Phase B (Q3 Yr 1–Q2 Yr 2)}{3}{6} \\
+  \ganttbar{Software Engineer}{3}{6} \\
+  \ganttbar{Hardware Engineer}{3}{6} \\
+  \ganttbar{QA \& Regulatory Officer (ISO 13485)}{3}{6} \\
+  \ganttbar{ISO 27001 Specialist}{3}{6} \\
 
-  \ganttgroup{Phase C}{7}{9} \\
+  % Phase C
+  \ganttgroup{Phase C (Q3 Yr 2–Q1 Yr 3)}{7}{9} \\
   \ganttbar{SA Pilot Manager}{7}{9} \\
-  \ganttbar{QA Support (visits)}{7}{9} \\
+  \ganttbar{Field Facilitator}{7}{9} \\
 
-  \ganttgroup{Phase D}{10}{20} \\
-  \ganttbar{Regional Facilitators}{10}{20} \\
-  \ganttbar{Sales \& Support Lead}{10}{20}
+  % Phase D
+  \ganttgroup{Phase D (Q2 Yr 3–Q4 Yr 5)}{10}{20} \\
+  \ganttbar{Regional Facilitators (2 per 8 devices)}{10}{20}
 \end{ganttchart}
-\caption{Staffing timeline in quarters (1–4) for Years 1–5.}
+\caption{Staffing timeline in quarters (1–4) for Years 1–5.}
+\label{fig:staff-gantt}
 \end{figure}
+
 
 
 \subsection{Deliverables (Years \& Quarters)}
 \begin{description}[leftmargin=2cm]
-  \item[Year 1 Q2:] User‐needs research report (SA)
+  \item[Year 1 Q2:] User‑needs research report (SA)
   \item[Year 1 Q4:] Requirements freeze; NL concept design complete
-  \item[Year 2 Q2:] Alpha prototype complete (1:1 bench demo)
-  \item[Year 2 Q4:] Beta prototype \& QMS ready; pilot prep
-  \item[Year 3 Q4:] 8 devices live; ISO 13485 \& 27001 certified
+  \item[Year 2 Q2:] MVP prototype complete (1:1 bench demo)
+  \item[Year 2 Q4:] QMS foundations in place; pilot preparation complete
+  \item[Year 3 Q1:] Refined prototype ready; updated requirements finalized
+  \item[Year 3 Q2:] Eight devices produced; manufacturing plan established
+  \item[Year 3 Q4:] 8 devices live in pilot; IS 13485 \& 27001 certified
   \item[Year 4 Q4:] Manufacturing line qualified; initial sales
-  \item[Year 5 Q4:] 3 hospitals integrated (69 devices deployed); facilitator network active
+  \item[Yea 5  Q4:] 3 hospitals integrated (69 devices deployed); facilitator network active
 \end{description}
+
 
 \section{Partner Selection Criteria}
 
@@ -673,104 +699,14 @@ Hospital partners should be selected primarily on the basis of patient volume: o
 
 
 \section{Business Model \& Financials}
-\subsection{Unit Economics}
-The pilot assumes eight devices in total. Table~\ref{tab:bom} details the bill of materials per unit while Table~\ref{tab:pricing} summarises the pricing to hospital partners.
-
-\begin{table}[H]
-\centering
-\caption{Bill of materials per device}
-\label{tab:bom}
-\begin{tabularx}{\linewidth}{l r}
-\toprule
-Component & Cost (\texteuro{}) \\
-\midrule
-Main board and CPU & 200 \\
-Touch display & 100 \\
-Assembly and testing & 85 \\
-Power, housing and connectivity & 215 \\
-Docking/charging station & 90 \\
-\midrule
-\textbf{Total} & \textbf{690} \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-Producing eight units therefore requires \(5\,520\,\text{€}\).
-
-\begin{table}[H]
-\centering
-\caption{Hospital pricing}
-\label{tab:pricing}
-\begin{tabularx}{\linewidth}{l r}
-\toprule
-Fee type & Amount (\texteuro{}) \\
-\midrule
-Integration (one-time) & 1\,000 \\
-Monthly subscription per device & 90 \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-Hardware is supplied with no upfront charge; hospitals pay the integration fee and monthly subscription only.
 
 \subsection{Revenue Projections}
-The roll-out plan begins with eight devices in the first three years. Deployment then ramps up during Years~4 and~5, reaching 69 units across three hospitals by the end of Year~5. This equates to roughly 1.3\% of the estimated 5\,320 potential bedside device slots in South Africa.
 
-\begin{table}[H]
-\centering
-\caption{Subscription revenue forecast}
-\label{tab:revenue}
-\begin{tabularx}{\linewidth}{c c c}
-\toprule
-Year & Devices in service & Annual revenue (\texteuro{}) \\
-\midrule
-1 & 8 & 8\,640 \\
-2 & 8 & 8\,640 \\
-3 & 8 & 8\,640 \\
-4 & 46 & 49\,680 \\
-5 & 69 & 74\,520 \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-Revenue is calculated at \(90\,\text{€}\) per device per month. From Year~6 onward, three additional hospitals (about 69 devices) are onboarded each year, so revenue grows annually.
-
-Assuming an initial investment of \(430\,000\,\text{€}\), Table~\ref{tab:breakeven} projects cumulative cash flow based on the subscription revenue in Table~\ref{tab:revenue}. Cash flow becomes positive in Year~7.
-
-\begin{table}[H]
-\centering
-\caption{Cumulative cash flow projection}
-\label{tab:breakeven}
-\begin{tabularx}{\linewidth}{c r}
-\toprule
-Year & Cumulative cash flow (\texteuro{}) \\
-\midrule
-0 & -430\,000 \\
-1 & -421\,360 \\
-2 & -412\,720 \\
-3 & -404\,080 \\
-4 & -354\,400 \\
-5 & -279\,880 \\
-6 & -130\,840 \\
-7 & 92\,720 \\
-8 & 390\,800 \\
-9 & 763\,400 \\
-10 & 1\,210\,520 \\
-\end{tabularx}
-\end{table}
 
 
 
 \subsection{Break‐Even Analysis}
-\begin{itemize}
-  \item Timeline to profitability. 
-  
-  Cumulative investment through Phase~C is about \(430\,000\,\text{€}\). With three hospitals added each year from Year~6 (about 69 additional devices annually), subscription revenue grows from \(149\,040\,\text{€}\) in Year~6 to \(447\,120\,\text{€}\) by Year~10. Cash flow turns positive around Year~7.
-  
-  \item Key financial milestones. 
-  
-  Achieving 100 paying devices yields about \(108\,000\,\text{€}\) in annual revenue; at that level fixed operating costs are fully covered and further growth funds expansion.
-\end{itemize}
+
 
 \section{Risk Analysis \& Mitigation}
 \begin{tabular}{p{0.3\textwidth} p{0.6\textwidth}}
@@ -789,30 +725,7 @@ Regulatory approval & Early engagement with authorities \\
 \end{itemize}
 
 \section{Funding Ask \& Use of Funds}
-\begin{itemize}
-  \item Total funding required and runway. We seek approximately \(430\,000\,\text{€}\) to complete Phases~A--C, providing roughly 24~months of runway through the pilot period.
-  \item Allocation by development, pilot, team, compliance. About \(350\,000\,\text{€}\) funds hardware engineering and quality assurance in the Netherlands, \(39\,000\,\text{€}\) supports South African staffing, \(5\,000\,\text{€}\) covers pilot hardware, \(24\,000\,\text{€}\) is budgeted for travel and \(12\,000\,\text{€}\) for regulatory support.
-  \item Milestone\-based disbursement plan. Tranches release after hardware design completion (M24), pilot readiness (M30) and final pilot report (M36).
-\end{itemize}
 
-\begin{table}[H]
-\centering
-\caption{Initial investment for Phases~A--C}
-\label{tab:init-investment}
-\begin{tabularx}{\linewidth}{X r}
-\toprule
-\textbf{Category} & \textbf{Amount (\texteuro{})} \\
-\midrule
-Hardware engineering \& QA (NL) & 350\,000 \\
-South African staffing & 39\,000 \\
-Pilot hardware & 5\,000 \\
-Travel & 24\,000 \\
-Regulatory support & 12\,000 \\
-\midrule
-\textbf{Total} & \textbf{430\,000} \\
-\bottomrule
-\end{tabularx}
-\end{table}
 
 \section{Conclusion \& Next Steps}
 \begin{itemize}
