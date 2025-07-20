@@ -74,7 +74,7 @@
   \vspace{1cm}
   {\scshape\Large Feasibility Study\par}
   \vfill
-  {\Large\itshape C.\ Galgut and P.\ J.\ H.\ van der Westhuizen\par}
+  {\Large\itshape C.\ Galgut \par}
   \vspace{2cm}
   {\large \today\par}
 \end{titlepage}
@@ -99,7 +99,9 @@
 \section{Executive Summary}
 \begin{itemize}
   \item Overview of the problem (need)
+  
     Nurses report spending the majority of their shifts on paperwork rather than direct patient care. One review found that “recording completed nursing procedures requires an average of 1 253 minutes of a 24‑hour nursing day (20 hours and 50 minutes; 87\%)” \cite{olivierRecordKeepingSelfreported2010}.
+    
   \item Opportunity and market context
   \item Proposed solution at a glance
   \item High‑level funding ask and expected impact
@@ -185,19 +187,69 @@ An audit of 137 nursing records across three districts in KwaZulu-Natal revealed
 
 Poor documentation disrupts continuity, contributes to incorrect treatment decisions, and is directly implicated in adverse events. A global overview notes that “poor documentation practice affects patient management, continuity of patient care and medicolegal issues,” and can “lead to adverse patient outcomes, medication errors and patient deaths”. \cite{demsashHealthProfessionalsRoutine2023}
 
-\begin{itemize}
-  \item Incomplete or delayed documentation
-  \item Patient safety and quality‐of‐care implications
-  \item Legal and financial repercussions
-
-
-  
-\end{itemize}
 \subsection{Quantified Impact}
 \begin{itemize}
   \item Time lost per nurse shift
   \item Estimated costs of errors and claims
 \end{itemize}
+
+\section{Proposed Solution}
+\subsection{Device Concept \& Features}
+\begin{itemize}
+  \item Patient ID linkage (barcode/RFID)
+  \item Glove‐friendly UI for vitals, meds, notes
+  \item Secure, real‐time EHR integration
+  \item Zero local storage and auto‐logout
+\end{itemize}
+\subsection{Technical Architecture}
+\begin{itemize}
+  \item Hardware platform and connectivity
+  \item Software stack and interoperability (FHIR/API)
+  \item Security and data‐privacy design
+\end{itemize}
+
+\subsection{Proposed Patient Admission \& Data Collection Workflow}
+
+The following workflow is the initial proposal for patient admission and bedside data capture.  It will be iteratively refined based on insights from the user-needs research:
+
+\begin{enumerate}
+  \item \textbf{Admit Patient}
+    \begin{itemize}
+      \item Register patient using an RFID tag or barcode.
+      \item Generate initial login credentials and create the patient’s digital file.
+    \end{itemize}
+  \item \textbf{Returning Patient}
+    \begin{itemize}
+      \item Issue a fresh, time-limited password.
+      \item Link to the patient’s existing electronic history.
+    \end{itemize}
+  \item \textbf{Nurse Rounds}
+    \begin{itemize}
+      \item Scan or tap the patient’s RFID/barcode.
+      \item Authenticate using a nurse-specific key or fingerprint.
+    \end{itemize}
+  \item \textbf{Access Patient File}
+    \begin{itemize}
+      \item Automatically open the patient’s record for data entry or viewing.
+    \end{itemize}
+  \item \textbf{Standardized Data Entry}
+    \begin{itemize}
+      \item Present an optimized interface (dropdowns, free-text fields, checkboxes).
+    \end{itemize}
+  \item \textbf{Submit and Timeout}
+    \begin{itemize}
+      \item Nurse submits data upon completion.
+      \item If idle beyond a preset timeout, the system auto-saves current entries and logs out the user.
+    \end{itemize}
+  \item \textbf{Data Transmission}
+    \begin{itemize}
+      \item Securely transmit all entries to a central database for storage, anonymized trend analysis, and review.
+    \end{itemize}
+\end{enumerate}
+
+\noindent\textit{Note:} This workflow is intended as a baseline design.  Specific steps, interface elements, and timing parameters will be adjusted following our in-depth user needs assessment to ensure alignment with nursing workflows and hospital infrastructure.  
+
+
 
 \section{Market \& Strategic Opportunity}
 
@@ -372,69 +424,36 @@ of the South African acute-care device-slot market will be covered by three hosp
 
   \item Evidence of concept validation
 
+% Descriptive summary of competitor device pricing
+Table \ref{tab:competitor-pricing} below compares the MSRP and street prices of leading hospital-grade mobile devices versus ruggedized smartphone solutions and consumer adaptations. Purpose-built healthcare mobiles command a premium, reflecting their specialized features and enterprise software bundles. Rugged “smartphone” hybrids sit in a mid-range price bracket, while consumer devices with healthcare apps offer lower entry costs but may incur additional licensing fees.
+
+\begin{table}[H]
+  \centering
+  \caption{Pricing of Key Competitor Devices}
+  \label{tab:competitor-pricing}
+  \begin{tabularx}{\linewidth}{l l r}
+    \toprule
+    \textbf{Device Category}                  & \textbf{Model / Approach}      & \textbf{Price (USD)}                         \\
+    \midrule
+    Purpose-Built Healthcare Mobile Computer  & Zebra HC20                     & \$2,295 (MSRP)                               \\
+                                              & Zebra HC50                     & \$2,975 (MSRP); street \$2,645               \\
+    Rugged Healthcare Smartphone              & Ascom Myco 4                   & \$1,950 (approx. MSRP)                       \\
+    Consumer Device Adaptation                & iPhone 13 + Voalte One app     & \$799 (device) + license fees                \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+
+
 Strong proof that this approach succeeds comes from Netcare, a top private healthcare provider in South Africa. Over a three-year rollout, Netcare deployed its CareOn electronic medical records system across 45 hospitals, equipping more than 13,000 nurses and doctors with mobile devices. At this year’s International Quality Awards in London, CareOn earned the Digital Innovation Award for replacing paper charts with a fully mobile solution, rapidly building staff digital skills, and cutting up to 60\% of prescribing errors,all while achieving an expected 21\% annual return on its investment\cite{News}
 
  \item What gives this device its edge
 
-Rather than offering software alone, this solution pairs a user-need specific, low-tech hardware device,provided at no upfront cost,with a subscription that covers updates, maintenance, and replacements. Subscriptions include hands-on integration support and ongoing training facilitation, ensuring hospital staff receive tailored coaching instead of one-time onboarding. That continual, user-focused guidance drives faster adoption, overcomes resistance to change, and aligns the technology with real-world clinical workflows in resource-limited settings.
+Rather than offering software alone, this solution pairs a user-need specific, low-tech hardware device,provided at no upfront cost,with a subscription that covers updates, maintenance, and replacements. Subscriptions include hands-on integration support and ongoing training facilitation, ensuring hospital staff receive tailored coaching instead of one-time onboarding. That continual, user-focused guidance drives faster adoption, overcomes resistance to change, and aligns the technology with real-world clinical workflows in resource-limited settings. The product is completed documentation.
+
+The first few facilitators will be highly skilled professionals with both clinical insight and technical know‑how, ensuring a smooth rollout of the bedside device. At the same time, we’ll recruit enthusiastic high school graduates, young people who couldn’t afford university but are eager to build a career in healthcare—and pair them with these seasoned experts. This approach gives new entrants real responsibility, on‑the‑job training and a clear pathway into the sector. It’s a personal mission to create that crucial first opportunity, because sometimes one chance is all someone needs to launch a meaningful career.
 
 \end{itemize}
-
-\section{Proposed Solution}
-\subsection{Device Concept \& Features}
-\begin{itemize}
-  \item Patient ID linkage (barcode/RFID)
-  \item Glove‐friendly UI for vitals, meds, notes
-  \item Secure, real‐time EHR integration
-  \item Zero local storage and auto‐logout
-\end{itemize}
-\subsection{Technical Architecture}
-\begin{itemize}
-  \item Hardware platform and connectivity
-  \item Software stack and interoperability (FHIR/API)
-  \item Security and data‐privacy design
-\end{itemize}
-
-\subsection{Proposed Patient Admission \& Data Collection Workflow}
-
-The following workflow is the initial proposal for patient admission and bedside data capture.  It will be iteratively refined based on insights from the user-needs research:
-
-\begin{enumerate}
-  \item \textbf{Admit Patient}
-    \begin{itemize}
-      \item Register patient using an RFID tag or barcode.
-      \item Generate initial login credentials and create the patient’s digital file.
-    \end{itemize}
-  \item \textbf{Returning Patient}
-    \begin{itemize}
-      \item Issue a fresh, time-limited password.
-      \item Link to the patient’s existing electronic history.
-    \end{itemize}
-  \item \textbf{Nurse Rounds}
-    \begin{itemize}
-      \item Scan or tap the patient’s RFID/barcode.
-      \item Authenticate using a nurse-specific key or fingerprint.
-    \end{itemize}
-  \item \textbf{Access Patient File}
-    \begin{itemize}
-      \item Automatically open the patient’s record for data entry or viewing.
-    \end{itemize}
-  \item \textbf{Standardized Data Entry}
-    \begin{itemize}
-      \item Present an optimized interface (dropdowns, free-text fields, checkboxes).
-    \end{itemize}
-  \item \textbf{Submit and Timeout}
-    \begin{itemize}
-      \item Nurse submits data upon completion.
-      \item If idle beyond a preset timeout, the system auto-saves current entries and logs out the user.
-    \end{itemize}
-  \item \textbf{Data Transmission}
-    \begin{itemize}
-      \item Securely transmit all entries to a central database for storage, anonymized trend analysis, and review.
-    \end{itemize}
-\end{enumerate}
-
-\noindent\textit{Note:} This workflow is intended as a baseline design.  Specific steps, interface elements, and timing parameters will be adjusted following our in-depth user needs assessment to ensure alignment with nursing workflows and hospital infrastructure.  
 
 
 
