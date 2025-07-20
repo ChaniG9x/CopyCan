@@ -351,8 +351,8 @@ At one device per eight beds, each hospital requires
   \;\approx23\ \text{devices}.
 \]
 
-\paragraph{Two-Hospital Integration Goal}%
-By the end of Year 5, our objective is to have two fully integrated hospitals.  This equates to
+\paragraph{Three-Hospital Integration Goal}%
+By the end of Year 5, our objective is to have three fully integrated hospitals.  This equates to
 \[
   3 \times 23 = 69\ \text{devices deployed}.
 \]
@@ -394,11 +394,49 @@ Rather than offering software alone, this solution pairs a user-need specific, l
   \item Software stack and interoperability (FHIR/API)
   \item Security and data‐privacy design
 \end{itemize}
-\subsection{Workflow Integration}
-\begin{itemize}
-  \item Replacement of paper pre‐stage
-  \item Role‐based interfaces and minimal training
-\end{itemize}
+
+\subsection{Proposed Patient Admission \& Data Collection Workflow}
+
+The following workflow is the initial proposal for patient admission and bedside data capture.  It will be iteratively refined based on insights from the user-needs research:
+
+\begin{enumerate}
+  \item \textbf{Admit Patient}
+    \begin{itemize}
+      \item Register patient using an RFID tag or barcode.
+      \item Generate initial login credentials and create the patient’s digital file.
+    \end{itemize}
+  \item \textbf{Returning Patient}
+    \begin{itemize}
+      \item Issue a fresh, time-limited password.
+      \item Link to the patient’s existing electronic history.
+    \end{itemize}
+  \item \textbf{Nurse Rounds}
+    \begin{itemize}
+      \item Scan or tap the patient’s RFID/barcode.
+      \item Authenticate using a nurse-specific key or fingerprint.
+    \end{itemize}
+  \item \textbf{Access Patient File}
+    \begin{itemize}
+      \item Automatically open the patient’s record for data entry or viewing.
+    \end{itemize}
+  \item \textbf{Standardized Data Entry}
+    \begin{itemize}
+      \item Present an optimized interface (dropdowns, free-text fields, checkboxes).
+    \end{itemize}
+  \item \textbf{Submit and Timeout}
+    \begin{itemize}
+      \item Nurse submits data upon completion.
+      \item If idle beyond a preset timeout, the system auto-saves current entries and logs out the user.
+    \end{itemize}
+  \item \textbf{Data Transmission}
+    \begin{itemize}
+      \item Securely transmit all entries to a central database for storage, anonymized trend analysis, and review.
+    \end{itemize}
+\end{enumerate}
+
+\noindent\textit{Note:} This workflow is intended as a baseline design.  Specific steps, interface elements, and timing parameters will be adjusted following our in-depth user needs assessment to ensure alignment with nursing workflows and hospital infrastructure.  
+
+
 
 \section{Implementation Plan}
 \subsection{Pilot and Co‐Development}
@@ -488,12 +526,13 @@ SA site visits & ZAR~15\,000 & 12 & ZAR~180\,000 \\
 Staffing (SA research \& pilot)        &   630\,000        & --               \\
 Staffing (NL dev \& QA)                & --                & 362\,000         \\
 Facilitators (Phase D)                 & 5\,400\,000       & --               \\
+Sales \& Support Lead                 & 3\,600\,000       & --               \\
 Devices (Phase C \& D)                 & --                & 46\,200          \\
 Travel \& Overheads                    &   180\,000        & 24\,000          \\
 \midrule
-\textbf{TOTALS}                        & \textbf{6\,210\,000} & \textbf{432\,200} \\
+\textbf{TOTALS}                        & \textbf{9\,810\,000} & \textbf{432\,200} \\
 \midrule
-\textbf{GRAND TOTAL}                        & \textbf{} & \textbf{732\,471} \\
+\textbf{GRAND TOTAL}                        & \textbf{} & \textbf{906\,541}\footnote{ZAR amounts converted to EUR at R20.68 per \texteuro{1}}  \\
 \bottomrule
 \bottomrule
 \end{tabularx}
